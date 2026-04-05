@@ -10,9 +10,14 @@
 	}
 
 	const { data }: JsonLdProps = $props();
-	const json: string = $derived(JSON.stringify(data).replace(/</g, '\\u003c'));
+	const scriptOpen: string = '<script type="application/ld+json">';
+	const scriptClose: string = '</' + 'script>';
+	const html: string = $derived(
+		scriptOpen + JSON.stringify(data).replace(/</g, '\\u003c') + scriptClose
+	);
 </script>
 
 <svelte:head>
-	{@html `<script type="application/ld+json">${json}</script>`}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html html}
 </svelte:head>
