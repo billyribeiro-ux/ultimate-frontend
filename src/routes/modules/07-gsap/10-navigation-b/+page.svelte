@@ -12,6 +12,10 @@
 
 	let root: HTMLElement | undefined = $state();
 
+	afterNavigate(() => {
+		ScrollTrigger.refresh();
+	});
+
 	$effect(() => {
 		if (!root) return;
 
@@ -39,10 +43,6 @@
 				);
 			});
 		}, root);
-
-		afterNavigate(() => {
-			ScrollTrigger.refresh();
-		});
 
 		return () => ctx.revert();
 	});

@@ -43,6 +43,12 @@ SvelteKit exposes `afterNavigate` from `$app/navigation`. It runs on the client 
 
 	let root: HTMLElement | undefined = $state();
 
+	// afterNavigate must be called during component initialization,
+	// NOT inside $effect. Call it at the top of the script.
+	afterNavigate(() => {
+		ScrollTrigger.refresh();
+	});
+
 	$effect(() => {
 		if (!root) return;
 
@@ -57,11 +63,6 @@ SvelteKit exposes `afterNavigate` from `$app/navigation`. It runs on the client 
 			});
 		}, root);
 
-		// Refresh triggers after the new DOM has stabilised
-		afterNavigate(() => {
-			ScrollTrigger.refresh();
-		});
-
 		return () => ctx.revert();
 	});
 </script>
@@ -71,11 +72,9 @@ SvelteKit exposes `afterNavigate` from `$app/navigation`. It runs on the client 
 </section>
 ```
 
-### 1.3 Why `afterNavigate` inside the effect
+### 1.3 Why `afterNavigate` lives at the top of the script
 
-You *could* call `afterNavigate` at the top of the `<script>` block — outside any effect — and it would work. We put it inside the effect so that the refresh subscription lives and dies with the effect's lifecycle. Every time the component's effect reruns (for example, if a state change rebuilt the context), a fresh `afterNavigate` subscription replaces the old one.
-
-> **Note:** `afterNavigate` in Svelte 5 is designed to be called during component setup. Calling it inside an effect is valid because the effect body runs during the component's lifecycle and Svelte handles scope correctly. If you prefer, you can call it at the top of the script and save the returned unsubscribe function, but inside-effect is shorter.
+`afterNavigate` is a SvelteKit lifecycle function that **must be called during component initialization** — at the top of the `<script>` block. The docs are explicit: calling it inside `$effect` is not supported. The subscription lives for the lifetime of the component and runs every time navigation completes, including on the initial load.
 
 ### 1.4 The canonical navigation-safe pattern
 
@@ -87,6 +86,12 @@ You *could* call `afterNavigate` at the top of the `<script>` block — outside 
 
 	let root: HTMLElement | undefined = $state();
 
+	// 1. Top-level: afterNavigate registers for every navigation + initial load.
+	afterNavigate(() => {
+		ScrollTrigger.refresh();
+	});
+
+	// 2. Effect: plugin registration + context creation + cleanup.
 	$effect(() => {
 		if (!root) return;
 		gsap.registerPlugin(ScrollTrigger);
@@ -94,10 +99,6 @@ You *could* call `afterNavigate` at the top of the `<script>` block — outside 
 		const ctx = gsap.context(() => {
 			// all your tweens, timelines, and ScrollTriggers
 		}, root);
-
-		afterNavigate(() => {
-			ScrollTrigger.refresh();
-		});
 
 		return () => ctx.revert();
 	});
@@ -108,12 +109,13 @@ You *could* call `afterNavigate` at the top of the `<script>` block — outside 
 </main>
 ```
 
-Four elements every time:
+Five elements every time:
 
 1. A root element ref.
-2. `gsap.registerPlugin(ScrollTrigger)` inside the effect.
-3. All animations inside `gsap.context`.
-4. `afterNavigate(() => ScrollTrigger.refresh())` and `return () => ctx.revert()`.
+2. `afterNavigate(() => ScrollTrigger.refresh())` at the top of the script.
+3. `gsap.registerPlugin(ScrollTrigger)` inside the effect.
+4. All animations inside `gsap.context`.
+5. `return () => ctx.revert()` for cleanup.
 
 Memorise this pattern. It is the foundation of every scroll-driven page in the module project.
 

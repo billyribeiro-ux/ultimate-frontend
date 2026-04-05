@@ -12,6 +12,11 @@
 
 	let root: HTMLElement | undefined = $state();
 
+	// afterNavigate must be called during component initialization, not inside $effect.
+	afterNavigate(() => {
+		ScrollTrigger.refresh();
+	});
+
 	$effect(() => {
 		if (!root) return;
 
@@ -34,10 +39,6 @@
 				});
 			});
 		}, root);
-
-		afterNavigate(() => {
-			ScrollTrigger.refresh();
-		});
 
 		return () => ctx.revert();
 	});

@@ -9,15 +9,15 @@
 	};
 
 	const lessons: readonly Lesson[] = [
-		{ number: '6.1', title: 'PE7 @layer architecture in full depth', href: '/modules/06-styling/01-layers' },
-		{ number: '6.2', title: 'OKLCH color system in depth', href: '/modules/06-styling/02-oklch' },
-		{ number: '6.3', title: 'Design token system', href: '/modules/06-styling/03-tokens' },
-		{ number: '6.4', title: 'Native CSS nesting in Svelte', href: '/modules/06-styling/04-nesting' },
-		{ number: '6.5', title: 'Logical properties', href: '/modules/06-styling/05-logical' },
-		{ number: '6.6', title: 'Responsive layout — CSS Grid', href: '/modules/06-styling/06-grid' },
-		{ number: '6.7', title: 'Responsive layout — Flexbox', href: '/modules/06-styling/07-flex' },
+		{ number: '6.1', title: 'PE7 @layer architecture in full depth', href: '/modules/06-styling/01-layer-architecture' },
+		{ number: '6.2', title: 'OKLCH color system in depth', href: '/modules/06-styling/02-oklch-system' },
+		{ number: '6.3', title: 'Design token system', href: '/modules/06-styling/03-design-tokens' },
+		{ number: '6.4', title: 'Native CSS nesting in Svelte', href: '/modules/06-styling/04-css-nesting' },
+		{ number: '6.5', title: 'Logical properties', href: '/modules/06-styling/05-logical-properties' },
+		{ number: '6.6', title: 'Responsive layout — CSS Grid', href: '/modules/06-styling/06-grid-patterns' },
+		{ number: '6.7', title: 'Responsive layout — Flexbox', href: '/modules/06-styling/07-flexbox-patterns' },
 		{ number: '6.8', title: 'Container queries', href: '/modules/06-styling/08-container-queries' },
-		{ number: '6.9', title: 'Per-page color personalities', href: '/modules/06-styling/09-personalities' },
+		{ number: '6.9', title: 'Per-page color personalities', href: '/modules/06-styling/09-color-personalities' },
 		{ number: '6.10', title: 'CSS transitions with motion tokens', href: '/modules/06-styling/10-css-transitions' },
 		{ number: '6.11', title: 'Svelte transition: directive', href: '/modules/06-styling/11-svelte-transitions' },
 		{ number: '6.12', title: 'in: and out: asymmetric animations', href: '/modules/06-styling/12-in-out-transitions' },

@@ -17,6 +17,10 @@
 	let stage: HTMLElement | undefined = $state();
 	let torusRef: THREE.Mesh | undefined = $state();
 
+	afterNavigate(() => {
+		ScrollTrigger.refresh();
+	});
+
 	// The brand colour comes from the PE7 token via a browser-side conversion.
 	// Default fallback ensures the material is never null before conversion.
 	let brandColor: THREE.Color = $state(new THREE.Color(0x4a7bd4));
@@ -74,10 +78,6 @@
 				}
 			});
 		}, stage);
-
-		afterNavigate(() => {
-			ScrollTrigger.refresh();
-		});
 
 		return () => ctx.revert();
 	});
