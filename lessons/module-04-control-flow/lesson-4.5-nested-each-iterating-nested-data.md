@@ -1,21 +1,168 @@
 ---
-module: Module 4 — Control Flow
+module: 4
 lesson: 4.5
-title: Nested {#each} — iterating nested data
-status: stub
+title: "Nested {#each} — iterating nested data"
+duration: 40 minutes
+prerequisites:
+  - Lesson 4.4 (keyed {#each})
+learning_objectives:
+  - Model nested data with TypeScript — a parent type containing an array of child types
+  - Write an `{#each}` inside another `{#each}` to render a two-level hierarchy
+  - Choose correct keys for both the outer and inner loops
+  - Recognise when nested iteration should become a child component instead of inline markup
+  - Understand that TypeScript types flow across nest levels without re-annotation
+status: ready
 ---
 
-# Lesson 4.5 — Nested {#each} — iterating nested data
+# Lesson 4.5 — Nested {#each}: iterating nested data
 
-> **TODO (content pass):** write this lesson using the atomic lesson format defined in `TEMPLATE-lesson.md`:
-> 1. Learning objectives
-> 2. Prerequisites
-> 3. **Concept** — university-level explanation in plain English (~800–1200 words)
-> 4. **Style it** — PE7 styling applied to the mini-build
-> 5. **Interact** — the JS/TS concept introduced through a real UI problem
-> 6. **Mini-build** — complete working code that runs in `pnpm dev`
-> 7. Check-your-understanding questions (5)
-> 8. Common mistakes (3–4)
-> 9. What's next
+## 1. Concept — When the list contains lists
 
-**April 2026 syntax note:** ensure every example uses current runes and APIs. No `export let`, no `<script>` without `lang="ts"`, no `on:click` (use `onclick`), no `createEventDispatcher` (use callback props).
+### 1.1 The problem: categories of products
+
+Your product catalogue is organised into categories: *Stationery*, *Tools*, *Accessories*. Each category has its own list of products. You could flatten them into a single array with a `category` field on every product, and that is sometimes the right representation — but for rendering, the natural structure is a tree:
+
+```ts
+interface Product { id: string; name: string; }
+interface Category { id: string; name: string; products: Product[]; }
+const catalogue: Category[] = [/* … */];
+```
+
+The page needs to render each category as a section, and within each section render each product as a row. That is *two* levels of iteration.
+
+### 1.2 The syntax: one `{#each}` inside another
+
+Svelte has nothing special for nested lists — you write an `{#each}` inside the body of another `{#each}`. Both loops follow the same rules: a typed entry variable, an optional index, and — most importantly — a key.
+
+```svelte
+{#each catalogue as category (category.id)}
+    <section>
+        <h2>{category.name}</h2>
+        <ul>
+            {#each category.products as product (product.id)}
+                <li>{product.name}</li>
+            {/each}
+        </ul>
+    </section>
+{/each}
+```
+
+Two keys, two loops, zero ceremony. The inner loop iterates `category.products` — the categories' own field — so the inner list naturally contains exactly the products for that category.
+
+### 1.3 Why both keys matter independently
+
+The outer key (`category.id`) ensures that when a category is reordered or renamed, Svelte reuses its `<section>`. The inner key (`product.id`) ensures that when a product is reordered within its category, Svelte reuses its `<li>`. If you forget either key, you get the "focus jumps" bug from Lesson 4.4, just at the level where you forgot. Every level always needs a key.
+
+### 1.4 When nested iteration becomes a component
+
+At two levels, inline nested `{#each}` is readable. At three levels, it starts to get crowded. At four, it becomes unreadable. The clean fix is to extract the inner loop into its own component:
+
+```svelte
+<!-- CategorySection.svelte -->
+<script lang="ts">
+    interface Props { category: Category; }
+    let { category }: Props = $props();
+</script>
+
+<section>
+    <h2>{category.name}</h2>
+    <ul>
+        {#each category.products as product (product.id)}
+            <li>{product.name}</li>
+        {/each}
+    </ul>
+</section>
+```
+
+```svelte
+<!-- +page.svelte -->
+{#each catalogue as category (category.id)}
+    <CategorySection {category} />
+{/each}
+```
+
+The page now reads at one level of nesting; the component handles its own level. The rule of thumb: **extract a component whenever you find yourself nesting deeper than two `{#each}` blocks in one file**.
+
+### 1.5 Type flow across the nest
+
+Because the outer `category` is typed as `Category`, `category.products` is typed as `Product[]`, and the inner `product` variable is typed as `Product`. TypeScript carries the types across the nest without you re-annotating anything. If you rename `Product.name` to `Product.title`, the inner `{product.name}` becomes a red squiggle immediately.
+
+### 1.6 Reactivity across nests
+
+If `catalogue` is `$state`, both levels react. Adding a product to a category updates only that category's inner list. Adding a whole new category adds a new outer section. As long as your keys are correct, Svelte does the minimum DOM work.
+
+## 2. Style it — Sticky category headers
+
+The mini-build uses PE7 tokens for section padding and a small `position: sticky` trick for category headers. As you scroll, each category header stays pinned until the next one pushes it off.
+
+## 3. Interact — Build the nest, then extract the leaf
+
+Start with the whole catalogue inside the page file as two nested `{#each}` blocks. Notice the indentation. Now extract `CategorySection.svelte` and move the inner loop into it. The page file shrinks. The component file gains focus. The rendered HTML is identical.
+
+## 4. Mini-build — A nested catalogue
+
+### Files
+
+- `src/lib/components/CategorySection.svelte` (new)
+- `src/routes/modules/04-control-flow/05-nested-each/+page.svelte`
+
+### Key excerpt
+
+```svelte
+<script lang="ts">
+    import CategorySection from '$lib/components/CategorySection.svelte';
+    /* interfaces and data omitted */
+</script>
+
+{#each catalogue as category (category.id)}
+    <CategorySection {category} />
+{/each}
+```
+
+### DevTools verification
+
+1. Inspect the DOM. You should see one `<section>` per category and one `<li>` per product, matching the data shape.
+2. Scroll the page. The category `<h2>` headers stick to the top until the next category pushes them off.
+
+## 5. Check your understanding
+
+<details>
+<summary><strong>Q1.</strong> Does Svelte need anything special for nested loops?</summary>
+
+No. You write one `{#each}` inside another. The only non-obvious rule is that both levels need their own keys.
+</details>
+
+<details>
+<summary><strong>Q2.</strong> Why is a key required at every level?</summary>
+
+Because each level is an independent list. Reorders, inserts, and deletes can happen at either level. Without a key at that level, Svelte matches positionally and you get the "focus jumps" bug for that level's items.
+</details>
+
+<details>
+<summary><strong>Q3.</strong> When should you extract the inner loop into a component?</summary>
+
+When the nesting depth passes two levels in one file, when the inner loop reuses markup you want on other pages, or when the inner loop has its own state or handlers.
+</details>
+
+<details>
+<summary><strong>Q4.</strong> How does TypeScript handle types across a nested loop?</summary>
+
+It carries them through automatically. The outer `category: Category` makes `category.products` a `Product[]`, which makes the inner `product: Product`.
+</details>
+
+<details>
+<summary><strong>Q5.</strong> If the outer list changes but no inner list changes, does Svelte re-render the inner markup?</summary>
+
+Only for categories whose keys changed. For categories that are still present, Svelte reuses their existing inner DOM entirely.
+</details>
+
+## 6. Common mistakes
+
+- **Missing the inner key.** Focus inside the inner loop jumps on inner reorders.
+- **Reusing the same variable name at two levels.** `{#each categories as item}{#each item.items as item}` shadows and confuses everyone.
+- **Flattening when the tree is correct.** Not every nested render should become a flat list. If the UI is a tree, model it as a tree.
+- **Not extracting when the nest grows.** Keep the rule "more than two levels → extract a component" front of mind.
+
+## 7. What's next
+
+Lesson 4.6 introduces `{#key}` — a block that forces Svelte to recreate a subtree when a value changes, useful for resetting animations or destroying stale state.

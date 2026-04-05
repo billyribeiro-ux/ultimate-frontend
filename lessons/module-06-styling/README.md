@@ -4,15 +4,15 @@
 
 ## Lessons
 
-- [Lesson 6.1 — PE7 @layer architecture in full depth](./lesson-6.1-pe7-layer-architecture-in-full-depth.md) — stub
-- [Lesson 6.2 — OKLCH color system in depth](./lesson-6.2-oklch-color-system-in-depth.md) — stub
-- [Lesson 6.3 — Design token system — spacing, typography, motion, radii, shadows](./lesson-6.3-design-token-system-spacing-typography-motion-radii-shadows.md) — stub
-- [Lesson 6.4 — Native CSS nesting in Svelte <style> blocks](./lesson-6.4-native-css-nesting-in-svelte-style-blocks.md) — stub
-- [Lesson 6.5 — Logical properties — writing-direction-agnostic CSS](./lesson-6.5-logical-properties-writing-direction-agnostic-css.md) — stub
-- [Lesson 6.6 — Responsive layout patterns — CSS Grid](./lesson-6.6-responsive-layout-patterns-css-grid.md) — stub
-- [Lesson 6.7 — Responsive layout patterns — Flexbox](./lesson-6.7-responsive-layout-patterns-flexbox.md) — stub
-- [Lesson 6.8 — Container queries — component-level responsiveness](./lesson-6.8-container-queries-component-level-responsiveness.md) — stub
-- [Lesson 6.9 — Per-page color personalities](./lesson-6.9-per-page-color-personalities.md) — stub
+- [Lesson 6.1 — PE7 @layer architecture in full depth](./lesson-6.1-pe7-layer-architecture-in-full-depth.md) — ready
+- [Lesson 6.2 — OKLCH color system in depth](./lesson-6.2-oklch-color-system-in-depth.md) — ready
+- [Lesson 6.3 — Design token system — spacing, typography, motion, radii, shadows](./lesson-6.3-design-token-system-spacing-typography-motion-radii-shadows.md) — ready
+- [Lesson 6.4 — Native CSS nesting in Svelte <style> blocks](./lesson-6.4-native-css-nesting-in-svelte-style-blocks.md) — ready
+- [Lesson 6.5 — Logical properties — writing-direction-agnostic CSS](./lesson-6.5-logical-properties-writing-direction-agnostic-css.md) — ready
+- [Lesson 6.6 — Responsive layout patterns — CSS Grid](./lesson-6.6-responsive-layout-patterns-css-grid.md) — ready
+- [Lesson 6.7 — Responsive layout patterns — Flexbox](./lesson-6.7-responsive-layout-patterns-flexbox.md) — ready
+- [Lesson 6.8 — Container queries — component-level responsiveness](./lesson-6.8-container-queries-component-level-responsiveness.md) — ready
+- [Lesson 6.9 — Per-page color personalities](./lesson-6.9-per-page-color-personalities.md) — ready
 - [Lesson 6.10 — CSS transitions with motion tokens](./lesson-6.10-css-transitions-with-motion-tokens.md) — stub
 - [Lesson 6.11 — Svelte transition: directive — fade, fly, slide, scale, blur, draw](./lesson-6.11-svelte-transition-directive-fade-fly-slide-scale-blur-draw.md) — stub
 - [Lesson 6.12 — in: and out: — different enter and exit animations](./lesson-6.12-in-and-out-different-enter-and-exit-animations.md) — stub

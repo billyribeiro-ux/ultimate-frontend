@@ -6,17 +6,15 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	type Variant = 'solid' | 'outline' | 'ghost';
 	type Size = 'sm' | 'md' | 'lg';
 
-	interface Props {
+	interface Props extends HTMLButtonAttributes {
 		children: Snippet;
 		variant?: Variant;
 		size?: Size;
-		type?: 'button' | 'submit' | 'reset';
-		disabled?: boolean;
-		onclick?: (event: MouseEvent) => void;
 	}
 
 	let {
@@ -24,12 +22,11 @@
 		variant = 'solid',
 		size = 'md',
 		type = 'button',
-		disabled = false,
-		onclick
+		...rest
 	}: Props = $props();
 </script>
 
-<button {type} {disabled} {onclick} class="btn btn--{variant} btn--{size}">
+<button {type} class="btn btn--{variant} btn--{size}" {...rest}>
 	{@render children()}
 </button>
 

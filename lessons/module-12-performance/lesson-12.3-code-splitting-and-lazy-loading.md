@@ -1,21 +1,160 @@
 ---
-module: Module 12 — Performance & Production Patterns
+module: 12
 lesson: 12.3
 title: Code splitting and lazy loading
-status: stub
+duration: 50 minutes
+prerequisites:
+  - Lesson 12.1 — Core Web Vitals
+  - Module 8 — file-based routing
+learning_objectives:
+  - Explain what a bundle is and why a smaller initial bundle improves LCP and INP
+  - Use SvelteKit's automatic per-route code splitting
+  - Lazy-load a component on demand with dynamic import()
+  - Render a lazy component with {#await import('./X.svelte') then {default: X}}
+  - Distinguish when to split and when not to
+status: ready
 ---
 
 # Lesson 12.3 — Code splitting and lazy loading
 
-> **TODO (content pass):** write this lesson using the atomic lesson format defined in `TEMPLATE-lesson.md`:
-> 1. Learning objectives
-> 2. Prerequisites
-> 3. **Concept** — university-level explanation in plain English (~800–1200 words)
-> 4. **Style it** — PE7 styling applied to the mini-build
-> 5. **Interact** — the JS/TS concept introduced through a real UI problem
-> 6. **Mini-build** — complete working code that runs in `pnpm dev`
-> 7. Check-your-understanding questions (5)
-> 8. Common mistakes (3–4)
-> 9. What's next
+> **Atomic lesson format** — Concept, Style it, Interact, Mini-build. Shipping less JavaScript is almost always a bigger win than making existing JavaScript faster. This lesson is about shipping less.
 
-**April 2026 syntax note:** ensure every example uses current runes and APIs. No `export let`, no `<script>` without `lang="ts"`, no `on:click` (use `onclick`), no `createEventDispatcher` (use callback props).
+## 1. Concept — The initial bundle is the performance ceiling
+
+### 1.1 What a bundle is, quickly
+
+When Vite (the bundler SvelteKit uses) packages your app for production, it produces a set of files called **chunks**. Each chunk is a `.js` file containing a subset of your application's code. The browser downloads, parses, and executes the chunks it needs for the current page. Chunks are the unit of shipping JavaScript; bundle size is the sum of every chunk that runs before the page is interactive.
+
+Smaller initial bundle → less to download → less to parse → earlier LCP → smaller INP budget used up by startup. Every kilobyte counts twice: once on the network and once on the CPU. On mobile, CPU is usually the tighter constraint.
+
+### 1.2 SvelteKit's automatic per-route splitting
+
+Before you write any code, you are already benefiting from SvelteKit's built-in splitting. Each route in `src/routes/` becomes a separate chunk at build time. A user landing on `/about` downloads only the chunks needed for that page; the code for `/admin` is downloaded lazily the first time the user clicks a link to it. SvelteKit even *preloads* chunks on hover or touchstart so the navigation feels instant without loading everything up front.
+
+You do not have to configure this. It is the default. Your only job is to not defeat it — see Section 1.4 for the two common ways people accidentally do.
+
+### 1.3 Dynamic import() — per-component splitting
+
+Per-route splitting is coarse. Sometimes a single route has a large component that only appears *sometimes* — a chart that loads when the user clicks a button, a 3D canvas that only renders if the user scrolls to it, a rich-text editor that opens in a modal. Those components should not be in the initial route chunk. Dynamic `import()` pulls them out.
+
+```ts
+// Instead of:
+import Chart from './Chart.svelte';
+
+// Do:
+const Chart = (await import('./Chart.svelte')).default;
+```
+
+`import(path)` returns a `Promise<Module>`. The bundler sees the dynamic call at build time and emits a separate chunk for the target module. At runtime, the promise resolves when the chunk has been downloaded. The code for `Chart.svelte` is now only in the browser if the user actually needs it.
+
+### 1.4 The `{#await}` pattern in Svelte 5 templates
+
+Inside a Svelte template, the idiomatic way to render a lazy component is Svelte's `{#await}` block combined with a destructured dynamic import:
+
+```svelte
+<script lang="ts">
+	let showChart = $state<boolean>(false);
+</script>
+
+<button type="button" onclick={() => (showChart = true)}>Show chart</button>
+
+{#if showChart}
+	{#await import('./Chart.svelte') then { default: Chart }}
+		<Chart />
+	{:catch error}
+		<p>Failed to load chart: {error.message}</p>
+	{/await}
+{/if}
+```
+
+Read the block top to bottom:
+
+1. The button sets a reactive flag.
+2. The `{#if}` delays the `import()` until the flag becomes true.
+3. `{#await import('./Chart.svelte') then { default: Chart }}` destructures the default export from the resolved module into a local binding named `Chart`.
+4. `<Chart />` renders it.
+5. `{:catch}` handles the case where the chunk fails to load (bad network, stale deploy, etc).
+
+While the promise is pending, Svelte renders nothing (unless you add a `{:then}` placeholder or a loading spinner in the initial slot). The delay is usually invisible — chunks load quickly once the request is in flight.
+
+### 1.5 When *not* to split
+
+Dynamic imports have a cost. Each split point is a separate network round trip, which means a new request, a new parse, and a new render pass. For tiny components (a 1 KB button), the overhead of the extra fetch is larger than the saved bundle bytes. The rule of thumb:
+
+- **Split if the component is at least a few KB minified and renders only conditionally.** Charts, 3D canvases, rich-text editors, modals, heavy admin-only widgets.
+- **Do not split trivial or always-visible components.** A `<Button>` that appears on every page should live in the main bundle.
+
+You also should not split across critical-path code. If the component is required to paint the LCP, splitting it delays LCP by one network round trip. Keep the LCP candidate in the initial chunk.
+
+### 1.6 Two common ways people accidentally ship huge bundles
+
+1. **A single barrel file (`index.ts`) that re-exports every component in a library.** Importing one component pulls the whole barrel into the bundle because the bundler cannot always prove that the other exports are unused. Import components from their specific files instead.
+2. **A third-party library imported at the top level.** If you only use `lodash.debounce`, but you write `import _ from 'lodash'`, you have just added 70 KB of lodash to your bundle. Import specific functions: `import debounce from 'lodash.debounce'` or `import { debounce } from 'lodash-es'`.
+
+Both of these show up clearly in `vite build` output. Inspect the summary table; anything unexpectedly large is almost always one of these two mistakes.
+
+## 2. Style it — A button that reveals a heavy component
+
+The mini-build has a "Show heavy widget" button. The widget is a simple fake heavy component (a big table of computed numbers) loaded via dynamic import. Per-page accent: `oklch(68% 0.2 60)` (orange).
+
+- The button has a minimum 44px touch target.
+- A short loading message appears while the chunk is in flight.
+- `prefers-reduced-motion` disables the button's scale transition.
+
+## 3. Interact — Lazy import with await
+
+The whole lesson is the `{#await import('./HeavyWidget.svelte')}` pattern. Before the button is clicked, the `HeavyWidget.svelte` file is not in the browser at all. After the click, a new chunk is fetched, and the widget mounts.
+
+## 4. Mini-build — A lazy widget revealed on demand
+
+**File:** `src/routes/modules/12-performance/03-code-splitting/+page.svelte`
+**Companion:** `src/routes/modules/12-performance/03-code-splitting/HeavyWidget.svelte`
+
+The page has a single button. Clicking it triggers the dynamic import and renders the heavy widget inside an `{#await}` block.
+
+### DevTools moment
+
+Open the Network tab and filter to "JS". Reload the page and count the chunks that are downloaded. Now click the button — a new chunk appears, named something like `HeavyWidget-<hash>.js`. That chunk did not exist in memory before you clicked. This is the whole argument for dynamic imports in one filmstrip.
+
+## 5. Check your understanding
+
+<details>
+<summary><strong>Q1.</strong> Why does SvelteKit already split per route?</summary>
+
+Because the simplest optimisation for a multi-page app is "don't ship the code for page B when the user is on page A". SvelteKit's router knows the route boundary, so it builds one chunk per route and preloads the next one on hover. You get this for free without writing any code.
+</details>
+
+<details>
+<summary><strong>Q2.</strong> What does <code>import('./Chart.svelte')</code> return?</summary>
+
+A `Promise` that resolves to the module's exports. The default export lives on `.default`. The bundler sees the call at build time and splits the target module into its own chunk. At runtime, the chunk is fetched lazily.
+</details>
+
+<details>
+<summary><strong>Q3.</strong> Why is splitting a trivial component counter-productive?</summary>
+
+Each dynamic import adds a network round trip. For a small component, the overhead of the extra request is larger than the saved bundle bytes. Split big, conditional, or rarely-used components; keep small or always-used components in the main chunk.
+</details>
+
+<details>
+<summary><strong>Q4.</strong> How does a barrel file accidentally inflate a bundle?</summary>
+
+A barrel (`index.ts` that re-exports many modules) makes it harder for the bundler to prove that unused exports can be dropped. In the worst case, the entire barrel is pulled in. Import directly from the specific module file instead of through the barrel.
+</details>
+
+<details>
+<summary><strong>Q5.</strong> Should the LCP element be behind a dynamic import?</summary>
+
+No. The LCP candidate must be in the initial chunk; a dynamic import adds a round trip that delays LCP directly. Lazy-load anything *except* the thing Lighthouse is measuring.
+</details>
+
+## 6. Common mistakes
+
+- **Importing the entire library.** `import * as _ from 'lodash'` drags 70 KB into the bundle. Use named imports.
+- **Splitting too small.** The round trip costs more than the bytes saved for components under a few KB.
+- **Forgetting the `{:catch}`.** Dynamic imports can fail (flaky network, stale deploy, offline). Always handle the failure.
+- **Splitting the LCP candidate.** Moves LCP in the wrong direction.
+
+## 7. What's next
+
+Lesson 12.4 turns from code *delivery* to code *execution*, with a deep look at `$effect` and how to stop it re-running when you do not mean to.

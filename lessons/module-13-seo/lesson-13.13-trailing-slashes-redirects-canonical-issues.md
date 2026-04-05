@@ -1,21 +1,192 @@
 ---
-module: Module 13 — SEO
+module: 13
 lesson: 13.13
 title: Trailing slashes, redirects, canonical issues
-status: stub
+duration: 40 minutes
+prerequisites:
+  - Module 9A — load() and redirect()
+  - Lesson 13.3 — SEO component with canonical
+learning_objectives:
+  - Pick a trailing-slash convention and enforce it site-wide
+  - Issue a 301 redirect from a load function
+  - Use rel=canonical to collapse duplicates across query strings
+  - Explain why /page and /page/ count as separate URLs to Google
+  - Avoid redirect chains that waste crawl budget
+status: ready
 ---
 
 # Lesson 13.13 — Trailing slashes, redirects, canonical issues
 
-> **TODO (content pass):** write this lesson using the atomic lesson format defined in `TEMPLATE-lesson.md`:
-> 1. Learning objectives
-> 2. Prerequisites
-> 3. **Concept** — university-level explanation in plain English (~800–1200 words)
-> 4. **Style it** — PE7 styling applied to the mini-build
-> 5. **Interact** — the JS/TS concept introduced through a real UI problem
-> 6. **Mini-build** — complete working code that runs in `pnpm dev`
-> 7. Check-your-understanding questions (5)
-> 8. Common mistakes (3–4)
-> 9. What's next
+## 1. Concept — three ways to accidentally ship the same page under two URLs
 
-**April 2026 syntax note:** ensure every example uses current runes and APIs. No `export let`, no `<script>` without `lang="ts"`, no `on:click` (use `onclick`), no `createEventDispatcher` (use callback props).
+### 1.1 The duplicate content problem
+
+Google treats every unique URL as a distinct page. `/about` and `/about/` are different URLs to Google, even though they usually serve the same content. Same for `?ref=twitter` vs no query string. Same for `http://` vs `https://`, `www.` vs apex. When the same content lives at multiple URLs, Google has to decide which one to index. If you do not decide for it, three things go wrong:
+
+1. Link equity (the ranking power inherited from inbound links) is split across the variants.
+2. Google sometimes indexes the wrong variant.
+3. Reports in Search Console become confusing because metrics are divided.
+
+### 1.2 Pick one trailing-slash convention
+
+SvelteKit exposes `kit.trailingSlash` in `svelte.config.js`:
+
+```js
+// svelte.config.js
+const config = {
+    kit: {
+        trailingSlash: 'never' // or 'always' or 'ignore'
+    }
+};
+```
+
+- `'never'` — no trailing slash. `/about` is canonical; `/about/` redirects to `/about`.
+- `'always'` — trailing slash required. `/about/` is canonical; `/about` redirects.
+- `'ignore'` — both work, no redirect. **Bad for SEO** because Google indexes both as duplicates.
+
+Either convention is fine. **Consistency is what matters**. Pick one, enforce it, never mix.
+
+### 1.3 Redirects from load()
+
+Any time you move a URL, you must issue a 301 redirect from the old one to the new one. In SvelteKit, the `redirect()` helper inside a `load()` function is the standard approach:
+
+```ts
+import { redirect } from '@sveltejs/kit';
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = ({ url }) => {
+    if (url.pathname === '/old-blog') {
+        redirect(301, '/blog');
+    }
+    return {};
+};
+```
+
+301 vs 302: **301 is permanent, 302 is temporary**. For SEO, almost always use 301 — it tells Google to update its index. Use 302 only for truly temporary redirects like A/B tests.
+
+### 1.4 Canonical tags cover the cases redirects can't
+
+Redirects handle server-side path variants. Canonical tags handle cases where you *cannot* redirect — query strings that are meaningful to the user but noise to Google (tracking params, sort params, filter params). Emit a canonical that points to the clean URL:
+
+```html
+<link rel="canonical" href="https://yourapp.dev/products/shoe" />
+```
+
+Even when the actual URL is `/products/shoe?ref=twitter&sort=newest`. Google treats the canonical as the page of record and consolidates signals.
+
+### 1.5 Avoid redirect chains
+
+A redirect chain is `/a → /b → /c → /d`. Googlebot follows up to about 5 hops, then gives up. Every hop wastes crawl budget. Collapse chains into direct 301s whenever you move content multiple times. Check with `curl -I -L` in a terminal.
+
+## 2. Style it — a visible redirect-source page
+
+The mini-build includes two routes: one that redirects, and one that receives. The receiver has a small banner that notes "You arrived here via a 301 redirect." PE7 tokens only.
+
+## 3. Interact — the redirect() function throws
+
+Problem: `redirect()` in SvelteKit does not return normally — it throws a special exception that the framework catches and turns into a 301 response. Code after `redirect()` in your load function never runs. The compiler does not enforce this, so it is easy to write dead code after a redirect and be confused when it never executes.
+
+## 4. Mini-build — a redirect source, a receiver, and a canonical page
+
+**File:** `src/routes/modules/13-seo/13-canonical/+page.ts`
+
+```ts
+import { redirect } from '@sveltejs/kit';
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = ({ url }) => {
+    // If the user arrived with a tracking param, do NOT redirect.
+    // The canonical tag in the component handles the dedup.
+    // If they arrived with ?legacy=1, redirect to the clean URL.
+    if (url.searchParams.has('legacy')) {
+        redirect(301, '/modules/13-seo/13-canonical');
+    }
+    return { ref: url.searchParams.get('ref') };
+};
+```
+
+**File:** `src/routes/modules/13-seo/13-canonical/+page.svelte`
+
+```svelte
+<script lang="ts">
+    import SEO from '$lib/components/SEO.svelte';
+    import type { PageData } from './$types';
+
+    const { data }: { data: PageData } = $props();
+</script>
+
+<SEO
+    title="Trailing slashes and canonical · Lesson 13.13"
+    description="How to pick a trailing-slash convention, redirect legacy URLs with a 301, and collapse tracking-param variants with rel=canonical."
+    canonical="https://ultimate-frontend.dev/modules/13-seo/13-canonical"
+/>
+
+<section class="page stack">
+    <p class="eyebrow">Lesson 13.13 · Mini-build</p>
+    <h1>Canonical URL pinned</h1>
+    <p>
+        The canonical URL for this page is the clean one, regardless of the <code>ref</code>
+        query parameter you may see in the address bar.
+    </p>
+    {#if data.ref}
+        <p class="muted">You arrived with ref={data.ref}. The canonical tag ignores it.</p>
+    {/if}
+    <p>
+        Try visiting <a href="?legacy=1">?legacy=1</a> — the load function redirects you back
+        here with a 301.
+    </p>
+</section>
+
+<style>
+    section { --color-brand: oklch(68% 0.2 80); }
+    .eyebrow { font-size: var(--text-sm); color: var(--color-brand); text-transform: uppercase; letter-spacing: 0.08em; }
+    .muted { color: var(--color-text-muted); font-size: var(--text-sm); }
+</style>
+```
+
+### DevTools moment
+
+Network tab → visit `/modules/13-seo/13-canonical?legacy=1`. First response is 301. Second is 200. View source on the final page and confirm the canonical tag points to the clean URL without the query string.
+
+## 5. Check your understanding
+
+<details>
+<summary><strong>Q1.</strong> Why does <code>/about</code> differ from <code>/about/</code> to Google?</summary>
+
+They are literally different URL strings. Without a canonical or redirect, Google treats them as separate pages and may split link equity between them.
+</details>
+
+<details>
+<summary><strong>Q2.</strong> When do you use 301 vs 302?</summary>
+
+301 for permanent moves — Google updates its index. 302 for temporary redirects like A/B tests — Google keeps the original URL in the index.
+</details>
+
+<details>
+<summary><strong>Q3.</strong> What does <code>redirect()</code> in SvelteKit actually do under the hood?</summary>
+
+It throws a special exception the framework catches and converts into a 301 (or other) response. Code after it in the load function never runs.
+</details>
+
+<details>
+<summary><strong>Q4.</strong> When should you use a canonical tag instead of a redirect?</summary>
+
+When the alternate URL must remain accessible to users (tracking params, filters) but should not be indexed separately.
+</details>
+
+<details>
+<summary><strong>Q5.</strong> What is a redirect chain and why is it bad?</summary>
+
+A chain of multiple redirects like `/a → /b → /c`. Googlebot only follows about 5 hops, and each hop wastes crawl budget and slows the user.
+</details>
+
+## 6. Common mistakes
+
+- **Mixing trailing-slash conventions across a site.** Pick one.
+- **Using 302 for permanent moves.** Google keeps the old URL indexed.
+- **Writing code after `redirect()`.** It never runs.
+- **Forgetting the canonical on pages that accept tracking params.** Result is duplicate-content dilution.
+
+## 7. What's next
+
+Lesson 13.14 wires everything you have built into Google Search Console — the dashboard where SEO actually gets measured.

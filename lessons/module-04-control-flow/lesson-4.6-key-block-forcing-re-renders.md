@@ -1,21 +1,149 @@
 ---
-module: Module 4 — Control Flow
+module: 4
 lesson: 4.6
-title: {#key} block — forcing re-renders
-status: stub
+title: "{#key} — forcing a subtree to rebuild"
+duration: 35 minutes
+prerequisites:
+  - Lesson 4.4 (keys on {#each})
+  - Module 2.9 ($effect)
+learning_objectives:
+  - Explain why Svelte reuses DOM nodes by default and when that reuse is wrong
+  - Use `{#key expr}…{/key}` to force a subtree to unmount and remount when `expr` changes
+  - Apply `{#key}` to reset a CSS animation, unmount a component with stale state, or rerun an $effect
+  - Distinguish the `{#key}` block from the `(expression)` key on `{#each}` — they do different things
+  - Recognise when `{#key}` is a code smell hiding a deeper state-management problem
+status: ready
 ---
 
-# Lesson 4.6 — {#key} block — forcing re-renders
+# Lesson 4.6 — {#key}: forcing a subtree to rebuild
 
-> **TODO (content pass):** write this lesson using the atomic lesson format defined in `TEMPLATE-lesson.md`:
-> 1. Learning objectives
-> 2. Prerequisites
-> 3. **Concept** — university-level explanation in plain English (~800–1200 words)
-> 4. **Style it** — PE7 styling applied to the mini-build
-> 5. **Interact** — the JS/TS concept introduced through a real UI problem
-> 6. **Mini-build** — complete working code that runs in `pnpm dev`
-> 7. Check-your-understanding questions (5)
-> 8. Common mistakes (3–4)
-> 9. What's next
+## 1. Concept — Sometimes reuse is exactly wrong
 
-**April 2026 syntax note:** ensure every example uses current runes and APIs. No `export let`, no `<script>` without `lang="ts"`, no `on:click` (use `onclick`), no `createEventDispatcher` (use callback props).
+### 1.1 The problem: a CSS animation that plays once and never again
+
+You built a profile card. When the user changes their colour palette, the new palette flips in with a CSS `@keyframes` animation. It works the first time. The second time, the animation does not play, because Svelte reused the same element — it only swapped the custom property that drives the gradient. The animation only runs when the element is *created*, and no new element was created.
+
+You could solve this with JavaScript — remove and re-add a class, force a reflow, add and remove a `data-animate` attribute. All of those are fiddly. What you actually want is to tell Svelte: "when the palette id changes, treat the new tile as a completely new element. Destroy the old one, create a fresh one, run all its creation lifecycle." That is what `{#key}` does.
+
+### 1.2 The syntax of `{#key}`
+
+```svelte
+{#key expression}
+    <!-- this subtree is destroyed and rebuilt whenever `expression` changes -->
+{/key}
+```
+
+Whenever `expression` produces a value different from the last render, Svelte unmounts everything inside the block, creates fresh DOM, runs `$effect` functions again, and restarts any transitions. If the expression is unchanged, the block behaves like ordinary markup and nothing is rebuilt.
+
+### 1.3 Three canonical uses
+
+1. **Resetting an animation.** Wrap the animated element in `{#key paletteId}` and the animation restarts every time the id changes.
+2. **Discarding stale local state.** If a child component has internal `$state` that should reset when a prop changes — for example, a settings form that loads different data — wrap it in `{#key userId}` so the component is remounted when the user changes, wiping its local state.
+3. **Re-running an effect.** Usually `$effect` re-runs when its reactive dependencies change. But if you want to rerun a side effect on a *specific* trigger that is not one of the effect's dependencies, wrapping the component in `{#key trigger}` forces a remount and reruns the effect.
+
+### 1.4 `{#key}` vs the `(expression)` key on `{#each}`
+
+These are two different features with the unfortunate name collision "key". They do different things:
+
+- **`{#each items as item (item.id)}`** — an *identity key* for list items. Tells Svelte which DOM node belongs to which data item so it can reuse nodes across reorders. Default behaviour is to preserve and match.
+- **`{#key expression}…{/key}`** — a *rebuild key* for a subtree. Tells Svelte to destroy and recreate the subtree when the expression changes. Default behaviour is to rebuild whenever the key changes.
+
+One preserves, the other destroys. Choose based on which behaviour you need.
+
+### 1.5 When `{#key}` is a code smell
+
+Every time you reach for `{#key}`, ask yourself: "am I working around a state-management problem?" If a child component holds state that should reset when a prop changes, you can often fix it by making the state derive from the prop instead of being initialised from it. `{#key}` is a hammer that works on every nail, including the ones you should have unscrewed.
+
+Good uses of `{#key}`:
+
+- CSS animations that should replay on input change.
+- True "fresh instance of this component" semantics where resetting every internal piece of state manually would be error-prone.
+- Re-running transitions or `$effect` functions when a non-dependency changes.
+
+Suspect uses:
+
+- Resetting a form input (bind it to a prop instead).
+- Forcing a chart to redraw (use `$effect` with the right dependency).
+- Avoiding a bug whose real cause you have not found yet.
+
+## 2. Style it — A tile that fades in on every change
+
+The mini-build shows a gradient tile whose hue is driven by a custom property. A button cycles through four palettes. Without `{#key}`, the gradient changes silently. With `{#key current.id}`, the tile fades in from scale 0.96 with a soft animation — respecting `prefers-reduced-motion`.
+
+## 3. Interact — Replay the animation on demand
+
+Write the markup without `{#key}`. Click the button. The tile changes instantly. Add `{#key current.id}` around the tile. Click again. The tile fades in. One line of Svelte makes a CSS animation replayable with no JavaScript tricks.
+
+## 4. Mini-build — A tile with replayable fade
+
+### File
+
+`src/routes/modules/04-control-flow/06-key-block/+page.svelte`
+
+### Key excerpt
+
+```svelte
+{#key current.id}
+    <div class="tile" style:--hue={current.hue}>{current.label}</div>
+{/key}
+
+<style>
+    .tile { animation: fade-in var(--dur-base) var(--ease-out); }
+    @keyframes fade-in {
+        from { opacity: 0; transform: scale(0.96); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .tile { animation: none; }
+    }
+</style>
+```
+
+### DevTools verification
+
+1. Open the Elements panel and click **Next palette**. The existing tile `<div>` disappears and a new one appears in its place.
+2. Open the Animations panel. Each click fires a fresh `fade-in` animation.
+3. Remove the `{#key}` wrapper and repeat. The tile updates but the animation never replays.
+
+## 5. Check your understanding
+
+<details>
+<summary><strong>Q1.</strong> What does `{#key expression}…{/key}` do when `expression` changes?</summary>
+
+It destroys every DOM node inside the block and creates fresh ones, rerunning any `$effect` calls and restarting any transitions.
+</details>
+
+<details>
+<summary><strong>Q2.</strong> How is `{#key}` different from the `(expression)` key on `{#each}`?</summary>
+
+The `{#each}` key *preserves* DOM nodes by matching identity across reorders. The `{#key}` block *destroys* DOM nodes when the expression changes to force a rebuild.
+</details>
+
+<details>
+<summary><strong>Q3.</strong> Give a good reason to reach for `{#key}`.</summary>
+
+Replaying a CSS animation on prop change, wiping the internal state of a child component when the parent's id prop changes, or rerunning an `$effect` on a trigger that is not one of its dependencies.
+</details>
+
+<details>
+<summary><strong>Q4.</strong> When is `{#key}` a code smell?</summary>
+
+When it is used to paper over a state-management issue that should be solved by deriving state from a prop instead of initialising from it.
+</details>
+
+<details>
+<summary><strong>Q5.</strong> Does `{#key}` affect performance?</summary>
+
+Yes — every change destroys and recreates every node inside the block. Use it where that cost is intentional, not to wrap a large list.
+</details>
+
+## 6. Common mistakes
+
+- **Wrapping a large subtree.** Scope `{#key}` tightly.
+- **Using an unstable expression.** `{#key Math.random()}` rebuilds on every render.
+- **Using `{#key}` on an `{#each}` list.** Lists want identity keys.
+- **Reaching for `{#key}` to "fix" a form component.** Usually the fix is to bind the form to a prop.
+
+## 7. What's next
+
+Lesson 4.7 steps outside Svelte's blocks and teaches the JavaScript async model — promises and `async`/`await` — which the remaining lessons of this module build on.
