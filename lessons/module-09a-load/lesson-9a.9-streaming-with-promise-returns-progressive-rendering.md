@@ -1,21 +1,179 @@
 ---
-module: Module 9A — Data Loading (traditional load())
+module: 9A
 lesson: 9A.9
 title: Streaming with Promise returns — progressive rendering
-status: stub
+duration: 55 minutes
+prerequisites:
+  - Lesson 9A.6 — Parallel data loading
+  - Familiarity with the {#await} block
+learning_objectives:
+  - Return a Promise from load so it streams in instead of blocking the render
+  - Render a streamed value with {#await value}...{:then}...{/await}
+  - Combine awaited fast data with streamed slow data in the same load
+  - Know which load (server or universal) supports streaming
+  - Use streaming for real UX wins, not just because you can
+status: ready
 ---
 
-# Lesson 9A.9 — Streaming with Promise returns — progressive rendering
+# Lesson 9A.9 — Streaming with `Promise` returns — progressive rendering
 
-> **TODO (content pass):** write this lesson using the atomic lesson format defined in `TEMPLATE-lesson.md`:
-> 1. Learning objectives
-> 2. Prerequisites
-> 3. **Concept** — university-level explanation in plain English (~800–1200 words)
-> 4. **Style it** — PE7 styling applied to the mini-build
-> 5. **Interact** — the JS/TS concept introduced through a real UI problem
-> 6. **Mini-build** — complete working code that runs in `pnpm dev`
-> 7. Check-your-understanding questions (5)
-> 8. Common mistakes (3–4)
-> 9. What's next
+## 1. Concept — Fast bits first, slow bits later
 
-**April 2026 syntax note:** ensure every example uses current runes and APIs. No `export let`, no `<script>` without `lang="ts"`, no `on:click` (use `onclick`), no `createEventDispatcher` (use callback props).
+### 1.1 The problem — one slow query blocks the whole page
+
+A dashboard shows the user's name, a list of notifications, and a slow analytics chart that takes 900 ms to compute. If you `await` all three in your load, the HTTP response cannot start until the slow one finishes. The user stares at a blank screen for 900 ms even though 90 percent of the page could have been shown immediately.
+
+Streaming fixes this. You still do three fetches, but you only `await` the fast ones. The slow one is returned as a raw **promise** — a value that is not yet resolved. SvelteKit sends the HTML for the fast parts right away, leaves a placeholder where the slow part will go, and streams the resolved value in after the rest of the body is already being painted. When the promise resolves, the browser slots the value into the placeholder and the page is done.
+
+This is HTTP chunked transfer encoding plus a clever runtime that tells Svelte's `{#await}` block where to insert the late value.
+
+### 1.2 How to return a promise from load
+
+The trick is to **return the promise without awaiting it**:
+
+```ts
+// +page.server.ts
+import type { PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async () => {
+    // Fast: awaited, embedded in the initial HTML.
+    const user = await fetchUser();
+
+    // Slow: NOT awaited. The promise itself is in the returned object.
+    const analytics = fetchAnalytics();
+
+    return { user, analytics };
+};
+```
+
+`analytics` is typed as `Promise<Analytics>`, and SvelteKit streams its resolved value to the client as soon as it is ready.
+
+### 1.3 Rendering a streamed value with `{#await}`
+
+```svelte
+<script lang="ts">
+    import type { PageProps } from './$types';
+    let { data }: PageProps = $props();
+</script>
+
+<h1>Hello, {data.user.name}</h1>
+
+{#await data.analytics}
+    <div class="skeleton" aria-hidden="true"></div>
+{:then analytics}
+    <Chart data={analytics} />
+{:catch error}
+    <p>Could not load analytics: {error.message}</p>
+{/await}
+```
+
+The `{#await}` block is the same one from Module 4, now used with a promise from the load data. Svelte renders the `skeleton` branch while the promise is pending, swaps to the `:then` branch when it resolves, and to `:catch` if it rejects. During SSR the skeleton is what ships in the initial HTML; the `:then` content arrives as a streamed chunk.
+
+### 1.4 When streaming helps — and when it hurts
+
+Streaming is a UX win when:
+
+- **Part of the page is fast and part is slow.** The user sees the fast part immediately.
+- **The slow part is optional.** If it fails to load, the rest of the page is still useful.
+- **The page is critical to Core Web Vitals.** Streaming moves LCP forward because content paints earlier.
+
+Streaming can *hurt* when:
+
+- **Every piece of data is required for the page to make sense.** In that case the placeholder is just a spinner and you have gained nothing over a normal `await`.
+- **The slow data is above the fold on a small screen.** The user still stares at a skeleton, just in a prettier wrapper.
+- **The slow source is unreliable.** Errors are harder to communicate in a streamed section than in a full-page error.
+
+### 1.5 Server load only
+
+Streaming only works from `+page.server.ts` and `+layout.server.ts`. Universal loads cannot stream because they do not own the HTTP response — they are called by SvelteKit which then serialises the result. Server loads own the response chunk and can flush them as data arrives.
+
+If you want to stream, the load must be server-only. If you want cookie-forwarding and deduplication, the load must be... also server-side or using the enhanced fetch. Streaming is the clearest signal that your load belongs in `+page.server.ts`.
+
+### 1.6 Nested promises
+
+You can return an object that itself contains promises at the top level:
+
+```ts
+return {
+    user,
+    feeds: {
+        news: fetchNews(),
+        stocks: fetchStocks()
+    }
+};
+```
+
+`data.feeds.news` and `data.feeds.stocks` are each a promise and can be awaited independently with their own `{#await}` block. Two streamed values, two placeholders, two separate reveal moments.
+
+### 1.7 Streaming vs parallelism
+
+They are complementary. Parallelism (Lesson 9A.6) ensures independent requests run at the same time, so the wall-clock time is the duration of the slowest one. Streaming means the browser does not wait even for the slowest one before painting the fast parts. A page can use both: three independent fetches in `Promise.all` (parallelism), plus one very slow optional call returned as a bare promise (streaming).
+
+## 2. Style it — PE7 for skeleton placeholders
+
+The mini-build shows a fast greeting and a slow analytics value. While the slow value is streaming, we render a subtle shimmer skeleton. We use a cool teal personality (`oklch(70% 0.16 180)`). The skeleton animation respects `prefers-reduced-motion` via PE7's global override.
+
+## 3. Interact — a deliberate sleep and a promise return
+
+```ts
+export const load: PageServerLoad = () => {
+    const slow = new Promise<{ computed: number }>((resolve) => {
+        setTimeout(() => resolve({ computed: Math.round(Math.random() * 1000) }), 1200);
+    });
+    return { fast: { message: 'this part is instant' }, slow };
+};
+```
+
+The fast part ships immediately; the slow part streams in after 1.2 seconds.
+
+## 4. Mini-build — instant header, streamed chart value
+
+**Paths:**
+
+- `src/routes/modules/09a-load/09-streaming/+page.svelte`
+- `src/routes/modules/09a-load/09-streaming/+page.server.ts`
+
+Open the page. The header appears instantly. Below it, a skeleton placeholder occupies the space where the slow value will go. After about a second the skeleton is replaced with the streamed value.
+
+## 5. Check your understanding
+
+<details>
+<summary><strong>Q1.</strong> In one sentence, what is streaming in SvelteKit load?</summary>
+
+Returning a promise (instead of an awaited value) from a server load, so SvelteKit can send the fast parts of the page immediately and stream the promise's resolved value in later when it resolves.
+</details>
+
+<details>
+<summary><strong>Q2.</strong> Which file can you stream from: <code>+page.ts</code> or <code>+page.server.ts</code>?</summary>
+
+Only `+page.server.ts` (and `+layout.server.ts`). Universal loads cannot stream because they do not own the HTTP response.
+</details>
+
+<details>
+<summary><strong>Q3.</strong> How do you render a streamed value in the component?</summary>
+
+With an `{#await promise}...{:then value}...{:catch error}{/await}` block. The pending branch is what ships in the initial HTML; the resolved branch is slotted in when the chunk arrives.
+</details>
+
+<details>
+<summary><strong>Q4.</strong> When is streaming a bad idea?</summary>
+
+When the slow data is required for the page to make sense, or is above the fold on a small screen. In those cases the placeholder gives you nothing over a plain `await` — the user still cannot use the page until the slow data arrives.
+</details>
+
+<details>
+<summary><strong>Q5.</strong> Is streaming the same as parallelism?</summary>
+
+No. Parallelism runs independent requests at the same time so the slowest determines total time. Streaming starts painting the response before any of them finish and delivers slow values as separate chunks. You can use both on the same page.
+</details>
+
+## 6. Common mistakes
+
+- **Awaiting a value you meant to stream.** Once you write `const analytics = await fetchAnalytics()`, the load is blocked until it finishes. Remove the `await` and return the promise directly.
+- **Using streaming in a universal load.** It cannot stream; the result is just a regular async value. Move the load to a server file.
+- **Forgetting the `:catch` branch.** A streaming promise that rejects must have somewhere to render the error. Otherwise the skeleton stays forever.
+- **Streaming data that is required for SEO.** Google will see the skeleton, not the real content, because crawlers do not always wait for streamed chunks.
+
+## 7. What's next
+
+Lesson 9A.10 covers the opposite end of the performance spectrum: static generation with `prerender = true` for content that does not need to be fetched at all after build time.
