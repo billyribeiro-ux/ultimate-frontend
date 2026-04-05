@@ -6,10 +6,22 @@ module: 9B
 
 # Remote Query Setup — Brief
 
-> **TODO (capstone content pass):** describe what this chunk asks the student to build in the context of the capstone project. Include:
-> - The exact files that need to exist at the end
-> - The behaviours that must work
-> - The acceptance criteria
-> - How it connects to the rest of the capstone
+Replace the plain `load()` dashboard with a **Remote Function** `query` so the metrics stay live across the client without a full page reload.
 
-This chunk tests skills from **Module 9B**.
+## What to build
+
+- Create `src/lib/server/metrics.remote.ts` (or similar) exporting a `query` function named `getMetrics()` that returns `Metric[]`.
+- Call `await getMetrics()` inside the dashboard page using the April 2026 async SSR pattern.
+- Ensure SSR still ships the rendered list in the first byte.
+- Provide a manual refresh button in the dashboard that re-invokes the query without a full navigation.
+
+## Acceptance criteria
+
+- The dashboard renders server-side with the metric list in View Source.
+- Clicking Refresh triggers a client-side re-fetch without navigating away.
+- The `Metric` type from the previous chunk is reused unchanged.
+- No `load()` function remains on the dashboard route.
+
+## How it connects to the capstone
+
+`query` replaces `load()` as the data source for every reactive view in the capstone. `query-batch-pattern` extends this with batching, and `optimistic-ui-pattern` writes to it optimistically.

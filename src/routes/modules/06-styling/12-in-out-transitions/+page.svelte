@@ -53,15 +53,13 @@
 </section>
 
 {#if open}
-	<div
+	<button
 		class="scrim"
-		role="presentation"
+		type="button"
+		aria-label="Close dialog"
 		onclick={closeDialog}
-		onkeydown={() => {}}
 		transition:fade={{ duration: reduced ? 0 : DUR.fast }}
-	>
-		<!-- scrim click-to-close handled by outer div -->
-	</div>
+	></button>
 
 	<div
 		class="dialog-wrap"
@@ -145,8 +143,13 @@
 	.scrim {
 		position: fixed;
 		inset: 0;
+		width: 100%;
+		height: 100%;
+		border: 0;
+		padding: 0;
 		background: oklch(0% 0 0 / 0.45);
 		z-index: 40;
+		cursor: pointer;
 	}
 
 	.dialog-wrap {
