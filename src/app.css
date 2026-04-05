@@ -1,0 +1,255 @@
+/* =============================================================================
+   Ultimate Frontend — PE7 Global Stylesheet
+   -----------------------------------------------------------------------------
+   This file is the foundation for every component, every lesson, every module
+   project, and the capstone. It is established in Lesson 1.5 and never broken
+   from then on.
+
+   Rules (non-negotiable, enforced throughout the course):
+     1. Colors live in OKLCH only. No hex, no rgb, no hsl.
+     2. Typography and spacing scale fluidly with clamp().
+     3. Mobile-first. min-width media queries only.
+     4. The cascade is owned by @layer — reset wins last, animations wins first.
+     5. Per-page color "personalities" are achieved by overriding --color-*
+        tokens inside a scoped <style> block on that page's route component.
+   ============================================================================ */
+
+@layer reset, tokens, base, layout, components, animations;
+
+/* -----------------------------------------------------------------------------
+   LAYER: tokens
+   The design system. Every other layer reads from these variables.
+   ----------------------------------------------------------------------------- */
+@layer tokens {
+	:root {
+		/* === BREAKPOINTS — mobile first, min-width up === */
+		--bp-sm: 480px;
+		--bp-md: 768px;
+		--bp-lg: 1024px;
+		--bp-xl: 1280px;
+		--bp-2xl: 1536px;
+
+		/* === FLUID TYPOGRAPHY === */
+		--text-xs:   clamp(0.75rem,  1.5vw, 0.875rem);
+		--text-sm:   clamp(0.875rem, 2vw,   1rem);
+		--text-base: clamp(1rem,     2.5vw, 1.125rem);
+		--text-lg:   clamp(1.125rem, 3vw,   1.5rem);
+		--text-xl:   clamp(1.5rem,   4vw,   2rem);
+		--text-2xl:  clamp(2rem,     5vw,   3rem);
+		--text-hero: clamp(2.5rem,   8vw,   5rem);
+
+		/* === FLUID SPACING === */
+		--space-xs:  clamp(0.25rem, 1vw,  0.5rem);
+		--space-sm:  clamp(0.5rem,  2vw,  1rem);
+		--space-md:  clamp(1rem,    3vw,  1.5rem);
+		--space-lg:  clamp(1.5rem,  4vw,  2.5rem);
+		--space-xl:  clamp(2rem,    6vw,  4rem);
+		--space-2xl: clamp(3rem,    8vw,  6rem);
+
+		/* === COLORS — OKLCH exclusively === */
+		--color-brand:      oklch(65% 0.22 270);
+		--color-brand-dim:  oklch(55% 0.18 270);
+		--color-surface:    oklch(98% 0.01 270);
+		--color-surface-2:  oklch(94% 0.02 270);
+		--color-text:       oklch(20% 0.02 270);
+		--color-text-muted: oklch(50% 0.02 270);
+		--color-border:     oklch(88% 0.02 270);
+		--color-error:      oklch(60% 0.22 25);
+		--color-success:    oklch(65% 0.18 145);
+		--color-warning:    oklch(75% 0.18 85);
+
+		/* === MOTION TOKENS === */
+		--dur-instant: 100ms;
+		--dur-fast:    200ms;
+		--dur-base:    300ms;
+		--dur-slow:    500ms;
+		--dur-slower:  800ms;
+
+		--ease-out:        cubic-bezier(0.0, 0, 0.2, 1);
+		--ease-in:         cubic-bezier(0.4, 0, 1, 1);
+		--ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+		--ease-expressive: cubic-bezier(0.34, 1.56, 0.64, 1);
+		--ease-spring:     cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+		/* === RADII === */
+		--radius-sm:   0.25rem;
+		--radius-md:   0.5rem;
+		--radius-lg:   1rem;
+		--radius-xl:   1.5rem;
+		--radius-full: 9999px;
+
+		/* === SHADOWS === */
+		--shadow-sm: 0 1px 3px oklch(0% 0 0 / 0.08);
+		--shadow-md: 0 4px 12px oklch(0% 0 0 / 0.1);
+		--shadow-lg: 0 8px 32px oklch(0% 0 0 / 0.12);
+
+		/* === LAYOUT CONSTRAINTS === */
+		--content-max: 72rem;
+		--prose-max:   38rem;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-surface:    oklch(18% 0.02 270);
+			--color-surface-2:  oklch(24% 0.02 270);
+			--color-text:       oklch(96% 0.01 270);
+			--color-text-muted: oklch(70% 0.02 270);
+			--color-border:     oklch(32% 0.02 270);
+		}
+	}
+}
+
+/* -----------------------------------------------------------------------------
+   LAYER: reset
+   Minimal, modern reset. Intentionally small.
+   ----------------------------------------------------------------------------- */
+@layer reset {
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	html {
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+	}
+
+	body,
+	h1,
+	h2,
+	h3,
+	h4,
+	p,
+	figure,
+	blockquote,
+	dl,
+	dd {
+		margin: 0;
+	}
+
+	img,
+	picture,
+	video,
+	canvas,
+	svg {
+		display: block;
+		max-inline-size: 100%;
+		block-size: auto;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+		color: inherit;
+	}
+
+	button {
+		background: none;
+		border: 0;
+		cursor: pointer;
+	}
+
+	a {
+		color: inherit;
+		text-decoration-thickness: 0.08em;
+		text-underline-offset: 0.15em;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-brand);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
+	}
+}
+
+/* -----------------------------------------------------------------------------
+   LAYER: base
+   Document-level defaults. Typography, background, fluid baseline.
+   ----------------------------------------------------------------------------- */
+@layer base {
+	html {
+		font-family:
+			system-ui,
+			-apple-system,
+			'Segoe UI',
+			Roboto,
+			sans-serif;
+		line-height: 1.55;
+		color-scheme: light dark;
+	}
+
+	body {
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: var(--text-base);
+		min-block-size: 100dvb;
+	}
+
+	h1 {
+		font-size: var(--text-2xl);
+		line-height: 1.15;
+		letter-spacing: -0.02em;
+	}
+
+	h2 {
+		font-size: var(--text-xl);
+		line-height: 1.2;
+		letter-spacing: -0.015em;
+	}
+
+	h3 {
+		font-size: var(--text-lg);
+		line-height: 1.25;
+	}
+
+	p {
+		max-inline-size: var(--prose-max);
+	}
+
+	code {
+		font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+		font-size: 0.9em;
+		background: var(--color-surface-2);
+		padding-inline: 0.3em;
+		padding-block: 0.1em;
+		border-radius: var(--radius-sm);
+	}
+}
+
+/* -----------------------------------------------------------------------------
+   LAYER: layout
+   Generic layout primitives used across routes. Components layer wins over
+   this one, so component-specific layout can override freely.
+   ----------------------------------------------------------------------------- */
+@layer layout {
+	.page {
+		max-inline-size: var(--content-max);
+		margin-inline: auto;
+		padding-inline: var(--space-md);
+		padding-block: var(--space-xl);
+	}
+
+	.stack > * + * {
+		margin-block-start: var(--space-md);
+	}
+}
+
+/* -----------------------------------------------------------------------------
+   LAYER: animations
+   Respect the user's OS-level motion preference. Enforced globally.
+   ----------------------------------------------------------------------------- */
+@layer animations {
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}
