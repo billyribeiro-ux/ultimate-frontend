@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getArticle } from './article.remote';
+	import { getArticle } from './article.remote.ts';
 
 	function formatDate(d: Date): string {
 		return d.toLocaleDateString(undefined, {

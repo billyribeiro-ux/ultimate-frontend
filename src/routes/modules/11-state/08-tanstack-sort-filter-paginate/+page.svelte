@@ -17,6 +17,7 @@
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
+	// @ts-expect-error TanStack Table v9 alpha — rowModelFns type not yet in stable .d.ts
 	const _features = tableFeatures({
 		rowModelFns: {
 			Core: createCoreRowModel,
