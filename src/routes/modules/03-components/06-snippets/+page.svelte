@@ -10,7 +10,7 @@
 	<title>Lesson 3.6 · Snippets · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="Lesson 3.6 mini-build: use {#snippet} and {@render} to let a parent fill the header, body, and footer of a reusable Card component."
+		content="Lesson 3.6 mini-build: use snippet and render to let a parent fill the header, body, and footer of a reusable Card component."
 	/>
 </svelte:head>
 

@@ -5,9 +5,10 @@
 	used for right-aligning numeric columns.
 -->
 <script lang="ts">
+	import { createTable } from '@tanstack/svelte-table';
 	import {
-		createSvelteTable,
-		getCoreRowModel,
+		tableFeatures,
+		createCoreRowModel,
 		type ColumnDef,
 		type RowSelectionState
 	} from '@tanstack/svelte-table';
@@ -19,12 +20,15 @@
 		align?: Align;
 	}
 
-	// Typed columns with an `extra` field we read in the template.
-	interface TypedColumn extends ColumnDef<Member> {
-		extra?: ColumnExtra;
-	}
+	const _features = tableFeatures({
+		rowModelFns: {
+			Core: createCoreRowModel
+		}
+	});
 
-	const columns: TypedColumn[] = [
+	type Features = typeof _features;
+
+	const columns: (ColumnDef<Features, Member> & { extra?: ColumnExtra })[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
@@ -33,11 +37,13 @@
 
 	let rowSelection = $state<RowSelectionState>({});
 
-	const table = createSvelteTable<Member>({
+	const table = createTable({
+		_features,
 		get data() {
 			return members;
 		},
 		columns,
+		_rowModels: {},
 		state: {
 			get rowSelection() {
 				return rowSelection;
@@ -46,8 +52,7 @@
 		onRowSelectionChange: (updater) => {
 			rowSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
 		},
-		enableRowSelection: true,
-		getCoreRowModel: getCoreRowModel()
+		enableRowSelection: true
 	});
 
 	const selectedRows = $derived(

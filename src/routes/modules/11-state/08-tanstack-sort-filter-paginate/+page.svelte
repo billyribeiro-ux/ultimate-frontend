@@ -4,19 +4,31 @@
 	controlled state held in local $state.
 -->
 <script lang="ts">
+	import { createTable } from '@tanstack/svelte-table';
 	import {
-		createSvelteTable,
-		getCoreRowModel,
-		getFilteredRowModel,
-		getSortedRowModel,
-		getPaginationRowModel,
+		tableFeatures,
+		createCoreRowModel,
+		createFilteredRowModel,
+		createSortedRowModel,
+		createPaginatedRowModel,
 		type ColumnDef,
 		type SortingState,
 		type PaginationState
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
-	const columns: ColumnDef<Member>[] = [
+	const _features = tableFeatures({
+		rowModelFns: {
+			Core: createCoreRowModel,
+			Filtered: createFilteredRowModel,
+			Sorted: createSortedRowModel,
+			Paginated: createPaginatedRowModel
+		}
+	});
+
+	type Features = typeof _features;
+
+	const columns: ColumnDef<Features, Member>[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
@@ -28,11 +40,13 @@
 	let globalFilter = $state<string>('');
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
-	const table = createSvelteTable<Member>({
+	const table = createTable({
+		_features,
 		get data() {
 			return members;
 		},
 		columns,
+		_rowModels: {},
 		state: {
 			get sorting() {
 				return sorting;
@@ -53,11 +67,7 @@
 		},
 		onPaginationChange: (updater) => {
 			pagination = typeof updater === 'function' ? updater(pagination) : updater;
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel()
+		}
 	});
 
 	function sortGlyph(state: false | 'asc' | 'desc'): string {

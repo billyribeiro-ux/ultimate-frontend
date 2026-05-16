@@ -34,7 +34,7 @@
 	<title>Lesson 1.9 · Template expressions · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="Lesson 1.9 mini-build: a user card that uses {expression}, class:, style:, and style:-- directives."
+		content="Lesson 1.9 mini-build: a user card that uses expressions, class:, style:, and style:-- directives."
 	/>
 </svelte:head>
 

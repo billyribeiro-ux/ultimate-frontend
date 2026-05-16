@@ -1,9 +1,9 @@
 # Ultimate Frontend
 
-A university-level course that takes a complete beginner from **zero JavaScript** to shipping **production-grade SvelteKit 2** applications using **April 2026 syntax**.
+A university-level course that takes a complete beginner from **zero JavaScript** to shipping **production-grade SvelteKit 2** applications using **May 2026 syntax**.
 
-- **Stack:** Svelte 5 · SvelteKit 2 · TypeScript strict mode · PE7 CSS architecture · GSAP · Threlte · TanStack Table · Valibot · Vitest · Playwright
-- **Syntax standard:** April 2026 — runes, remote functions, `query.batch()`, async SSR, server error boundaries
+- **Stack:** Svelte 5.55 · SvelteKit 2.60 · TypeScript 6 · Vite 8 · PE7 CSS architecture · GSAP 3.15 · Threlte 8/9 · TanStack Table · Valibot · Vitest · Playwright
+- **Syntax standard:** May 2026 — runes, remote functions, `query.batch()`, async SSR, server error boundaries, `fromStore` for store-to-rune bridge
 - **Target student:** complete beginner — zero JS, zero TS, basic HTML/CSS
 - **Philosophy:** root-level understanding — never memorize surface patterns, always understand *why*
 - **Package manager:** pnpm exclusively

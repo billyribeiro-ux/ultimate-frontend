@@ -78,12 +78,14 @@
 				<!-- Deeply nested subtree — still reads the same context. -->
 				<div class="wrap-1">
 					<div class="wrap-2">
-						<div class="wrap-3">
-							{@const nested = getCardTheme()}
-							<span class="badge" style:background={nested.accent}>
-								{nested.label}
-							</span>
-						</div>
+						{#if true}
+								{@const nested = getCardTheme()}
+								<div class="wrap-3">
+									<span class="badge" style:background={nested.accent}>
+										{nested.label}
+									</span>
+								</div>
+							{/if}
 					</div>
 				</div>
 

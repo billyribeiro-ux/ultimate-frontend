@@ -26,7 +26,7 @@
 </script>
 
 <div class="canvas-wrap">
-	<Canvas dpr={[1, 2]} frameloop="demand">
+	<Canvas dpr={[1, 2]}>
 		<T.PerspectiveCamera makeDefault position={[0, 0, 5]} fov={60} />
 		<T.AmbientLight intensity={0.4} />
 		<T.DirectionalLight position={[3, 3, 3]} intensity={1.2} />

@@ -2,6 +2,7 @@
 // could have produced (it uses Node's process.pid, which does not exist in
 // the browser).
 
+/// <reference types="node" />
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {

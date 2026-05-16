@@ -1,7 +1,7 @@
 # Ultimate Frontend — Full Curriculum
 
 **Stack:** Svelte 5 · SvelteKit 2 · TypeScript strict · PE7 CSS · GSAP · Threlte · TanStack Table · Valibot · Vitest · Playwright
-**Syntax:** April 2026 — Svelte 5.55+, SvelteKit 2.55+
+**Syntax:** May 2026 — Svelte 5.55+, SvelteKit 2.60+, Vite 8, TypeScript 6
 **Package manager:** pnpm exclusively
 **Three.js integration:** woven into Modules 7, 12, and 13 — see **🔺** markers below
 

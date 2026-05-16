@@ -14,7 +14,7 @@
 	<title>Lesson 9B.9 · Async SSR · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="Suspense boundaries and the conservative {#await} pattern for async SSR with remote functions."
+		content="Suspense boundaries and the conservative await pattern for async SSR with remote functions."
 	/>
 </svelte:head>
 

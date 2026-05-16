@@ -4,13 +4,13 @@
 -->
 <script lang="ts">
 	class NetworkError extends Error {
-		override name = 'NetworkError';
+		name = 'NetworkError';
 	}
 	class AuthError extends Error {
-		override name = 'AuthError';
+		name = 'AuthError';
 	}
 	class NotFoundError extends Error {
-		override name = 'NotFoundError';
+		name = 'NotFoundError';
 	}
 
 	type Kind = 'ok' | 'network' | 'auth' | 'notfound' | 'other';
@@ -35,7 +35,7 @@
 	<title>Lesson 4.9 · catch · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="Lesson 4.9 mini-build: four custom Error subclasses narrowed in a Svelte {:catch} branch, each rendered as a distinct panel."
+		content="Lesson 4.9 mini-build: four custom Error subclasses narrowed in a Svelte catch branch, each rendered as a distinct panel."
 	/>
 </svelte:head>
 
