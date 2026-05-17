@@ -71,6 +71,42 @@ You may see tutorials online that look different from the code in this course. T
 
 For this lesson, you do not need to know anything about runes yet. Just know this: **if a tutorial tells you to write `export let` or `<script>` without `lang="ts"`, it is outdated.** Stick to this course and you will always be using the current syntax.
 
+### 1.6 The three blocks of a `.svelte` file
+
+Every Svelte component consists of three blocks, always in the same order. Understanding this structure now saves confusion later:
+
+1. **`<script lang="ts">`** — the logic block. This is where you declare variables, import other components, define types, and write functions. It runs once when the component is created. The `lang="ts"` tells Svelte and your editor that you are writing TypeScript, not plain JavaScript.
+
+2. **The markup** — everything outside `<script>` and `<style>` is the template. It looks like HTML but with superpowers: you can embed JavaScript expressions in curly braces (`{variableName}`), use control flow (`{#if}`, `{#each}`), and render child components as if they were custom HTML elements (`<InfoCard />`). The markup is what the user sees.
+
+3. **`<style>`** — the CSS block. Every rule you write here is automatically scoped to this component. You never have to worry about class name collisions. Svelte adds a unique hash to every selector at compile time, making `.card` in component A completely independent from `.card` in component B.
+
+The order is always `<script>`, then markup, then `<style>`. You can omit any of the three blocks — a component with only markup and style (no script) is perfectly valid. But in practice, most components have all three.
+
+### 1.7 What "compile time" means for your workflow
+
+The phrase "compile time" keeps appearing. Let us make it concrete. When you run `pnpm dev`, several things happen in sequence:
+
+1. Vite watches your filesystem for changes.
+2. The moment you save a `.svelte` file, Vite hands it to the Svelte compiler.
+3. The compiler reads the three blocks, analyses which state variables exist, which DOM nodes depend on them, and which CSS rules are used.
+4. It outputs a `.js` file (the component's runtime code) and a `.css` file (the scoped styles).
+5. Vite sends the new code to the browser via Hot Module Replacement (HMR), and the page updates instantly.
+
+This entire process takes 10-50 milliseconds on a modern machine. You save the file and the browser updates before your eyes have time to look at it. That is the developer experience of a compiled framework: the compiler does heavy work fast, during development, so the browser does minimal work at runtime.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component, 20-route production application, the framework choice determines the baseline performance budget, the developer experience, and the long-term maintainability of the codebase. Svelte's compiled model produces bundles that are 30-70% smaller than equivalent React or Vue applications because there is no framework runtime to ship. In concrete terms: a React app with 50 components ships ~45 KB of React + ReactDOM + your 50 components. A Svelte app with 50 components ships only your 50 components (compiled into optimized JS). The framework cost is zero at runtime. For a mobile user on a slow connection, this translates to 200-500ms faster First Contentful Paint — a difference users can feel.
+
+**The mental model.** A compiled framework is like a factory that builds furniture. You (the developer) design a chair (write a `.svelte` file). The factory (the Svelte compiler) builds the chair from raw materials, sands it, paints it, and ships the finished product (compiled JS + CSS) directly to the customer (browser). The customer does not need to assemble anything — the chair arrives ready to sit on. A runtime framework, by contrast, ships the customer a flat-pack box with instructions and a general-purpose toolkit. The customer has to assemble the chair themselves (the browser parses and executes React, which then builds the DOM). The flat-pack is heavier to ship (bigger download) and slower to use (assembly time).
+
+**Edge cases.** The "zero runtime" claim has one important nuance: Svelte does ship a small amount of shared runtime code (approximately 2-4 KB compressed) for features like the transition system, lifecycle management, and the reactive scheduler. This is far smaller than React's 40+ KB but it is not literally zero. The key insight is that this code is shared across all components and loaded once — it does not grow with your application size. Additionally, the compiler cannot optimize code that is only known at runtime (e.g., dynamic component rendering via `<svelte:component this={dynamicComponent}` requires a small runtime dispatcher). For the vast majority of static component trees, the compiler produces direct DOM operations with no runtime overhead at all.
+
+**Performance implications.** Bundle size directly correlates with three Core Web Vitals metrics. Smaller bundles mean faster download (better LCP), faster parsing (better INP because the main thread is free sooner), and fewer bytes over the wire (lower hosting costs at scale). In benchmarks, Svelte 5 consistently produces smaller bundles and faster update performance than React, Vue, or Angular for equivalent UIs. The April 2026 version's signal-based reactivity system (runes) further reduces the per-component overhead by eliminating the diffing step entirely — when state changes, only the specific DOM nodes that reference that state are updated.
+
+**Connection to other modules.** The compile model introduced here is the foundation for everything that follows. Module 2 uses it to explain why runes are syntactically lightweight (the compiler does the heavy lifting). Module 6 uses it to explain how CSS scoping works (the compiler adds hashes). Module 7 uses it to explain why DOM references (`bind:this`) are safe in effects (the compiler schedules them correctly). Module 8 uses it to explain SSR (the compiler produces both a client and a server render function from the same source). Module 12 uses it to explain why Svelte has a structural performance advantage. Understanding compilation deeply — not just "it makes the code smaller" but "it enables targeted DOM updates with zero abstraction cost" — is what separates a Svelte developer who uses the framework from one who understands it.
+
 ## 2. Style it — The PE7 baseline that you will use forever
 
 You will establish the full **PE7 CSS architecture** (tokens, layers, fluid clamps, OKLCH colors, everything) in Lesson 1.5. For this very first lesson we use an already-populated `src/app.css` so you can see what PE7 looks like in action before you have to build it yourself.
