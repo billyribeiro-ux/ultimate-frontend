@@ -79,9 +79,32 @@ Batching adds server-side complexity: you have to build a lookup map, handle mis
 - The underlying lookup (SQL, external API, key-value store) supports `WHERE id IN (...)` or an equivalent bulk form.
 - You can measure a real N+1 waterfall in DevTools.
 
-### 1.5 Batching with dashboards
+### 1.5 How the resolver pattern works internally
+
+The resolver function is called synchronously by SvelteKit after the batch handler returns. For each original `getWeather(id)` call that was queued, SvelteKit calls `resolver(id, index)` and uses the return value to resolve that specific call's Promise. This means:
+
+- The resolver is called N times (once per queued call).
+- Each call gets the *exact* input that was passed to the original `getWeather(id)`.
+- The `index` tells you the position of this call in the batch (useful for position-dependent logic, rare).
+- The return type must match the declared return type of the query.
+
+The pattern separates "fetch all data at once" (the handler body) from "route data to individual callers" (the resolver). This two-phase design lets you write a single efficient query (e.g., `SELECT * FROM weather WHERE city_id IN (...)`) and then map results back to individual callers cleanly.
+
+### 1.6 Batching with dashboards
 
 The Module 9B project is a live dashboard. It demonstrates `query.batch` for per-widget data reads — temperature per city, price per stock, latency per region — all resolved in one round trip. The dashboard's responsiveness doubles when batching is on, and the Network tab shows it: one request instead of ten.
+
+## Deep Dive
+
+**Why this matters at scale.** The N+1 problem is the single biggest source of slow API-backed UIs in production. A list of 50 items with a per-item detail query fires 51 requests. On a typical production server (50ms per request), that is 2.5 seconds of serial waiting if not parallelized, or 50 simultaneous connections if parallelized — both are unacceptable. `query.batch()` collapses this to 2 requests (one for the list, one batched for all details). The performance improvement is dramatic and the server load drops by 96%. For any page that renders a list where each item needs additional data, batching should be the default pattern, not an optimization applied later.
+
+**The mental model.** Think of batch queries as a shopping list. Without batching, you send a person to the store 10 times, once for each item. Each trip takes time and costs energy. With batching, you write all 10 items on one list, the person makes one trip, and brings back everything at once. The resolver is the person unpacking the shopping bag — "this milk goes to widget A, these eggs go to widget B, this bread goes to widget C." The store (your database) prefers bulk orders too — a single `WHERE id IN (1,2,3,4,5)` query is faster than five individual `WHERE id = N` queries because the database can plan and execute a single scan.
+
+**Edge cases.** What if a batched call happens on a different macrotask than its siblings? SvelteKit batches per-macrotask. If component A renders synchronously with 5 queries and component B renders on the next tick with 3 queries, you get two batched requests (one with 5, one with 3), not one with 8. In practice, Svelte renders an `{#each}` block synchronously, so all iterations within a single each block are guaranteed to batch together. But if queries are scattered across `$effect` blocks that run on different ticks, they may not batch. Structure your queries to fire during the same render pass for optimal batching.
+
+**Performance implications.** A single batched request with 50 inputs is almost always faster than 50 individual requests, even if the server processes them identically. The savings come from: (1) one TCP connection setup instead of 50, (2) one HTTP overhead instead of 50, (3) one database query plan instead of 50. On the server side, the batch handler can use a single `IN (...)` query or a single Redis `MGET` — operations that are O(n) but with much lower constant factors than n individual lookups. The only case where batching hurts is if the batch makes the single request so large that it exceeds size limits or times out — extremely rare for typical per-item queries.
+
+**Connection to other modules.** Batching connects to Module 4 Lesson 4.7 (Promises — each batched call returns a Promise), Module 9A Lesson 9A.6 (parallel loading — `Promise.all` is the load-function equivalent of batching), Module 11 (state management — batched queries integrate with reactive stores), and Module 12 (performance — reducing network requests directly improves LCP and TTFB). The capstone's dashboard uses `query.batch()` for its per-widget data loads, demonstrating the pattern at production scale.
 
 ## 2. Style it — Grid of city cards
 
