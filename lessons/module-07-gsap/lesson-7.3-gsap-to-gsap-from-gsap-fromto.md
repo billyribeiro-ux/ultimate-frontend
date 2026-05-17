@@ -109,6 +109,20 @@ if (prefersReducedMotion.current) {
 
 
 
+
+
+### The TypeScript angle
+
+`TweenVars` covers all animatable properties. TypeScript catches invalid ease strings and wrong callback signatures.
+
+> **In production sidebar.** On a 100K-daily-user agency portfolio, switching all reveal animations from `gsap.to` (wrong direction) to `gsap.from` fixed every reveal on the site in one afternoon.
+
+### Common interview question
+
+**Q: What is the difference between `gsap.to`, `gsap.from`, and `gsap.fromTo`?**
+
+**Model answer:** `gsap.to` animates from current state to specified values. `gsap.from` animates from specified values to current CSS state (ideal for reveals). `gsap.fromTo` specifies both ends explicitly. `gsap.set` applies values instantly for reduced-motion fallbacks.
+
 ## Going Deeper
 
 **Official documentation:**

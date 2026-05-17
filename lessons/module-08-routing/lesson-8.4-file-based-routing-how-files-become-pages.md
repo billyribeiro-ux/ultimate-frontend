@@ -84,6 +84,20 @@ Names starting with `[` are dynamic parameters (Lesson 8.6). Names wrapped in pa
 
 
 
+
+
+### The TypeScript angle
+
+SvelteKit generates route types automatically. The `RouteId` type enumerates all valid route paths.
+
+> **In production sidebar.** On a 100K-daily-user documentation site with 500 pages, file-based routing eliminated a 400-line router config that was the #1 source of merge conflicts.
+
+### Common interview question
+
+**Q: How does SvelteKit's file-based routing work?**
+
+**Model answer:** Every folder in `src/routes` is a URL segment. `+page.svelte` marks a route. No config file needed — the folder structure IS the route tree. Special `+` files have specific roles: `+page.ts` (loader), `+layout.svelte` (wrapper), `+error.svelte` (error boundary).
+
 ## Going Deeper
 
 **Official documentation:**

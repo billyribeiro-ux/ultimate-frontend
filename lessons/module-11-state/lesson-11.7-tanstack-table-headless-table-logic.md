@@ -132,6 +132,41 @@ The table you build in this lesson does exactly one thing: renders its data. No 
 
 It is a fair question. For a five-row table, you absolutely should. A handful of `{#each}` blocks and a `items.sort()` call will do the job. You reach for TanStack Table the moment the *combination* of features starts to multiply: sort *and* filter *and* paginate *and* select *and* expand *and* group. Writing those five features by hand, composed correctly so that sorting a filtered page does not lose the selection, is surprisingly hard. TanStack has done the hard work, type-checked the result, and tested it on thousands of consumer codebases. This is exactly what a library is for.
 
+### 1.x What TanStack Table does under the hood — the row model pipeline
+
+TanStack Table processes your data through a pipeline of "row models," each transforming the data:
+
+```
+Raw Data -> Core Row Model -> Filtered Row Model -> Sorted Row Model -> Paginated Row Model -> Final Rows
+```
+
+1. **Core Row Model:** Converts your raw data array into `Row` objects with metadata (id, index, original data).
+2. **Filtered Row Model:** Applies column filters and global filter, removing rows that do not match.
+3. **Sorted Row Model:** Sorts the remaining rows by the active sort columns and directions.
+4. **Paginated Row Model:** Slices the sorted rows to the current page's range.
+
+Each model is computed lazily — it only recalculates when its input changes. In Svelte, you wrap the table instance in a `$derived` or read it reactively, so changes to sort/filter/pagination state automatically trigger the correct recomputation.
+
+### 1.x Comparison: TanStack Table vs native HTML table vs AG Grid
+
+| Aspect | TanStack Table | Native HTML `<table>` | AG Grid |
+| --- | --- | --- | --- |
+| Rendering | You control (headless) | Browser default | AG Grid renders |
+| Bundle size | ~15 KB | 0 KB | ~200+ KB |
+| Sorting/filtering | Built-in state machine | Manual JavaScript | Built-in |
+| TypeScript | Full generic typing | Manual | Partial |
+| Styling | Your CSS entirely | Your CSS | AG Grid theme system |
+| Virtual scrolling | Via TanStack Virtual | Manual | Built-in |
+| Best for | Custom-designed data tables | Simple lists | Enterprise data grids |
+
+> **In production sidebar.** We switched from a hand-built table component (800 lines of sorting/filtering/pagination logic) to TanStack Table. The migration took 3 days and the replacement code was 200 lines. The headless approach meant our existing CSS and component structure were untouched — we only swapped the state management layer. The biggest win: column resize, which took us a week to build manually, came free with TanStack Table's column sizing API.
+
+### 1.x Common interview question
+
+**Q: "What does 'headless UI' mean in the context of TanStack Table?"**
+
+**Model answer:** Headless UI means the library provides the logic (state management, data processing, event handling) but not the rendering. TanStack Table gives you a table instance with methods and state for sorting, filtering, pagination, and column management. You render the actual HTML — `<table>`, `<tr>`, `<td>`, or any other markup — yourself. This separation means you have complete control over styling, accessibility, and layout. The library never outputs DOM elements. You call its API to get the current rows, headers, and cell values, then render them however you want.
+
 ## Deep Dive
 
 **Why this matters at scale.** Headless UI separates logic from presentation. You control all markup and styling while TanStack handles sorting, filtering, pagination.
@@ -143,6 +178,12 @@ It is a fair question. For a five-row table, you absolutely should. A handful of
 **Performance implications.** TanStack processes the full dataset through its row model pipeline on every state change. For 10,000+ rows, consider server-side processing.
 
 **Connection to other modules.** Module 11.8 adds features. Module 11.9 adds typing. Module 6's PE7 tokens style the output.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — PE7 tokens on a raw `<table>`
 

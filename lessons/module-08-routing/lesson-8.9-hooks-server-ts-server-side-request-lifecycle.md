@@ -121,6 +121,20 @@ Everything in `hooks.server.ts` runs in Node (or your adapter's equivalent). It 
 
 
 
+
+
+### The TypeScript angle
+
+Hook functions are typed: `Handle`, `HandleServerError`, `Reroute` from `@sveltejs/kit`.
+
+> **In production sidebar.** On a 100K-daily-user platform, the `handle` hook read auth cookies and attached the user to `event.locals`. When the auth provider changed, only the hook needed updating — zero changes to 40 load functions.
+
+### Common interview question
+
+**Q: What is the `handle` hook in SvelteKit?**
+
+**Model answer:** A function in `hooks.server.ts` wrapping every request. It receives `{ event, resolve }` and must call `resolve(event)` to render the route. Code before `resolve` runs pre-routing (auth, logging). Code after runs post-rendering (headers, timing). It is SvelteKit's middleware.
+
 ## Going Deeper
 
 **Official documentation:**

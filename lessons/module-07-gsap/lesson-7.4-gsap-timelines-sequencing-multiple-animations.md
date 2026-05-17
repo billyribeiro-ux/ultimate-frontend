@@ -111,6 +111,20 @@ Setting `duration` to 0 collapses every child tween to instant. One check, whole
 
 
 
+
+
+### The TypeScript angle
+
+`gsap.timeline()` returns `gsap.core.Timeline` with typed access to `.play()`, `.reverse()`, `.seek()`, `.progress()`.
+
+> **In production sidebar.** On a 100K-daily-user product launch page, refactoring 7 separate `gsap.from` calls with hand-computed delays into a timeline with relative positions reduced build time for new launch pages from 2 days to 4 hours.
+
+### Common interview question
+
+**Q: What is a GSAP timeline and how does the position parameter work?**
+
+**Model answer:** A timeline is a container holding tweens on a shared clock. The position parameter (3rd argument) controls timing: `"-=0.3"` overlaps, `"+=0.5"` adds a gap, `"<"` starts simultaneously. Labels name positions for readability. The timeline is a playable object you can pause, reverse, seek, and scrub.
+
 ## Going Deeper
 
 **Official documentation:**

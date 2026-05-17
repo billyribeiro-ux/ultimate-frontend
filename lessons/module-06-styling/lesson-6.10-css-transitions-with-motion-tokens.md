@@ -84,6 +84,29 @@ That safety net means you are allowed to write expressive animations in your com
 
 
 
+
+
+### The TypeScript angle
+
+Mirror CSS motion tokens in TypeScript for JS animation libraries: `export const DUR = { instant: 100, fast: 200, base: 300 } as const;`
+
+### Comparison: animation mechanisms
+
+| Mechanism | Trigger | Composited? | JS required? | Mount/unmount? |
+|-----------|---------|-------------|-------------|----------------|
+| CSS `transition` | Property change | Yes (transform/opacity) | No | No |
+| Svelte `transition:` | DOM enter/leave | Yes | Minimal | Yes |
+| GSAP | Code call | Yes | Yes | No |
+| Tween/Spring | Target change | N/A | Yes | No |
+
+> **In production sidebar.** On a 100K-daily-user banking app, switching from `transition: all 0.3s ease` to explicit property lists eliminated an accidental background-colour animation causing 4ms paint per hover on low-end Android.
+
+### Common interview question
+
+**Q: Why should you transition `transform` and `opacity` instead of `width` or `height`?**
+
+**Model answer:** `transform` and `opacity` are composited on the GPU without triggering layout or paint. Properties like `width` and `height` force layout recalculation on every frame, causing jank on mid-range mobile devices.
+
 ## Going Deeper
 
 **Official documentation:**

@@ -105,6 +105,31 @@ This is the recommended way to make per-component accessibility decisions in Sve
 
 
 
+
+
+### The TypeScript angle
+
+The `TransitionConfig` type from `svelte/transition` types all transition return values. When passing parameters, type them with the transition function's parameter type.
+
+### Comparison: built-in transitions
+
+| Transition | Animates | Best for | Performance |
+|-----------|----------|---------|-------------|
+| `fade` | opacity | Safe default | Compositor |
+| `fly` | opacity + translate | Directional reveals | Compositor |
+| `slide` | max-height | Accordions | Layout (heavier) |
+| `scale` | opacity + scale | Modals, popovers | Compositor |
+| `blur` | opacity + blur | Premium feel | GPU-heavy |
+| `draw` | stroke-dasharray | SVG paths | SVG only |
+
+> **In production sidebar.** On a 100K-daily-user SaaS platform, replacing a 50-line GSAP modal animation with `transition:scale={{ duration: 200, start: 0.95 }}` saved 50KB from the modal's route chunk.
+
+### Common interview question
+
+**Q: What is the difference between a CSS transition and a Svelte transition directive?**
+
+**Model answer:** A CSS transition runs when a property on a persistent DOM element changes. A Svelte `transition:` directive runs when an element enters or leaves the DOM due to `{#if}` or `{#each}` changes. Svelte keeps the element in the DOM during the outro animation, then removes it. CSS cannot do this because the element is gone the instant it is removed.
+
 ## Going Deeper
 
 **Official documentation:**

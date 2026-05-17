@@ -134,6 +134,53 @@ Optimistic UI also works with classic form actions when using `use:enhance`. The
 
 This pattern integrates with SvelteKit's form action lifecycle while still giving instant feedback.
 
+### 1.x What happens under the hood — the optimistic update timeline
+
+Here is the precise sequence for an optimistic delete in a SvelteKit app:
+
+```
+t=0ms    User clicks "Delete" on item #42
+t=0ms    Optimistic handler runs:
+         - Read current state: [#40, #41, #42, #43]
+         - Compute optimistic state: [#40, #41, #43]
+         - Write optimistic state to local reactive store
+t=1ms    Svelte re-renders: item #42 disappears from the list
+t=1ms    Network request starts: POST /delete { id: 42 }
+t=200ms  Server validates, deletes from database, responds { ok: true }
+t=200ms  Confirmation handler runs:
+         - Server agreed: no rollback needed
+         - Optionally refresh the query for authoritative data
+t=200ms  Done — user saw instant feedback at t=1ms
+```
+
+**Rollback scenario (server rejects):**
+
+```
+t=0ms    User clicks "Delete" on item #42
+t=0ms    Optimistic state: [#40, #41, #43] (item #42 removed)
+t=1ms    Svelte re-renders: item #42 gone
+t=200ms  Server responds: { ok: false, error: "Permission denied" }
+t=200ms  Rollback handler runs:
+         - Restore previous state: [#40, #41, #42, #43]
+t=201ms  Svelte re-renders: item #42 reappears
+t=201ms  Error toast: "Could not delete: permission denied"
+```
+
+### 1.x Comparison: optimistic UI strategies
+
+| Strategy | User sees delay? | Rollback complexity | Best for |
+| --- | --- | --- | --- |
+| No optimism (wait for server) | Yes (full round trip) | None | Destructive actions, payments |
+| Optimistic with rollback | No | Medium (restore old state) | Toggles, deletes, moves |
+| Optimistic without rollback | No | None (assume success) | Low-stakes actions, likes |
+| Optimistic with retry | No | High (queue + retry logic) | Offline-first apps |
+
+### 1.x Common interview question
+
+**Q: "What is optimistic UI, and when should you NOT use it?"**
+
+**Model answer:** Optimistic UI updates the local view immediately when the user triggers a mutation, before waiting for the server's response. The UI predicts the outcome and shows it instantly. If the server confirms, nothing changes. If the server rejects, the UI rolls back to the previous state. You should NOT use optimistic UI for: (1) destructive actions that cannot be undone — deleting an account, processing a payment — where a false positive is worse than a brief delay; (2) actions with complex server-side validation where rejection is common — the frequent rollbacks confuse users; (3) actions where the server produces data the client cannot predict — generating an ID, computing a total with server-side discounts. In these cases, show a loading state and wait for the server.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a production app with real users on real networks, every mutation without optimistic UI creates a perceptible delay. Users on 4G connections (200-500ms latency) experience a half-second gap between clicking and seeing feedback. Multiply by 20 interactions per session and you have 10 seconds of cumulative "dead time" where the app feels unresponsive. Optimistic UI eliminates this entirely for predictable operations. The difference in perceived quality between an optimistic app and a non-optimistic app is immediately obvious to users — they describe the optimistic app as "snappy" and the non-optimistic one as "laggy," even though both complete the same operations in the same real time.
@@ -145,6 +192,12 @@ This pattern integrates with SvelteKit's form action lifecycle while still givin
 **Performance implications.** Optimistic UI has zero network performance impact — the server call fires at the same time regardless. The benefit is purely perceptual: the user sees the result 100-500ms sooner. The CPU cost is one extra state write (the optimistic apply) and potentially one rollback write (on failure). Both are negligible. The only real cost is code complexity: you must capture snapshots, handle rollbacks, surface errors, and reason about partially-applied state. This complexity is worth it for high-frequency interactions (likes, toggles, reorders) but overkill for rare operations (account deletion, checkout).
 
 **Connection to other modules.** Optimistic UI builds on Module 2 (reactive state for the local mutation), Module 9B (remote commands for the server call), Module 11 Lesson 11.5 (reactive classes for the store pattern), and Module 12 Lesson 12.8 (ARIA live regions for accessible error surfacing). The capstone project uses optimistic UI for its interactive features �� likes, favorites, and reordering — demonstrating the pattern at production scale with real network latency and real error scenarios.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — A heart that flips instantly
 

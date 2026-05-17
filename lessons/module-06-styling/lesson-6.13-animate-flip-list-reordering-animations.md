@@ -97,6 +97,28 @@ As with Svelte transitions, the global CSS reset does not touch `animate:flip` b
 
 
 
+
+
+### The TypeScript angle
+
+Type FLIP parameters with `FlipParams` from `svelte/animate`.
+
+### Comparison: list animation techniques
+
+| Technique | Animates | Requires key? |
+|-----------|----------|--------------|
+| `animate:flip` | Reorder position | Yes |
+| `transition:` | Mount/unmount | Recommended |
+| GSAP Flip plugin | Any layout change | No |
+
+> **In production sidebar.** On a 100K-daily-user task management app, adding `animate:flip` to the kanban board's drag-and-drop made card-reordering feel "native." The key insight: without `(task.id)`, FLIP did nothing because Svelte reused DOM nodes by index.
+
+### Common interview question
+
+**Q: What is the FLIP technique and why is it efficient?**
+
+**Model answer:** FLIP stands for First, Last, Invert, Play. Measure positions before a change, let the change happen, apply transforms to visually undo the move, then animate the transforms to zero. It only uses `transform` (GPU-composited), not `top`/`left` (layout-triggering).
+
 ## Going Deeper
 
 **Official documentation:**

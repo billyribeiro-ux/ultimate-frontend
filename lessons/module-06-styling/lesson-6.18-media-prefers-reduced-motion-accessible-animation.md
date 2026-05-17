@@ -118,6 +118,29 @@ Reduced motion is the big-ticket accessibility item for animation, but it is not
 
 
 
+
+
+### The TypeScript angle
+
+`prefersReducedMotion.current` from `svelte/motion` is typed as `boolean`, making conditional parameter objects type-safe.
+
+### Comparison: motion coverage by system
+
+| Animation system | Covered by CSS reset? | Manual handling needed? |
+|-----------------|----------------------|------------------------|
+| CSS `transition:` | Yes | No |
+| Svelte `transition:` | No | Yes (`prefersReducedMotion`) |
+| Tween/Spring | No | Yes (duration: 0) |
+| GSAP | No | Yes (matchMedia or check) |
+
+> **In production sidebar.** On a 100K-daily-user government portal, an accessibility audit flagged 14 animations that played under reduced-motion. All were Svelte directives and GSAP calls — the CSS reset only handled CSS-level animations. Adding checks to all JS-driven animations achieved WCAG 2.3.3 compliance.
+
+### Common interview question
+
+**Q: How do you handle `prefers-reduced-motion` in a Svelte app that uses both CSS transitions and Svelte transition directives?**
+
+**Model answer:** CSS transitions are handled by a global reset that collapses durations under `@media (prefers-reduced-motion: reduce)`. Svelte `transition:` directives and `svelte/motion` primitives are JS-driven and need per-component checks via `prefersReducedMotion.current`. GSAP needs the same check or `gsap.matchMedia()`. The two-layer approach covers all animation systems.
+
 ## Going Deeper
 
 **Official documentation:**

@@ -178,6 +178,40 @@ Each use gets its own fully-typed table without a single cast. That is the ceili
 
 TypeScript's job is to tell you about a mistake at 9:15 AM instead of at 3:30 AM. The generic patterns above do exactly that. Mistype a column name, and the IDE lights up immediately. Change a field's type in `Member`, and every cell component that reads it is flagged. Remove a column from the interface, and every dependent cell is a compile error. This is the entire argument for TypeScript-strict, and TanStack Table is designed to pay it off.
 
+### 1.x What TanStack Table does under the hood — the generic type pipeline
+
+TanStack Table's TypeScript architecture uses a generic type parameter `TData` that flows through the entire API:
+
+```ts
+const table = createSvelteTable<User>({
+    data: users,          // User[]
+    columns: columnDefs,  // ColumnDef<User>[]
+    ...
+});
+
+// Every API method is typed against User:
+table.getRowModel().rows  // Row<User>[]
+row.original              // User
+cell.getValue()           // inferred from column accessor
+```
+
+The `ColumnDef<TData>` type constrains column accessors to valid keys of `TData`. If you define `accessorKey: 'name'`, TypeScript checks that `User` has a `name` property. If you define `accessorFn: (row) => row.email`, `row` is typed as `User` and the return type determines the cell's value type.
+
+### 1.x Comparison: TanStack Table typing approaches
+
+| Approach | Type safety | Flexibility | Verbosity |
+| --- | --- | --- | --- |
+| `accessorKey: 'name'` | Full (key must exist on TData) | Low (flat access only) | Minimal |
+| `accessorFn: (row) => row.address.city` | Full (row is typed as TData) | High (nested, computed) | Low |
+| `cell: (info) => info.getValue()` | Partial (getValue returns unknown without explicit typing) | Maximum | Higher |
+| `columnHelper.accessor('name', {...})` | Full (helper preserves types) | Medium | Minimal |
+
+### 1.x Common interview question
+
+**Q: "How does TanStack Table achieve type safety in column definitions?"**
+
+**Model answer:** TanStack Table uses a generic type parameter `TData` that flows from the table creation to every column definition. When you create a table with `createSvelteTable<User>({...})`, the `ColumnDef<User>` type constrains `accessorKey` to valid keys of `User` and types `accessorFn` with `(row: User) => T`. The `columnHelper` utility provides even stronger inference: `columnHelper.accessor('name', { header: 'Name' })` infers that the column's value type is `string` (from `User.name`), so the `cell` renderer receives a typed value. If you rename a field on `User`, every column definition that references the old name gets a compile error. This end-to-end typing from data model to rendered cell is what makes TanStack Table's TypeScript integration exceptional.
+
 ## Deep Dive
 
 **Why this matters at scale.** Generics flow from data type through column defs to cell renderers. ColumnDef<Employee> constrains accessor keys to actual Employee properties.
@@ -189,6 +223,12 @@ TypeScript's job is to tell you about a mistake at 9:15 AM instead of at 3:30 AM
 **Performance implications.** Type checking is build-time only. Zero runtime cost. The generics prevent a class of bugs that would otherwise surface as undefined values in cells.
 
 **Connection to other modules.** Module 11.7-8 provide runtime foundation. Module 9A's auto-types follow a similar generic flow.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — Badges, alignment, and selection highlights
 

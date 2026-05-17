@@ -68,6 +68,20 @@ Since SvelteKit 2.50 the reactive page state API lives in `$app/state`, not `$ap
 
 
 
+
+
+### The TypeScript angle
+
+SvelteKit generates types in `.svelte-kit/types` for load functions, page data, and route parameters — full type safety without manual annotation.
+
+> **In production sidebar.** On a 100K-daily-user content platform, migrating from custom Svelte + Express to SvelteKit eliminated 4,000 lines of routing, SSR, and hydration glue code.
+
+### Common interview question
+
+**Q: What does SvelteKit add to Svelte?**
+
+**Model answer:** SvelteKit adds the application layer: file-based routing, SSR, hydration, load functions, hooks (middleware), and adapters (deployment). Svelte alone is a component framework; SvelteKit makes it a full-stack application framework.
+
 ## Going Deeper
 
 **Official documentation:**

@@ -96,6 +96,28 @@ They are not rivals; they solve different problems.
 A useful rule of thumb: if you find yourself writing `flex-wrap: wrap` and trying to align items across rows, you probably want Grid.
 
 
+
+
+### The TypeScript angle
+
+For typed Grid component APIs, expose grid configuration as typed props: `minItemWidth?: string`, `gap?: string`, `mode?: "auto-fill" | "auto-fit"`.
+
+### Comparison: Grid patterns
+
+| Pattern | Best for | Wrap behaviour |
+|---------|----------|---------------|
+| `repeat(auto-fill, minmax())` | Card grids | Automatic |
+| `repeat(auto-fit, minmax())` | Few items stretching | Collapses empty |
+| `grid-template-areas` | Page layouts | Manual via query |
+
+> **In production sidebar.** On a 100K-daily-user product catalog, replacing 4 media-query-based breakpoints with a single `repeat(auto-fill, minmax(16rem, 1fr))` eliminated layout bugs at intermediate viewport widths.
+
+### Common interview question
+
+**Q: What is the difference between `auto-fill` and `auto-fit` in CSS Grid?**
+
+**Model answer:** Both create as many tracks as fit. `auto-fill` keeps empty tracks. `auto-fit` collapses empty tracks to zero width, causing existing items to stretch. Use `auto-fill` for consistent card sizes; `auto-fit` when few items should fill the row.
+
 ## Going Deeper
 
 **Official documentation:**

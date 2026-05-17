@@ -144,6 +144,20 @@ The code inside the media-query block only runs when the user does **not** prefe
 
 
 
+
+
+### The TypeScript angle
+
+The `scrollTrigger` property on `TweenVars` is typed with `trigger`, `start`, `end`, `scrub`, `pin`, `markers` fields.
+
+> **In production sidebar.** On a 100K-daily-user product page, ScrollTrigger markers during development revealed that `start: "top top"` fired before the hero image loaded. Switching to `"top 80%"` and adding a refresh on image load fixed the alignment.
+
+### Common interview question
+
+**Q: What does `scrub: true` in GSAP ScrollTrigger do?**
+
+**Model answer:** It ties animation progress directly to scroll position. Scroll halfway through the trigger range and the animation is at 50%. `scrub: 1` adds a 1-second smoothing lag. Without scrub, ScrollTrigger simply plays the animation when the trigger enters the viewport.
+
 ## Going Deeper
 
 **Official documentation:**

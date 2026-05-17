@@ -110,6 +110,20 @@ The dependency-tracking difference is the biggest win: you cannot forget to list
 
 
 
+
+
+### The TypeScript angle
+
+`$effect` dependencies are auto-tracked — no manual dependency array like React's `useEffect`.
+
+> **In production sidebar.** On a 100K-daily-user dashboard, a GSAP call at the top of `<script>` crashed during SSR with "document is not defined." Moving it inside `$effect` fixed the crash — effects only run on the client.
+
+### Common interview question
+
+**Q: Why must GSAP calls live inside `$effect` in a SvelteKit component?**
+
+**Model answer:** Three reasons: SSR safety (script runs on server, no DOM), mount timing (script runs before DOM commits), and reactivity (top-level code runs once and cannot react to state changes). `$effect` runs only on the client, after mount, and re-runs when tracked reactive values change.
+
 ## Going Deeper
 
 **Official documentation:**

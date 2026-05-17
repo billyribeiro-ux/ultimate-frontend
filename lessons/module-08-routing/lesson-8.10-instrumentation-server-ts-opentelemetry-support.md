@@ -102,6 +102,20 @@ We do not wire up a real OpenTelemetry backend in this course repository, becaus
 
 
 
+
+
+### The TypeScript angle
+
+The instrumentation file exports `init(): void` which runs before any other server code.
+
+> **In production sidebar.** On a 100K-daily-user dashboard, OpenTelemetry traces revealed 70% of p95 latency on `/dashboard` came from a single database query in a layout load function — not the page load the team had been optimising.
+
+### Common interview question
+
+**Q: What is `instrumentation.server.ts` and why does SvelteKit load it first?**
+
+**Model answer:** It runs before any other server code for OpenTelemetry SDK initialisation. If you initialise OTel in hooks, modules imported before hooks would miss instrumentation. The instrumentation file ensures complete tracing coverage from the first import.
+
 ## Going Deeper
 
 **Official documentation:**

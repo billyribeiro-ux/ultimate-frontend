@@ -167,6 +167,24 @@ Pagination needs a previous button, a next button, and a page indicator. The tab
 
 Combine this lesson with Lesson 11.6 and the sort/filter/pagination state can live in the URL instead of component-local `$state`. The structure is the same — you read from `page.url.searchParams` in a `$derived`, and you write via `goto()` in the `on*Change` callbacks. The mini-build for this lesson keeps the state in `$state` for simplicity; the module project at the end of the module puts it in the URL.
 
+### 1.x What TanStack Table does under the hood — sorting and filtering state
+
+Sorting and filtering in TanStack Table follow a declarative state model:
+
+**Sorting:** The table maintains a `sorting` state array: `[{ id: 'name', desc: false }, { id: 'date', desc: true }]`. When the user clicks a column header, you toggle the sort entry for that column. The sorted row model recomputes by applying a stable sort with the specified comparators. Multi-column sorting applies comparators in order — first by `name` ascending, then by `date` descending for ties.
+
+**Filtering:** Column filters are stored as `columnFilters: [{ id: 'status', value: 'active' }]`. The filtered row model runs each filter function against each row. Custom filter functions let you implement fuzzy search, range filters, or multi-select. The global filter applies a single filter function across all columns.
+
+**Pagination:** Page state is `{ pageIndex: 0, pageSize: 20 }`. The paginated row model slices the sorted+filtered rows. `table.getPageCount()` returns the total pages based on the filtered row count, not the raw data count.
+
+> **In production sidebar.** Our admin panel's user table has 50,000 rows with sorting on 8 columns and filtering on 5. TanStack Table handles this entirely client-side with no perceptible lag because the row model pipeline is incremental — changing a sort column only recomputes the sort model, not the filter model. For tables over 100,000 rows, we switch to server-side sorting/filtering by passing `manualSorting: true` and `manualFiltering: true`, making the table send sort/filter state to an API endpoint instead of processing locally.
+
+### 1.x Common interview question
+
+**Q: "How does TanStack Table handle sorting, filtering, and pagination together?"**
+
+**Model answer:** TanStack Table processes data through a pipeline of row models: raw data -> filtered -> sorted -> paginated. Each model is a separate computation that only runs when its input changes. Filtering removes rows that do not match the criteria. Sorting orders the remaining rows. Pagination slices to the current page. The pipeline ensures that filtering always happens before sorting (you sort only the matching rows) and pagination always happens last (you paginate the sorted, filtered result). This means page counts reflect the filtered total, not the raw data total. Each step is configurable — you can provide custom filter functions, custom sort comparators, and control page size.
+
 ## Deep Dive
 
 **Why this matters at scale.** Sorting, filtering, and pagination are composable row model processors. Each transforms data in sequence, creating a pipeline.
@@ -178,6 +196,12 @@ Combine this lesson with Lesson 11.6 and the sort/filter/pagination state can li
 **Performance implications.** Each row model processor runs O(n) or O(n log n) on the data. For filtered+sorted+paginated, total cost is dominated by the sort step.
 
 **Connection to other modules.** Module 11.7 provides the foundation. Module 11.9 adds TypeScript. Module 12 addresses large datasets.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — Real dashboard ergonomics
 

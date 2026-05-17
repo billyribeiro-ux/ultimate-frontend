@@ -145,6 +145,37 @@ Two things do not belong:
 
 Everything else you might be tempted to reach for a store for — active tab, filter, sort, search query, page number — belongs in the URL.
 
+### 1.x What SvelteKit does under the hood
+
+URL state in SvelteKit works through the reactive `page` object from `$app/state`:
+
+1. When the URL changes (link click, `goto()`, back button), SvelteKit's router updates the internal `page` state.
+2. The `page` object is a Svelte 5 reactive proxy. Reading any property creates a dependency.
+3. `$derived(page.url.searchParams.get('q'))` creates a computed value that automatically recomputes whenever the URL changes.
+4. `goto()` with search params creates a new history entry (or replaces the current one with `replaceState: true`). SvelteKit does not reload the page — it updates the `page` proxy, which triggers reactive updates.
+
+The key insight: URL changes are reactive events in SvelteKit. You do not need event listeners or subscriptions. Reading `page.url.searchParams` inside a `$derived` or component markup is sufficient.
+
+### 1.x Comparison: URL state vs memory state vs localStorage
+
+| Aspect | URL (searchParams) | Memory ($state) | localStorage |
+| --- | --- | --- | --- |
+| Survives reload | Yes | No | Yes |
+| Shareable via link | Yes | No | No |
+| Back button aware | Yes | No | No |
+| SEO crawlable | Yes | No | No |
+| Data types | Strings only | Any | JSON-serializable |
+| Max size | ~2000 chars (URL limit) | Unlimited | ~5-10 MB |
+| Best for | Filters, pagination, sort, search | UI state, drafts, toggles | Preferences, cart, auth tokens |
+
+> **In production sidebar.** We moved all filter state to the URL in our admin dashboard. The immediate wins: (1) Users share filtered views by copying the URL. (2) The back button undoes filter changes. (3) Page reloads preserve the exact filter state. (4) Google indexes filtered views as separate pages, improving long-tail search traffic. The one gotcha: we had to add `replaceState: true` to rapid-fire inputs (search-as-you-type) to avoid polluting the browser history with 50 entries per search query.
+
+### 1.x Common interview question
+
+**Q: "When should state live in the URL versus in JavaScript memory?"**
+
+**Model answer:** State belongs in the URL when users would expect to bookmark, share, or reload it — filters, pagination, sort order, search queries, active tabs. State belongs in memory when it is transient or private — open/closed toggles, draft inputs before submission, animation progress, modal visibility. The test: if a user copies the URL and sends it to a colleague, should the colleague see the same view? If yes, the state belongs in the URL. URL state has the additional benefit of being back-button-aware and SEO-crawlable, which memory state is not.
+
 ## Deep Dive
 
 **Why this matters at scale.** The URL is the most robust state container: survives navigation, reload, sharing, and bookmarking. Zero client-side persistence code.
@@ -156,6 +187,12 @@ Everything else you might be tempted to reach for a store for — active tab, fi
 **Performance implications.** goto() with replaceState is near-instant: no network request, no load function rerun (unless the URL change triggers invalidation).
 
 **Connection to other modules.** Module 8's goto() API drives URL updates. Module 9A's invalidation responds to URL changes.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — A URL-driven filter bar
 

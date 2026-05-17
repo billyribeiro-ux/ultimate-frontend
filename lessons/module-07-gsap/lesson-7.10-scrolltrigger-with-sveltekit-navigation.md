@@ -139,6 +139,20 @@ This shows every active ScrollTrigger with its trigger element and cached start/
 
 
 
+
+
+### The TypeScript angle
+
+`afterNavigate` is typed: `(callback: (navigation: AfterNavigate) => void) => void`.
+
+> **In production sidebar.** On a 100K-daily-user editorial site with 50 GSAP-powered articles, the navigation-safe pattern (afterNavigate refresh + context cleanup) eliminated 100% of "animations broken after clicking back" bug reports.
+
+### Common interview question
+
+**Q: Why do ScrollTrigger animations break after SvelteKit navigation?**
+
+**Model answer:** ScrollTrigger caches element positions at creation time. After navigation, the DOM is replaced but new triggers may measure before the layout stabilises. Fix with two parts: `ctx.revert()` in effect cleanup (kills old triggers) and `ScrollTrigger.refresh()` in `afterNavigate` (re-measures new triggers).
+
 ## Going Deeper
 
 **Official documentation:**

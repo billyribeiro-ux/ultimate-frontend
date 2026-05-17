@@ -93,6 +93,20 @@ Before SvelteKit 2.12, reactive router state was exported as Svelte stores from 
 
 
 
+
+
+### The TypeScript angle
+
+All `$app/state` exports are fully typed: `page.url` is `URL`, `page.params` is `Record<string, string>`, `navigating` is `Navigation | null`.
+
+> **In production sidebar.** On a 100K-daily-user SPA, the `navigating` object drove a thin progress bar during slow navigations. Users reported feeling "less frustrated" with the visual feedback.
+
+### Common interview question
+
+**Q: What is `$app/state` and how does it differ from `$app/stores`?**
+
+**Model answer:** `$app/state` exports reactive objects (`page`, `navigating`, `updated`) read with plain property access. Unlike deprecated `$app/stores` (which required `$page` store prefix), values are reactive without subscriptions. Reading in components or `$derived` creates automatic dependencies.
+
 ## Going Deeper
 
 **Official documentation:**

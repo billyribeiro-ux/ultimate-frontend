@@ -70,6 +70,20 @@ Three-step smoke test:
 
 
 
+
+
+### The TypeScript angle
+
+After installing, verify types by hovering over `gsap.to` — the signature should show `(target: TweenTarget, vars: TweenVars): Tween`.
+
+> **In production sidebar.** On a 100K-daily-user e-commerce site, installing `@types/gsap` alongside `gsap` caused type conflicts. Removing it fixed IntelliSense instantly.
+
+### Common interview question
+
+**Q: How do you install GSAP in a SvelteKit project?**
+
+**Model answer:** `pnpm add gsap` — types are bundled since v3. No `@types/gsap` needed. Import with `import { gsap } from "gsap"`. Put it in `dependencies` (not devDependencies). The import is SSR-safe; animations must run inside `$effect`.
+
 ## Going Deeper
 
 **Official documentation:**

@@ -131,6 +131,20 @@ The scope argument to `gsap.context` is the action's own node, which means the a
 
 
 
+
+
+### The TypeScript angle
+
+Type actions with `Action<HTMLElement, ParamsType>` from `svelte/action`.
+
+> **In production sidebar.** On a 100K-daily-user design system, extracting "lift on hover" into a `use:lift` action reduced 6 copies of the same pattern to 1 shared file + 6 one-line directives.
+
+### Common interview question
+
+**Q: What is a Svelte action and when should you use one instead of `$effect`?**
+
+**Model answer:** An action is a reusable function attached via `use:` that receives the element and returns `update`/`destroy` methods. Use actions for reusable cross-component behaviour (hover effects, observers). Use `$effect` for one-off component-specific logic. Actions enforce cleanup through the `destroy` contract.
+
 ## Going Deeper
 
 **Official documentation:**

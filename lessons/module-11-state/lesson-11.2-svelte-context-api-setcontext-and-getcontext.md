@@ -108,6 +108,60 @@ Ask this question: *if I render this component twice on the same page, should bo
 
 Context is per-subtree by design. Module stores are per-app by design. Picking the wrong one is the single most common architectural mistake new Svelte developers make.
 
+### 1.x What SvelteKit does under the hood
+
+Svelte's context system uses a per-component `Map` object stored on the component's internal instance. When you call `setContext(key, value)`, Svelte writes to the current component's context map. When a descendant calls `getContext(key)`, Svelte walks up the internal parent-reference chain (maintained by the runtime during component initialization) and checks each ancestor's context map until it finds a match.
+
+This walk is O(depth) but happens only once per `getContext` call — during component initialization. The result is cached internally for the lifetime of the component instance. After initialization, reading the context value is O(1). This is why context is efficient even in deep trees: the lookup cost is amortized over the component's lifetime.
+
+Context values can be reactive. If you pass a `$state` variable as the context value, any descendant that reads it will re-render when it changes. The reactivity works because the descendant holds a direct reference to the same reactive proxy — there is no serialization or copying.
+
+### 1.x The TypeScript angle
+
+The typed context pattern eliminates `unknown` and casts:
+
+```ts
+// src/lib/contexts/theme.ts
+import { setContext, getContext } from 'svelte';
+
+const THEME_KEY = Symbol('theme');
+
+interface ThemeContext {
+    mode: 'light' | 'dark';
+    accent: string;
+    toggle: () => void;
+}
+
+export function setThemeContext(value: ThemeContext): void {
+    setContext(THEME_KEY, value);
+}
+
+export function getThemeContext(): ThemeContext {
+    return getContext<ThemeContext>(THEME_KEY);
+}
+```
+
+Every consumer imports `getThemeContext()` and gets a fully typed value. No casts, no `unknown`, no Symbol juggling at the call site. If you change the `ThemeContext` interface, every consumer gets a compile error.
+
+### 1.x Comparison: context vs props vs stores
+
+| Aspect | Context | Props | `.svelte.ts` store |
+| --- | --- | --- | --- |
+| Scope | Subtree (provider to descendants) | Parent to direct child | Global (any component) |
+| Typing | Via Symbol + generic | Via $props interface | Via export types |
+| Survives navigation | Within layout boundary | N/A | Yes |
+| Testable | Via provider harness | Directly | Via import |
+| Two instances on same page | Each subtree gets its own | Each component gets its own | Shared singleton |
+| SSR safe | Yes | Yes | Careful (no browser APIs) |
+
+> **In production sidebar.** We use context for our data table component. Each `<DataTable>` sets a context with column definitions, sort state, and selection state. Each `<DataRow>` and `<DataCell>` reads from context without receiving any table-specific props. This means we can wrap rows in any number of intermediate layout components without forwarding table props. When we added a "select all" checkbox, we only touched the DataTable (provider) and DataCell (consumer) — zero changes to DataRow or any wrapper component. The context pattern saved us from editing 8 intermediate components.
+
+### 1.x Common interview question
+
+**Q: "Why would you use Svelte's context API instead of a module-level store?"**
+
+**Model answer:** Context is scoped to a component subtree. Two instances of the same parent component on the same page each get their own context — they do not interfere. A module store is a singleton: every consumer sees the same value. Use context when the state belongs to a specific component tree (a table's column config, a form's validation state). Use a module store when the state is truly global (the current user, a shopping cart). The wrong choice leads to either collision (module store used for tree-local state) or unnecessary complexity (context used for global state).
+
 ## Deep Dive
 
 **Why this matters at scale.** Context is scoped to the component tree. Different subtrees can have different values, unlike global stores.
@@ -119,6 +173,12 @@ Context is per-subtree by design. Module stores are per-app by design. Picking t
 **Performance implications.** Context lookup is O(1) — it walks the component tree once during initialization. No ongoing cost for reads.
 
 **Connection to other modules.** Module 11.3 provides module-level state for global data. Module 11.1 explains the decision framework.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — Per-card accents proven by scoped context
 

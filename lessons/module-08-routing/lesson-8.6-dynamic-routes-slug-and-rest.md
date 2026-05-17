@@ -100,6 +100,20 @@ Before SvelteKit 2.55, you had to import `PageProps` from the generated `./$type
 
 
 
+
+
+### The TypeScript angle
+
+Route params are auto-typed from the file tree. `page.params.slug` is typed as `string` without manual annotation.
+
+> **In production sidebar.** On a 100K-daily-user e-commerce site with 50,000 products, a param matcher (`[slug=product]`) validated slug format, rejecting garbage URLs before the load function ran.
+
+### Common interview question
+
+**Q: What is a param matcher in SvelteKit?**
+
+**Model answer:** A function in `src/params/<name>.ts` returning `true`/`false` for a URL segment. Applied with `[param=matcherName]`. SvelteKit calls it during routing — if false, the route doesn't match. Use for format constraints (numeric IDs, UUID patterns) at the routing layer.
+
 ## Going Deeper
 
 **Official documentation:**

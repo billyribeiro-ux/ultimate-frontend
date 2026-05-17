@@ -118,6 +118,20 @@ Each system has its own reduced-motion handling (CSS reset for Svelte transition
 
 
 
+
+
+### The TypeScript angle
+
+Svelte's `onintroend` and `onoutrostart` are standard DOM event attributes typed as `() => void`.
+
+> **In production sidebar.** On a 100K-daily-user SaaS app, a modal using both `transition:scale` and a GSAP pulse on the same element produced jitter. Moving the pulse to a child element eliminated the conflict instantly.
+
+### Common interview question
+
+**Q: Why do GSAP and Svelte transitions conflict on the same element?**
+
+**Model answer:** Both write to `transform` and `opacity` every frame. With two writers and one value, each overwrites the other causing jitter. Fix: put Svelte transitions on the parent (for mount/unmount) and GSAP on a child (for persistent effects). They never touch the same property on the same element.
+
 ## Going Deeper
 
 **Official documentation:**

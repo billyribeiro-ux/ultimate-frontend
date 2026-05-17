@@ -127,6 +127,28 @@ Since `duration` can also be a function, an even cleaner version is `duration: (
 
 
 
+
+
+### The TypeScript angle
+
+`Tween` is generic: `const progress = new Tween<number>(0, { duration: 400 })`. TypeScript infers the type from the initial value.
+
+### Comparison: motion primitives
+
+| Primitive | Duration | Best for |
+|-----------|----------|---------|
+| `Tween` | Fixed (ms) | Progress bars, counters |
+| `Spring` | Physics-based | Cursor followers, drag |
+| `$state` | Instant | Non-animated values |
+
+> **In production sidebar.** On a 100K-daily-user analytics dashboard, replacing instant counter updates with `Tween` (300ms cubicOut) on KPI cards made users perceive data refreshes as faster — the smooth counting gave visual feedback that an update was happening.
+
+### Common interview question
+
+**Q: What is `Tween` in Svelte and how does it differ from `$state`?**
+
+**Model answer:** `$state` holds a discrete value that changes instantly. `Tween` wraps a value and smoothly interpolates from old to new over a configured duration, re-rendering each frame. Write to `.target` to start interpolation; read `.current` in the template for the animated value.
+
 ## Going Deeper
 
 **Official documentation:**

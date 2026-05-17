@@ -164,6 +164,27 @@ const cart = getContext<CartStore>('cart');
 
 This gives you a fresh store per subtree instance. If you render two `<Dashboard />` components on the same page, each gets its own `CartStore` via context, completely independent. The singleton pattern (exported `const cart = new CartStore()`) is global — context-scoped stores are the alternative for when global is too broad.
 
+### 1.x What SvelteKit does under the hood
+
+Reactive classes work because the Svelte compiler processes `$state` and `$derived` on class fields just like it does on module-level variables in `.svelte.ts` files:
+
+```ts
+class CartStore {
+    items = $state<CartItem[]>([]);           // Compiled to reactive field
+    total = $derived(this.items.reduce(...)); // Compiled to computed field
+}
+```
+
+The compiler transforms `$state` class fields into property accessors with reactive get/set traps. `$derived` fields become lazily-evaluated computed properties that cache their values and recompute only when dependencies change. The class instance behaves like any other JavaScript object — you can pass it around, store it in context, export it from a module — but its fields are reactive.
+
+> **In production sidebar.** Our most complex store is a `FormBuilder` reactive class with 12 `$state` fields, 5 `$derived` computations, and 8 methods. It manages form state, validation, dirty tracking, and undo/redo. Before reactive classes, this was split across three separate files with manual subscription wiring. The reactive class version is 40% shorter, fully testable (instantiate the class, call methods, assert state), and the derived computations are guaranteed consistent — the total is always the sum of the items, the dirty flag always reflects the current state vs the initial snapshot.
+
+### 1.x Common interview question
+
+**Q: "When would you use a reactive class instead of a plain `.svelte.ts` module store?"**
+
+**Model answer:** Use a reactive class when the state has behavior — methods that enforce business rules, derived computations that must stay in sync, or encapsulation that prevents external code from putting the state into an invalid configuration. A plain module store is a bag of exported variables; a reactive class is a self-contained state machine. Example: a shopping cart where `add()` should merge duplicate items and `total` should always equal the sum of item prices times quantities. The class enforces these invariants; a bag of variables does not. Additionally, reactive classes are easy to unit test — instantiate the class, call methods, assert state — without rendering any component.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 50-component production app, the reactive class pattern is what separates a maintainable state architecture from a spaghetti of scattered `$state` variables. Without classes, business rules are duplicated across components: each component that adds an item reimplements the "bump quantity on duplicate" logic. With classes, the rule exists once and every component calls the method. When the business rule changes (e.g., "cap quantity at 99"), you change one line in one file. Without classes, you hunt through 12 components and hope you found them all.
@@ -175,6 +196,12 @@ This gives you a fresh store per subtree instance. If you render two `<Dashboard
 **Performance implications.** Each `$state` field on a class instance creates a reactive signal (or proxy for objects/arrays). Each `$derived` field creates a lazy computation node in the reactive graph. For a typical store with 3-5 state fields and 2-3 derived fields, this is negligible overhead. The performance advantage of reactive classes is indirect: by encapsulating mutations in methods, you prevent scattered writes that might trigger unnecessary re-renders. A single `add()` method that conditionally bumps quantity is one state write; the naive alternative (check if exists, then either push or modify quantity) might be two writes and two reactive notifications.
 
 **Connection to other modules.** Reactive classes build on Module 2 (`$state` and `$derived` fundamentals). They are the state management pattern used in Module 11 Lesson 11.10 (optimistic UI store), Module 11 Lessons 11.7-11.9 (TanStack Table integration where the data source is a reactive class), and the capstone project (global app state). Module 12 tests reactive classes with Vitest (Lesson 12.9). The pattern also composes with Module 9B's remote functions — a reactive class method can call a remote command and update its own state optimistically.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — A live cart with count, total, and actions
 

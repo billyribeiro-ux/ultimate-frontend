@@ -93,6 +93,20 @@ Svelte fills the array as each element mounts. The effect runs when `cards.lengt
 
 
 
+
+
+### The TypeScript angle
+
+Use specific element types: `let canvas: HTMLCanvasElement | undefined = $state()` gives access to `.getContext()` without assertions.
+
+> **In production sidebar.** On a 100K-daily-user product page, GSAP used `.card` selector — when another team added `.card` to a sidebar, every sidebar card animated. Switching to `bind:this` refs fixed cross-component interference.
+
+### Common interview question
+
+**Q: In Svelte, how do you get a reference to a DOM element for use with GSAP?**
+
+**Model answer:** Declare `let el: HTMLElement | undefined = $state()` and use `bind:this={el}`. Guard with `if (!el) return` in effects. Pass the element to GSAP instead of selectors. Refs are scoped, refactor-safe, and strictly typed.
+
 ## Going Deeper
 
 **Official documentation:**

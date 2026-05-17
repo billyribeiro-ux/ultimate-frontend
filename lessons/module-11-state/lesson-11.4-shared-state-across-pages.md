@@ -105,6 +105,26 @@ Then in the root `+layout.svelte`, call `cart.hydrate()` inside a `$effect` — 
 
 Persistence via `localStorage` is the right tool for small, non-sensitive, client-owned state (cart, draft text, theme, last-visited tab). It is the wrong tool for anything server-owned. If a logged-in user's cart must survive across devices, the cart lives in a database, and the client merely displays what the server returns from `load()`. In that case the module store is still useful — as a *cache* that mirrors the server data — but the source of truth is the server, and you write through the API, not through `localStorage`.
 
+### 1.x What SvelteKit does under the hood
+
+Module stores survive SvelteKit navigations because of how JavaScript modules work:
+
+1. When the browser first loads your app, the bundler evaluates each module once.
+2. The module's top-level code runs, creating the `$state` variables.
+3. Every `import` of that module references the same module instance — the same `$state` proxies.
+4. SvelteKit navigations (`goto()`, link clicks) do not reload the JavaScript bundle. They swap components but keep the module registry intact.
+5. Only a full page reload (`location.reload()`, hard refresh, closing and reopening the tab) destroys the module registry and re-evaluates everything.
+
+This is why `$effect` for `localStorage` persistence must be client-only — it runs in the browser's module lifecycle, not the server's.
+
+> **In production sidebar.** Our shopping cart persists to `localStorage` with a `$effect` that debounces writes by 300ms. Without debouncing, rapid quantity changes (clicking +1 ten times in a second) would trigger ten `localStorage.setItem` calls, each serializing the entire cart. The debounce collapses them to one write. We also version the storage key (`cart-v3`) so that schema changes do not corrupt existing stored data — the old key is silently ignored and the cart starts empty.
+
+### 1.x Common interview question
+
+**Q: "How do you persist a Svelte module store to localStorage without breaking SSR?"**
+
+**Model answer:** Guard the initial read with `typeof window === 'undefined'` — return a default value on the server where `localStorage` does not exist. Use a `$effect` to write changes to `localStorage` whenever the store updates, but only on the client. The `$effect` naturally runs only in the browser because effects do not execute during SSR. Wrap the `localStorage.getItem` call in a try/catch to handle corrupted or quota-exceeded storage gracefully. This gives you a store that initializes from persisted data on the client, falls back to defaults on the server, and automatically saves changes.
+
 ## Deep Dive
 
 **Why this matters at scale.** State surviving navigation without URL requires explicit persistence. Reactive modules persist across client-side navigation; localStorage persists across reloads.
@@ -116,6 +136,12 @@ Persistence via `localStorage` is the right tool for small, non-sensitive, clien
 **Performance implications.** localStorage read/write is O(data size). For small state objects, negligible. For large datasets, consider IndexedDB.
 
 **Connection to other modules.** Module 11.6's URL state survives sharing and reload. Module 11.3's .svelte.ts provides the reactive foundation.
+
+
+## Going Deeper
+
+- **Svelte docs:** Check the relevant section in the [Svelte documentation](https://svelte.dev/docs).
+- **Challenge:** Apply the pattern from this lesson to a real component in your own project. Measure the before and after in terms of code lines and type safety.
 
 ## 2. Style it — A persistent cart widget
 

@@ -90,6 +90,30 @@ A menu that is a column on mobile and a row on desktop is a one-liner with Flexb
 The same gap works for both orientations because `gap` respects the main axis.
 
 
+
+
+### The TypeScript angle
+
+For typed Flexbox APIs: `direction?: "row" | "column"`, `wrap?: boolean`, `gap?: string`, `align?: "start" | "center" | "end" | "stretch"`.
+
+### Comparison: Grid vs Flexbox
+
+| Need | Grid or Flex? |
+|------|-------------|
+| Card grid with aligned columns | Grid |
+| Navigation bar | Flex |
+| Tag/chip list | Flex |
+| Holy grail layout | Flex (column) |
+| Dashboard with named regions | Grid |
+
+> **In production sidebar.** On a 100K-daily-user SaaS app, switching the nav bar from Grid to Flexbox eliminated a mobile bug where items were cut off at 375px — Grid forced equal columns; Flex let items take natural width.
+
+### Common interview question
+
+**Q: When should you use CSS Grid vs Flexbox?**
+
+**Model answer:** Use Grid for two-dimensional layouts (card grids, named-area page layouts). Use Flexbox for one-dimensional layouts (nav bars, tag lists, toolbars). If you find yourself writing `flex-wrap: wrap` and trying to align across rows, Grid is probably better.
+
 ## Going Deeper
 
 **Official documentation:**

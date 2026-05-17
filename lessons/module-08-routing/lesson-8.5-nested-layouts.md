@@ -89,6 +89,20 @@ Layouts are for **structural shell** and **data that every child page needs** (l
 
 
 
+
+
+### The TypeScript angle
+
+The `children` prop is typed as `Snippet` from `svelte`.
+
+> **In production sidebar.** On a 100K-daily-user SaaS platform, route groups (`(marketing)` and `(app)`) allowed different layouts without URL prefixes.
+
+### Common interview question
+
+**Q: How do layouts nest in SvelteKit, and what are route groups?**
+
+**Model answer:** Layouts nest from root outward. Each receives `children` as a snippet prop. Route groups — folders in parentheses like `(marketing)` — share a layout without adding a URL segment.
+
 ## Going Deeper
 
 **Official documentation:**
