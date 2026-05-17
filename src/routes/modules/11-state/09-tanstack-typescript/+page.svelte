@@ -5,12 +5,16 @@
 	used for right-aligning numeric columns.
 -->
 <script lang="ts">
-	import { createTable } from '@tanstack/svelte-table';
 	import {
+		createTable,
 		tableFeatures,
+		columnVisibilityFeature,
+		rowSelectionFeature,
 		createCoreRowModel,
 		type ColumnDef,
-		type RowSelectionState
+		type RowSelectionState,
+		type Updater,
+		type Row
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
@@ -20,11 +24,9 @@
 		align?: Align;
 	}
 
-	// @ts-expect-error TanStack Table v9 alpha — rowModelFns type not yet in stable .d.ts
 	const _features = tableFeatures({
-		rowModelFns: {
-			Core: createCoreRowModel
-		}
+		columnVisibilityFeature,
+		rowSelectionFeature
 	});
 
 	type Features = typeof _features;
@@ -44,20 +46,20 @@
 			return members;
 		},
 		columns,
-		_rowModels: {},
+		_rowModels: { coreRowModel: createCoreRowModel() },
 		state: {
 			get rowSelection() {
 				return rowSelection;
 			}
 		},
-		onRowSelectionChange: (updater) => {
+		onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
 			rowSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
 		},
 		enableRowSelection: true
 	});
 
 	const selectedRows = $derived(
-		table.getSelectedRowModel().rows.map((row) => row.original)
+		table.getSelectedRowModel().rows.map((row: Row<Features, Member>) => row.original)
 	);
 
 	function roleAccent(role: Member['role']): string {

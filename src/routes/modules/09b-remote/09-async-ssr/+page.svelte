@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getArticle } from './article.remote.ts';
+	import { getArticle } from './article.remote';
 
 	function formatDate(d: Date): string {
 		return d.toLocaleDateString(undefined, {
@@ -64,9 +64,9 @@
 compilerOptions: { experimental: { async: true } }
 
 // +page.svelte
-<script lang="ts">
+${'<'}script lang="ts">
   const article = await getArticle();
-</script>
+${'<'}/script>
 <h2>{article.title}</h2>`}</code></pre>
 	</aside>
 </section>

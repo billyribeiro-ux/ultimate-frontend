@@ -4,32 +4,36 @@
 	controlled state held in local $state.
 -->
 <script lang="ts">
-	import { createTable } from '@tanstack/svelte-table';
 	import {
+		createTable,
 		tableFeatures,
+		columnVisibilityFeature,
+		rowSortingFeature,
+		columnFilteringFeature,
+		globalFilteringFeature,
+		rowPaginationFeature,
 		createCoreRowModel,
 		createFilteredRowModel,
 		createSortedRowModel,
 		createPaginatedRowModel,
+		filterFns,
+		sortFns,
 		type ColumnDef,
 		type SortingState,
-		type PaginationState
+		type PaginationState,
+		type Updater
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
-	// @ts-expect-error TanStack Table v9 alpha — rowModelFns type not yet in stable .d.ts
 	const _features = tableFeatures({
-		rowModelFns: {
-			Core: createCoreRowModel,
-			Filtered: createFilteredRowModel,
-			Sorted: createSortedRowModel,
-			Paginated: createPaginatedRowModel
-		}
+		columnVisibilityFeature,
+		rowSortingFeature,
+		columnFilteringFeature,
+		globalFilteringFeature,
+		rowPaginationFeature
 	});
 
-	type Features = typeof _features;
-
-	const columns: ColumnDef<Features, Member>[] = [
+	const columns: ColumnDef<typeof _features, Member>[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
@@ -47,7 +51,12 @@
 			return members;
 		},
 		columns,
-		_rowModels: {},
+		_rowModels: {
+			coreRowModel: createCoreRowModel(),
+			filteredRowModel: createFilteredRowModel(filterFns),
+			sortedRowModel: createSortedRowModel(sortFns),
+			paginatedRowModel: createPaginatedRowModel()
+		},
 		state: {
 			get sorting() {
 				return sorting;
@@ -59,14 +68,14 @@
 				return pagination;
 			}
 		},
-		onSortingChange: (updater) => {
+		onSortingChange: (updater: Updater<SortingState>) => {
 			sorting = typeof updater === 'function' ? updater(sorting) : updater;
 		},
-		onGlobalFilterChange: (value) => {
-			globalFilter = (value ?? '') as string;
+		onGlobalFilterChange: (value: Updater<string>) => {
+			globalFilter = (typeof value === 'function' ? value(globalFilter) : value ?? '') as string;
 			pagination = { ...pagination, pageIndex: 0 };
 		},
-		onPaginationChange: (updater) => {
+		onPaginationChange: (updater: Updater<PaginationState>) => {
 			pagination = typeof updater === 'function' ? updater(pagination) : updater;
 		}
 	});
@@ -151,7 +160,7 @@
 			← Previous
 		</button>
 		<span>
-			Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+			Page {table.state.pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
 		</span>
 		<button
 			type="button"

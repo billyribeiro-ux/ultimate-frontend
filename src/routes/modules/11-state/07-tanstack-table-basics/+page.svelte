@@ -3,24 +3,18 @@
 	Mini-build: a typed, headless members table with no features enabled.
 -->
 <script lang="ts">
-	import { createTable } from '@tanstack/svelte-table';
 	import {
+		createTable,
 		tableFeatures,
+		columnVisibilityFeature,
 		createCoreRowModel,
 		type ColumnDef
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
-	// @ts-expect-error TanStack Table v9 alpha — rowModelFns type not yet in stable .d.ts
-	const _features = tableFeatures({
-		rowModelFns: {
-			Core: createCoreRowModel
-		}
-	});
+	const _features = tableFeatures({ columnVisibilityFeature });
 
-	type Features = typeof _features;
-
-	const columns: ColumnDef<Features, Member>[] = [
+	const columns: ColumnDef<typeof _features, Member>[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
@@ -34,7 +28,7 @@
 			return members;
 		},
 		columns,
-		_rowModels: {}
+		_rowModels: { coreRowModel: createCoreRowModel() }
 	});
 </script>
 
