@@ -45,7 +45,7 @@ ultimate-frontend/
 This is the **scaffold pass**. What is complete:
 
 - Runnable SvelteKit 2 + Svelte 5 + TypeScript strict project with PE7 `app.css` fully populated
-- Module index routes for all 13 modules (each with its own color personality) at `/modules/<slug>`
+- Module index routes for all 14 modules (each with its own color personality) at `/modules/<slug>`
 - **Lesson 1.1 — What Svelte is and why it compiles** — fully written lesson + working mini-build route at `/modules/01-foundation/01-what-is-svelte`
 - Stub markdown files for every other lesson (127 stubs) under `lessons/`
 - Capstone `registry.ts` with all 20 chunks + folders for every chunk containing `brief.md`, `hint.md`, `concept.md`, `code.md` stubs
@@ -71,7 +71,7 @@ Future passes will fill in each module in order.
 
 ## Reading order
 
-1. Read [`CURRICULUM.md`](./CURRICULUM.md) for the full 13-module outline.
+1. Read [`CURRICULUM.md`](./CURRICULUM.md) for the full 14-module outline.
 2. Read [`TEMPLATE-lesson.md`](./TEMPLATE-lesson.md) to understand how every lesson is structured.
 3. Start with [`lessons/module-01-foundation/lesson-1.1-what-is-svelte.md`](./lessons/module-01-foundation/lesson-1.1-what-is-svelte.md) — the fully-written exemplar lesson.
 4. Run `pnpm dev` and navigate to `/modules/01-foundation/01-what-is-svelte` to see the mini-build in action.

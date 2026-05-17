@@ -21,7 +21,8 @@
 		{ id: '10', number: '10', title: 'API Routes & Forms', href: '/modules/10-api-forms', goal: '+server.ts, form actions, progressive enhancement.' },
 		{ id: '11', number: '11', title: 'State at Scale', href: '/modules/11-state', goal: 'Context, .svelte.ts stores, TanStack Table.' },
 		{ id: '12', number: '12', title: 'Performance & Production', href: '/modules/12-performance', goal: 'Core Web Vitals, tests, 3D performance, deploy.' },
-		{ id: '13', number: '13', title: 'SEO', href: '/modules/13-seo', goal: 'Structured data, E-E-A-T, 3D-aware SEO.' }
+		{ id: '13', number: '13', title: 'SEO', href: '/modules/13-seo', goal: 'Structured data, E-E-A-T, 3D-aware SEO.' },
+		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte', goal: 'Declarative 3D: scenes, models, physics, production.' }
 	];
 </script>
 
