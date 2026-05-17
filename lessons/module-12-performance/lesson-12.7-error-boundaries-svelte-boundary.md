@@ -90,6 +90,42 @@ A common pattern: render the reset button only when you think retry will help, a
 
 Boundaries are a production safety net, not a bug-hiding mechanism. Use them for failures you cannot prevent at the source, and fix the failures you can.
 
+### 1.7 Boundaries and the error page hierarchy
+
+SvelteKit has two error-handling mechanisms that operate at different levels:
+
+1. **`+error.svelte`** — renders when a `load` function throws `error()` or when no matching route exists. This is the *route-level* error handler. It replaces the entire page content.
+2. **`<svelte:boundary>`** — catches errors thrown during component rendering *within* a successfully-loaded page. It replaces only the bounded subtree.
+
+The two are complementary:
+- A 404 (route not found) → `+error.svelte` handles it.
+- A broken widget on an otherwise working page → `<svelte:boundary>` handles it.
+- A `load` function that throws → `+error.svelte` handles it.
+- A component that throws during render after successful load → `<svelte:boundary>` handles it.
+
+You need both in a production app. `+error.svelte` for route-level failures, `<svelte:boundary>` for component-level failures.
+
+### 1.8 Designing fallback UI that does not break layout
+
+A common mistake: the fallback UI is a single paragraph that is 40px tall, replacing a component that was 400px tall. The rest of the page jumps up, causing CLS and confusing the user. Good fallback UI should:
+
+- **Match the height of the replaced component** (approximately). Use `min-height` on the fallback container.
+- **Match the visual weight** — use the same padding, border-radius, and background as the original component's container.
+- **Be clearly labeled** as an error state, not empty content. Users should understand that something failed, not that the section is intentionally blank.
+- **Provide an action** when one makes sense (retry button, link to support).
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app that serves thousands of users, any single component can fail at any time — a network timeout, a null reference on unexpected data, a third-party script that corrupts the DOM. Without boundaries, one broken widget crashes the entire page. Users see a blank white screen or the nearest `+error.svelte` page. With per-widget boundaries, 49 out of 50 widgets continue working, and the user can still accomplish their task. This is the difference between "the app is down" and "one widget is temporarily unavailable." For revenue-generating pages, this difference can be worth thousands of dollars per hour of degraded service.
+
+**The mental model.** Error boundaries are like bulkheads on a ship. A ship without bulkheads sinks entirely if one section takes on water. A ship with bulkheads isolates the flooding to one compartment — the rest of the ship stays dry and functional. Each `<svelte:boundary>` is a bulkhead. The smaller and more numerous your bulkheads, the less of the ship (page) is affected by any single breach (error). A single boundary around the whole app is like a ship with one compartment — any error sinks the whole thing.
+
+**Edge cases.** If an error boundary's fallback *itself* throws an error, the error propagates to the next boundary up the tree (or crashes if there is none). Keep fallback UIs simple — static markup with no reactive state, no effects, no API calls. Another edge case: async components that throw *after* the initial render (e.g., in an `$effect` that runs after mount) are caught by the boundary. But an async operation that starts in the component and throws after the component is destroyed will not be caught — the boundary no longer exists. Use `AbortController` cleanup to prevent this class of orphaned error.
+
+**Performance implications.** Error boundaries have zero performance cost when no error occurs. The boundary adds a thin wrapper in the component tree and a try-catch at the render level, but modern JavaScript engines optimize try-catch in the no-throw path to zero overhead. The only cost is during an actual error: the boundary must tear down the failed subtree, run cleanup functions, and mount the fallback UI. This is a one-time cost per error occurrence and is negligible compared to the alternative (the entire page crashing and requiring a full reload).
+
+**Connection to other modules.** Error boundaries connect to Module 4 (try/catch fundamentals), Module 8 Lesson 8.3 (hydration errors caught by boundaries), Module 9A (load function errors handled by `+error.svelte` complement), and Module 13 (SEO — a crashed page produces no indexable content; a gracefully degraded page still has content for crawlers). The capstone project wraps every third-party integration (analytics, chat widget, 3D scene) in boundaries, ensuring that a failure in any external dependency never takes down the core application.
+
 ## 2. Style it — A card that fails gracefully
 
 The mini-build shows a grid of three cards. One card is the "risky" card, which throws on demand. The other two are static. Per-page accent: `oklch(70% 0.18 80)` (caution amber).

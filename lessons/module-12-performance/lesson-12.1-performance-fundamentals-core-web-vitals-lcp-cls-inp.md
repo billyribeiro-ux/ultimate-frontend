@@ -88,6 +88,39 @@ The short version:
 
 Every technique in Module 12 maps back to one or more of these three numbers. By the end of the module you will be able to look at a failing Lighthouse report and name the specific fix for each red box.
 
+### 1.7 Why Svelte gives you a head start
+
+Svelte's compiled architecture provides structural advantages for all three metrics:
+
+- **LCP**: No runtime library to download. Svelte's SSR produces real HTML on first byte. Component code is small because the compiler generates targeted updates, not a generic diffing engine.
+- **CLS**: Svelte's scoped CSS means styles are always colocated with their components. There is no FOUC (flash of unstyled content) from late-loading stylesheets. Server-rendered HTML has the correct classes from the start.
+- **INP**: No virtual DOM diffing. When state changes, Svelte updates only the specific DOM nodes that depend on that state. A click handler that changes one number causes one text node update, not a full component re-render. This gives you dramatically lower interaction cost than React or Vue for equivalent UIs.
+
+But Svelte does not make you immune. You can still hurt LCP with slow load functions, hurt CLS with unsized images, and hurt INP with expensive effects. The framework gives you a better starting position; the techniques in this module keep you in the green.
+
+### 1.8 The three-metric triad and how they interact
+
+The three metrics are not independent. Optimizing one can affect another:
+
+- Inlining critical CSS (good for LCP) can increase HTML size, which slightly delays Time to First Byte.
+- Lazy-loading images (good for LCP of above-fold content) can cause CLS if the image containers are not pre-sized.
+- Code-splitting (good for INP by reducing hydration time) can increase LCP if the split chunk is needed for the largest content.
+- Preloading fonts (good for CLS by preventing FOUT) increases initial transfer size, potentially slowing LCP.
+
+The art of web performance is balancing these trade-offs. The green thresholds (LCP ≤ 2.5s, CLS ≤ 0.1, INP ≤ 200ms) are your targets. Any technique that moves one metric green without moving another red is a clear win. Module 12's lessons cover each technique with awareness of its cross-metric effects.
+
+## Deep Dive
+
+**Why this matters at scale.** Google uses Core Web Vitals as real ranking signals. A page that scores "poor" on any of the three metrics loses ranking position relative to competitors who score "good." For commercial sites, this translates directly to revenue: a study by Deloitte found that a 0.1s improvement in mobile speed increased conversion rates by 8.4% for retail sites. In a 20-route SvelteKit app, optimizing the 5 highest-traffic pages for Core Web Vitals can produce measurable traffic increases within 28 days (the CrUX reporting window). This is not theoretical — it is the primary reason performance engineering exists as a discipline.
+
+**The mental model.** Think of the three metrics as three vital signs for a patient (your page). LCP is the heart rate — how quickly the page shows signs of life. CLS is the blood pressure — how stable and predictable the page's layout is. INP is the reflex response — how quickly the page responds when you poke it. A healthy page has all three in the green zone. A page with one metric in the red needs targeted treatment. A page with all three in the red needs triage: fix the worst one first (usually LCP, because it is the first thing users and crawlers notice).
+
+**Edge cases.** LCP measurement is tricky: the "largest contentful paint" element can change during loading. Initially it might be a heading, then an image loads and becomes the new LCP element. This means a fast heading paint followed by a slow image load gives you a *worse* LCP than the heading alone. The fix: ensure your LCP element loads early (preload images, inline critical CSS). CLS only counts shifts that are not user-initiated — scrolling that triggers an element to move does not count, but a lazy-loaded ad that pushes content down does. INP measures the *worst* interaction, not the average — one bad interaction in a 30-minute session defines your score.
+
+**Performance implications.** Each metric has a specific budget. LCP: 2.5 seconds from navigation start to largest paint. That includes DNS resolution (~50ms), TCP connection (~50ms), TLS handshake (~50ms), server response time (~200ms for SSR), HTML download (~100ms), CSS download and parse (~100ms), image download (variable). The budget is tight on mobile. CLS: a cumulative score of 0.1 means approximately 10% of the viewport can shift once during the page's lifetime. A 50px shift on a 800px viewport = 0.0625 shift. INP: 200ms from event to paint means your handler + reactive updates + DOM write + paint must all complete in 200ms. On a 4x-throttled CPU (mobile simulation), that means your actual JS work budget is about 50ms.
+
+**Connection to other modules.** Core Web Vitals provide the motivation for every optimization technique in Module 12: image optimization (12.2) for LCP, code splitting (12.3) for hydration/INP, effect performance (12.4) for INP, memoization (12.5) for INP, error boundaries (12.7) for graceful degradation, accessibility (12.8) which overlaps with CLS (focus management, skip links), and deployment (12.11) which affects TTFB. Module 13 (SEO) connects performance directly to search ranking. The capstone project targets green on all three metrics as a mandatory requirement.
+
 ## 2. Style it — A vitals dashboard
 
 The mini-build renders a small "Core Web Vitals dashboard" with three cards (LCP, CLS, INP), each showing a fake measurement against its threshold with a PE7-coloured status pill. Per-page accent: `oklch(68% 0.2 140)` (metric green).

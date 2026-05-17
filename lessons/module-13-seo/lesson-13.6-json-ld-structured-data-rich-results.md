@@ -81,6 +81,63 @@ const json: string = JSON.stringify(data).replace(/</g, '\\u003c');
 
 Google prefers multiple small JSON-LD blocks over one monolithic mega-block. A product page might have three: `Product`, `BreadcrumbList`, and `Organization`. A blog post might have `Article`, `BreadcrumbList`, and `Person` (as the author nested inside the Article). Keep them separate — they are easier to debug, easier to update, and easier for Google to parse.
 
+### 1.6 Building a type-safe JSON-LD helper
+
+In a production codebase, raw JSON objects for structured data are error-prone. Property names must match schema.org exactly (`datePublished`, not `publishedDate`; `@type`, not `type`). The fix is to define TypeScript interfaces for each schema type and use them to construct your JSON-LD objects:
+
+```ts
+interface ArticleSchema {
+    '@context': 'https://schema.org';
+    '@type': 'Article';
+    headline: string;
+    description: string;
+    author: { '@type': 'Person'; name: string; url?: string };
+    datePublished: string;
+    dateModified?: string;
+    publisher: {
+        '@type': 'Organization';
+        name: string;
+        logo: { '@type': 'ImageObject'; url: string };
+    };
+    image?: string;
+}
+```
+
+With this interface, your IDE autocompletes property names, TypeScript catches typos, and you cannot accidentally omit required fields. The `JsonLd.svelte` component in the mini-build accepts `Record<string, unknown>` for flexibility, but in production you would narrow the type per schema.
+
+### 1.7 JSON-LD and SvelteKit load functions
+
+The ideal pattern is to compute JSON-LD data in your load function and pass it to the page component. This keeps the structured data close to the data source and ensures it is always consistent with the rendered content:
+
+```ts
+// +page.ts
+export const load: PageLoad = async ({ fetch, params }) => {
+    const post = await fetch(`/api/posts/${params.slug}`).then(r => r.json());
+    const articleSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: post.title,
+        datePublished: post.publishedAt,
+        author: { '@type': 'Person', name: post.author.name }
+    };
+    return { post, articleSchema };
+};
+```
+
+The page component receives `data.articleSchema` and passes it directly to `<JsonLd data={data.articleSchema} />`. The structured data is always in sync with the page content because both come from the same data source.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 20-route content site, structured data is the difference between plain blue links in search results and rich snippets with star ratings, FAQ accordions, breadcrumbs, and publication dates. Rich snippets have measurably higher click-through rates (CTR) — studies consistently show 20-40% CTR improvement for results with rich snippets compared to plain results. For a site with 10,000 monthly search impressions, that is 2,000-4,000 additional clicks per month from the same ranking position. At scale, structured data is one of the highest-ROI SEO investments available.
+
+**The mental model.** JSON-LD is a translator between your human-readable page and Google's machine-readable understanding. Your page says "by Jane Doe, published April 5." Google's crawler can *guess* that "Jane Doe" is an author and "April 5" is a date, but guessing is unreliable. JSON-LD removes the guessing: it explicitly says "this entity is of type Article, its author is a Person named Jane Doe, and its publication date is 2026-04-05." The machine does not have to infer — you told it directly. That directness is why JSON-LD unlocks features (rich snippets) that are unavailable to pages relying on crawler inference alone.
+
+**Edge cases.** JSON-LD must match the visible page content. Google has explicitly stated that structured data that contradicts what users see is a violation of their guidelines and can result in manual penalties. If your JSON-LD says the price is $29.99 but the visible page shows $49.99, that is a violation. Always derive JSON-LD from the same data source as the rendered content — which is exactly what the load-function pattern above achieves. Another edge case: the `</script>` problem. If any field in your JSON-LD contains the literal string `</script>`, it will prematurely close the script tag. Always escape `<` to `<` in the stringified output.
+
+**Performance implications.** JSON-LD has zero performance impact on rendering. It lives in a `<script>` tag with `type="application/ld+json"`, which the browser does not execute — it is treated as inert data. The only cost is the bytes in the HTML: a typical Article schema is 300-500 bytes, a BreadcrumbList is 200-400 bytes. For a total of 1-2 KB per page, this is negligible compared to even a small image. There is no JavaScript execution, no DOM manipulation, no layout cost. Structured data is the rare SEO technique that is entirely free of performance trade-offs.
+
+**Connection to other modules.** JSON-LD builds on Module 8 (SSR — structured data must be in the server-rendered HTML for crawlers to see it), Module 9A (load functions provide the data that JSON-LD schemas are built from), and Module 13 Lessons 13.3-13.5 (the SEO component system that JSON-LD integrates with). Lesson 13.7 adds E-E-A-T signals to Article schemas. Lesson 13.12 uses FAQPage schema as AEO fuel. The capstone project ships structured data on every content page, validated by the Rich Results Test.
+
 ## 2. Style it — JSON-LD emits nothing visual
 
 Structured data has zero visual footprint. The mini-build renders the raw JSON-LD in a styled `<pre>` alongside the article so you can see what you just shipped, but that is a debug aid, not a design element.

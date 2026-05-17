@@ -110,6 +110,42 @@ If the row you are optimistically updating lives inside a TanStack Table, the re
 
 SvelteKit's April 2026 remote functions (Module 9B) make the server call half of this pattern particularly clean. A `command` remote function returns a typed promise; your store awaits it; the error handling is already standardised. The mini-build fakes the server call with `setTimeout` so the lesson runs without a backend, but the shape of the code is identical to what you would write against a real remote command.
 
+### 1.7 Optimistic UI and lists: the position problem
+
+When applying optimistic UI to list operations (add, remove, reorder), a subtle problem emerges: the item you optimistically added might appear at a different position than where the server ultimately places it (e.g., if the server sorts by creation timestamp). After reconciliation, the list "jumps" — the item that appeared at position 3 optimistically ends up at position 7 after the server responds. For most applications, this is acceptable because the jump happens quickly (50-200ms). For highly visible lists (chat messages, social feeds), consider inserting optimistically at the correct predicted position based on your knowledge of the server's sort order.
+
+### 1.8 Combining optimistic UI with form actions
+
+Optimistic UI also works with classic form actions when using `use:enhance`. The enhance callback gives you control over what happens before and after the server responds:
+
+```svelte
+<form method="POST" use:enhance={() => {
+    // Optimistic apply: update UI immediately
+    likes.optimisticToggle(id);
+    
+    return async ({ result, update }) => {
+        if (result.type === 'failure') {
+            likes.rollback(id);
+        }
+        await update();
+    };
+}}>
+```
+
+This pattern integrates with SvelteKit's form action lifecycle while still giving instant feedback.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app with real users on real networks, every mutation without optimistic UI creates a perceptible delay. Users on 4G connections (200-500ms latency) experience a half-second gap between clicking and seeing feedback. Multiply by 20 interactions per session and you have 10 seconds of cumulative "dead time" where the app feels unresponsive. Optimistic UI eliminates this entirely for predictable operations. The difference in perceived quality between an optimistic app and a non-optimistic app is immediately obvious to users — they describe the optimistic app as "snappy" and the non-optimistic one as "laggy," even though both complete the same operations in the same real time.
+
+**The mental model.** Optimistic UI is like writing a check. When you write a check (optimistic apply), you immediately deduct the amount from your mental ledger — you consider that money spent. The bank (server) processes the check later. If the check clears (success), your mental ledger already matches the bank's ledger — nothing to reconcile. If the check bounces (failure), you have to add the money back to your mental ledger (rollback) and deal with the consequences (error message). The key insight: you update your mental model immediately because you *expect* the check to clear. You only correct if it does not.
+
+**Edge cases.** Race conditions: if the user clicks "like" twice quickly, the first optimistic toggle sets `liked: true`, the first server call goes out, the second optimistic toggle sets `liked: false`, the second server call goes out. If the first server call fails and rolls back, it restores to `liked: false` — which accidentally matches the user's current intent. But if the second call also fails, the rollback restores to `liked: true` — which was the state before the second click, but not the current intent. The fix: each toggle must capture its own snapshot independently and rollbacks must be ordered. The store pattern in this lesson handles this correctly because each `toggle()` captures `current` before mutating.
+
+**Performance implications.** Optimistic UI has zero network performance impact — the server call fires at the same time regardless. The benefit is purely perceptual: the user sees the result 100-500ms sooner. The CPU cost is one extra state write (the optimistic apply) and potentially one rollback write (on failure). Both are negligible. The only real cost is code complexity: you must capture snapshots, handle rollbacks, surface errors, and reason about partially-applied state. This complexity is worth it for high-frequency interactions (likes, toggles, reorders) but overkill for rare operations (account deletion, checkout).
+
+**Connection to other modules.** Optimistic UI builds on Module 2 (reactive state for the local mutation), Module 9B (remote commands for the server call), Module 11 Lesson 11.5 (reactive classes for the store pattern), and Module 12 Lesson 12.8 (ARIA live regions for accessible error surfacing). The capstone project uses optimistic UI for its interactive features �� likes, favorites, and reordering — demonstrating the pattern at production scale with real network latency and real error scenarios.
+
 ## 2. Style it — A heart that flips instantly
 
 The mini-build renders a short list of posts, each with a heart button and a count. Per-page accent: `oklch(65% 0.22 15)` (crimson).

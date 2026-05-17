@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { NotificationData, NotificationType } from '$lib/realtime/types.js';
 
 	type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -16,7 +17,7 @@
 	let status: ConnectionStatus = $state('connecting');
 	let totalReceived: number = $state(0);
 
-	const timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+	const timers = new SvelteMap<string, ReturnType<typeof setTimeout>>();
 
 	function addNotification(notification: NotificationData): void {
 		notifications = [...notifications, notification].slice(-MAX_VISIBLE);

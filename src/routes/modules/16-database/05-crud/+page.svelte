@@ -1,8 +1,12 @@
 <script lang="ts">
-	import type { InferSelectModel } from 'drizzle-orm';
-	import type { notes } from '$lib/server/db/schema';
-
-	type Note = InferSelectModel<typeof notes>;
+	interface Note {
+		id: number;
+		title: string;
+		content: string;
+		userId: number;
+		createdAt: string;
+		updatedAt: string;
+	}
 
 	interface PageData {
 		notes: Note[];

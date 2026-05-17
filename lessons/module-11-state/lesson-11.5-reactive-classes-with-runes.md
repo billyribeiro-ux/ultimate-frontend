@@ -141,6 +141,41 @@ describe('CartStore', () => {
 
 You will sometimes want more than one instance of a store-like class. A "current cart" and a "saved for later" can both be instances of `CartStore`. In that case, do not export a singleton from the module — export the class and have each consumer construct it inside a context or a page. The same class, two instances, two independent reactive graphs. The Svelte compiler treats each instance as a fully separate subject.
 
+### 1.7 The `.svelte.ts` file extension
+
+Reactive classes must live in files with the `.svelte.ts` extension (not plain `.ts`). This signals to the Svelte compiler that the file contains runes (`$state`, `$derived`, `$effect`) and should be processed. A plain `.ts` file is not compiled by Svelte, so runes inside it will not work — they will be treated as ordinary function calls that do nothing.
+
+This is a common beginner mistake: creating `cart.ts` instead of `cart.svelte.ts`, wondering why state does not update, and spending an hour debugging. The rule: any file that uses runes outside a `.svelte` component must end in `.svelte.ts` (or `.svelte.js`).
+
+### 1.8 Combining reactive classes with context
+
+For cases where a store should be scoped to a component subtree (not global), combine the class with Svelte's context API:
+
+```ts
+// In a parent component:
+import { setContext } from 'svelte';
+const cart = new CartStore();
+setContext('cart', cart);
+
+// In a child component:
+import { getContext } from 'svelte';
+const cart = getContext<CartStore>('cart');
+```
+
+This gives you a fresh store per subtree instance. If you render two `<Dashboard />` components on the same page, each gets its own `CartStore` via context, completely independent. The singleton pattern (exported `const cart = new CartStore()`) is global — context-scoped stores are the alternative for when global is too broad.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, the reactive class pattern is what separates a maintainable state architecture from a spaghetti of scattered `$state` variables. Without classes, business rules are duplicated across components: each component that adds an item reimplements the "bump quantity on duplicate" logic. With classes, the rule exists once and every component calls the method. When the business rule changes (e.g., "cap quantity at 99"), you change one line in one file. Without classes, you hunt through 12 components and hope you found them all.
+
+**The mental model.** A reactive class is like a bank account with rules. The balance (`$state`) can only be modified through transactions (methods): `deposit()`, `withdraw()`, `transfer()`. You cannot reach into the vault and grab cash directly. The bank enforces rules: withdrawals cannot exceed the balance, deposits must be positive, transfers must have a valid recipient. The `$derived` fields are like your account statement: they are computed from the transaction history and are always accurate. If you bypassed the teller window and modified the ledger directly (mutated state without using methods), the statement would be wrong.
+
+**Edge cases.** The `this`-binding trap is the most common bug with reactive classes in Svelte templates. If you pass `cart.add` as an event handler reference (without wrapping in an arrow), `this` is lost and the method crashes. TypeScript does not catch this because the function signature is compatible — it is a runtime error only. Some teams adopt the convention of always defining methods as arrow-function class fields (`add = (item) => { ... }`) which lexically binds `this`. The trade-off: arrow methods cannot be overridden in subclasses and they use slightly more memory (one function per instance instead of one on the prototype). For stores (which are singletons), the memory difference is irrelevant.
+
+**Performance implications.** Each `$state` field on a class instance creates a reactive signal (or proxy for objects/arrays). Each `$derived` field creates a lazy computation node in the reactive graph. For a typical store with 3-5 state fields and 2-3 derived fields, this is negligible overhead. The performance advantage of reactive classes is indirect: by encapsulating mutations in methods, you prevent scattered writes that might trigger unnecessary re-renders. A single `add()` method that conditionally bumps quantity is one state write; the naive alternative (check if exists, then either push or modify quantity) might be two writes and two reactive notifications.
+
+**Connection to other modules.** Reactive classes build on Module 2 (`$state` and `$derived` fundamentals). They are the state management pattern used in Module 11 Lesson 11.10 (optimistic UI store), Module 11 Lessons 11.7-11.9 (TanStack Table integration where the data source is a reactive class), and the capstone project (global app state). Module 12 tests reactive classes with Vitest (Lesson 12.9). The pattern also composes with Module 9B's remote functions — a reactive class method can call a remote command and update its own state optimistically.
+
 ## 2. Style it — A live cart with count, total, and actions
 
 The mini-build displays a product list on the left and a cart card on the right showing three reactive fields: `count`, `total`, and `items.length`. Styling uses the PE7 grocery green accent (`oklch(70% 0.2 145)`), a sticky cart card on desktop, and a `prefers-reduced-motion`-safe pulse on the count badge.
