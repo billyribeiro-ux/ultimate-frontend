@@ -122,6 +122,18 @@ If you search "Svelte counter" on Google, the top results are still full of Svel
 
 Stick to the four rules above and you will always be writing current Svelte.
 
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, every component that allows user interaction contains at least one `$state` declaration. A dashboard might have 200 reactive primitives spread across dozens of components — toggle states, counters, selected tab indices, input values. If the mental model of "how do I make a value reactive?" is unclear, developers reach for workarounds: global stores for local state, prop drilling of setters, or manual DOM manipulation. Clear understanding of `$state` with primitives eliminates all of those anti-patterns and makes component-local state feel natural and safe.
+
+**The mental model.** Think of `$state(0)` as putting the value inside a glass box wired to an alarm. Anyone looking at the box (reading the variable in markup or a derived expression) gets a subscription to the alarm. Anyone replacing the contents of the box (reassigning the variable) triggers the alarm. The alarm only rings for observers who were actually looking. If you have a counter in one component and a toggle in another, the counter's alarm never rings for the toggle's observers. This per-variable granularity is what makes Svelte fast without a virtual DOM.
+
+**Edge cases.** A common surprise: `$state` with `undefined` as the initial value. `let value: string | undefined = $state(undefined)` is valid and useful for "not yet set" patterns. However, if you forget the type annotation, TypeScript infers `undefined` as a literal type and later rejects `value = 'hello'`. Always annotate when the initial value does not express the full intended type. Another edge case: using `$state` inside a `.ts` file (not a `.svelte` file). This works in Svelte 5 — the compiler processes `.svelte.ts` files — but you must name the file with the `.svelte.ts` extension. A plain `.ts` file does not get compiled by the Svelte plugin, and `$state` inside it will be treated as a syntax error.
+
+**Performance implications.** Each `$state` primitive creates one signal node in the reactive graph. The memory overhead is roughly 100-200 bytes per signal depending on the runtime. For typical applications (tens to low hundreds of state variables), this is unmeasurable. The reactivity update path — from signal write to DOM update — is a direct pointer chase with no diffing, no reconciliation, and no virtual DOM traversal. A single `count++` triggers exactly one text node update in the DOM. This direct-update architecture is why Svelte consistently benchmarks 2-10x faster than virtual-DOM frameworks on fine-grained updates.
+
+**Cross-module connections.** Primitive `$state` is the atom from which everything else is built. Module 3 uses it inside components for local interaction state. Module 5 uses it for tracking event-derived values (mouse position, scroll offset). Module 7 uses it as the bridge between GSAP animations and the reactive graph. Module 11 extracts it into `.svelte.ts` files for shared state across pages. Every time you see a reactive number, string, or boolean in this course, you are looking at the same mechanism introduced here.
+
 ## 2. Style it — The counter we couldn't build in Module 1
 
 The mini-build is the classic counter: a big number, a plus button, a minus button, a reset. PE7 tokens for colour and spacing. Buttons have a minimum 44×44 touch target. A small transition on the count number respects `prefers-reduced-motion`.

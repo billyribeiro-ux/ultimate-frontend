@@ -65,6 +65,18 @@ let config: Config = $state.raw(initialConfig);
 
 TypeScript does not care whether the state is proxied — the type is just the value's type.
 
+## Deep Dive
+
+**Why this matters at scale.** In production apps that handle large datasets — analytics dashboards, mapping applications, data visualization tools — the cost of deep proxying becomes measurable. A charting component that receives 50,000 data points and wraps each in a proxy wastes both memory (each proxy is an allocation) and CPU (trap setup on first access). Teams that know when to reach for `$state.raw` can keep their apps performant without abandoning Svelte's reactivity model entirely. The rule of thumb: if the data is fetched wholesale, rendered read-only, and replaced on refetch, `$state.raw` is the right tool.
+
+**The mental model.** Think of `$state.raw` as a mailbox. The mailbox itself is watched — when someone puts a new package in it (reassignment), observers are notified. But the contents of the package are not watched. Nobody cares if you open the package and rearrange the items inside — no alarm fires. This contrasts with deep `$state`, which is like a glass-walled room with motion sensors on every object: move anything and the alarm rings. The mailbox model is perfect for data that arrives as a complete unit and is consumed as a complete unit.
+
+**Edge cases.** A tricky scenario: you declare `let items = $state.raw(bigArray)` and then pass `items[0]` to a child component. That item is a plain object — mutations to it from the child will not trigger reactivity in the parent. This is correct behaviour but can surprise developers who switch between `$state` and `$state.raw`. Another edge case: `$state.raw` with a class instance. The instance's methods still work (they were never proxied), but calling a method that mutates internal state will not trigger a Svelte update. You must reassign the variable afterwards: `instance.doSomething(); instance = instance;` — this is a common pattern for Three.js or D3 objects where the library mutates internally and you need to tell Svelte "something changed."
+
+**Performance implications.** The difference between `$state` and `$state.raw` for a 10,000-item array is roughly 2-5ms of proxy creation time avoided on initial load, plus ~200KB less memory from avoided Proxy objects. For a 100-item array, the difference is unmeasurable. The break-even point depends on your performance budget, but as a rule: if your array has fewer than 500 items and you need to mutate individual items, use `$state`. If it has more than 1,000 items and you replace it wholesale, use `$state.raw`. The gray zone between 500-1,000 rarely matters in practice.
+
+**Cross-module connections.** `$state.raw` is the foundation for several patterns introduced later. Module 7 uses it for GSAP timeline instances and Three.js scenes that must not be proxied. Module 9 uses it for large server responses that are replaced on refetch. Module 12 revisits it explicitly in the performance optimization lesson, showing how to combine `$state.raw` with `$derived` for computed views over large datasets. The complementary tool `$state.snapshot` (Lesson 2.6) goes in the opposite direction — extracting a plain copy from a deep proxy — forming a complete toolkit for controlling when and where proxying happens.
+
 ## 2. Style it — A big list, two versions
 
 The mini-build shows the same list twice: once with deep `$state`, once with `$state.raw`. A button rebuilds each. Both versions use identical PE7 styling. The difference is measured via `performance.now()` and displayed as a small benchmark chip.
