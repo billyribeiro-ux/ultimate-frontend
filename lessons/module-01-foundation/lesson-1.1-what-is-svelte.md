@@ -95,6 +95,74 @@ The phrase "compile time" keeps appearing. Let us make it concrete. When you run
 
 This entire process takes 10-50 milliseconds on a modern machine. You save the file and the browser updates before your eyes have time to look at it. That is the developer experience of a compiled framework: the compiler does heavy work fast, during development, so the browser does minimal work at runtime.
 
+### 1.8 What the compiler does — a closer look at the compiled output
+
+Understanding what the Svelte compiler produces helps you reason about performance and debug unexpected behaviour. Consider this simple component:
+
+```svelte
+<script lang="ts">
+    const name: string = 'Ada';
+</script>
+
+<p>Hello, {name}!</p>
+```
+
+The compiler turns this into roughly the following JavaScript (simplified for readability):
+
+```js
+// Compiled output (simplified)
+import { template, text, append } from 'svelte/internal/client';
+
+const root = template('<p> </p>');
+
+export default function Hello_component($$anchor) {
+    const name = 'Ada';
+    const p = root();
+    const text_node = p.firstChild;
+    text_node.data = `Hello, ${name}!`;
+    append($$anchor, p);
+}
+```
+
+Notice three things about this compiled output. First, there is no "Svelte runtime" object that manages a virtual DOM. The compiled code directly creates DOM nodes using the `template` helper, which internally uses the browser's native `<template>` element for fast cloning. Second, the variable `name` is used directly — there is no wrapper, no proxy, no observable. Because `name` is a constant (not reactive state), the compiler knows it never changes and generates no update path for it. Third, the CSS scoping happens during compilation too — the compiler rewrites selectors and adds hash classes before anything reaches the browser. The output CSS is a plain stylesheet, not JavaScript-injected styles.
+
+The compiler makes these choices because it can see the *entire* component at once. A runtime framework cannot make these choices because it only sees component code at execution time, when it is too late to optimize statically. This is the fundamental advantage of compilation: move work from the user's device to the developer's device.
+
+### 1.9 "In production" — why a real team chose Svelte
+
+At a 50-developer e-commerce company, the frontend team migrated a product catalogue page from React to SvelteKit. The React version shipped 127 KB of compressed JavaScript — 42 KB was React itself plus ReactDOM, and 85 KB was application code including several third-party state management libraries. After rewriting in Svelte, the total dropped to 38 KB. The page's Largest Contentful Paint (LCP) improved by 1.4 seconds on median 4G connections. The team spent less time optimising because Svelte's compiled output was already small. The key learning: Svelte did not just reduce bundle size — it eliminated entire categories of performance work. The team no longer needed `React.memo`, `useMemo`, `useCallback`, or code-splitting boundaries for the framework itself. When a new developer joined, they could understand the component model in a day because there was no runtime API surface to learn beyond the runes.
+
+### 1.10 The TypeScript angle
+
+Even in Lesson 1.1, TypeScript is quietly protecting you. The three constants in the mini-build are annotated with explicit types:
+
+```ts
+const courseName: string = 'Ultimate Frontend';
+const lessonNumber: number = 1;
+const isUniversityLevel: boolean = true;
+```
+
+Without TypeScript, you could accidentally write `const lessonNumber = '1'` (a string) and later try to do arithmetic: `lessonNumber + 1` would produce `'11'` instead of `2`. The type annotation catches this at compile time. In a plain JavaScript file, the bug is silent — the page renders "11" and nobody notices until a user files a ticket. TypeScript makes the compiler your first code reviewer. It checks every line before the code reaches the browser.
+
+### 1.11 Comparing Svelte to other frameworks
+
+| Feature | Svelte 5 | React 19 | Vue 3 | Angular 19 |
+|---|---|---|---|---|
+| Runtime shipped to browser | ~2-4 KB shared | ~42 KB | ~33 KB | ~65 KB |
+| Reactivity model | Compiler-generated signals | Virtual DOM + diffing | Proxy-based | Zone.js + signals |
+| Template syntax | Enhanced HTML | JSX (JavaScript) | SFC template | Angular template |
+| CSS scoping | Built-in hash | CSS Modules / styled-components | Scoped `<style>` | ViewEncapsulation |
+| TypeScript support | First-class via `lang="ts"` | First-class | First-class | Built on TS |
+| Compile-time optimisation | Full | Partial (React Compiler) | Partial (Vapor mode) | Partial (Ivy) |
+
+Each framework makes valid engineering choices. Svelte's differentiator is that more work happens at compile time, leaving less for the browser.
+
+### 1.12 Common interview question
+
+**Q: "Explain what it means for Svelte to be a compiled framework, and what concrete advantage that gives over a runtime framework like React."**
+
+**Model answer:** Svelte runs a compiler during the build step that transforms `.svelte` files into plain JavaScript and CSS. The compiler can see every component's template, state, and styles together, so it generates the minimum code needed to create and update the specific DOM nodes in that component. At runtime there is no framework library to download — the output is self-contained. React, by contrast, ships a runtime (~42 KB) that must interpret your component code at runtime, maintain a virtual DOM, and diff it on every state change. Svelte's approach results in smaller bundles (30-70% smaller for equivalent apps), faster initial paint (less JavaScript to parse), and more efficient updates (direct DOM mutations instead of virtual DOM reconciliation). The trade-off is that Svelte requires a compile step — you cannot drop a Svelte component into a plain HTML file the way you can with a React script tag.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 50-component, 20-route production application, the framework choice determines the baseline performance budget, the developer experience, and the long-term maintainability of the codebase. Svelte's compiled model produces bundles that are 30-70% smaller than equivalent React or Vue applications because there is no framework runtime to ship. In concrete terms: a React app with 50 components ships ~45 KB of React + ReactDOM + your 50 components. A Svelte app with 50 components ships only your 50 components (compiled into optimized JS). The framework cost is zero at runtime. For a mobile user on a slow connection, this translates to 200-500ms faster First Contentful Paint — a difference users can feel.
@@ -106,6 +174,18 @@ This entire process takes 10-50 milliseconds on a modern machine. You save the f
 **Performance implications.** Bundle size directly correlates with three Core Web Vitals metrics. Smaller bundles mean faster download (better LCP), faster parsing (better INP because the main thread is free sooner), and fewer bytes over the wire (lower hosting costs at scale). In benchmarks, Svelte 5 consistently produces smaller bundles and faster update performance than React, Vue, or Angular for equivalent UIs. The April 2026 version's signal-based reactivity system (runes) further reduces the per-component overhead by eliminating the diffing step entirely — when state changes, only the specific DOM nodes that reference that state are updated.
 
 **Connection to other modules.** The compile model introduced here is the foundation for everything that follows. Module 2 uses it to explain why runes are syntactically lightweight (the compiler does the heavy lifting). Module 6 uses it to explain how CSS scoping works (the compiler adds hashes). Module 7 uses it to explain why DOM references (`bind:this`) are safe in effects (the compiler schedules them correctly). Module 8 uses it to explain SSR (the compiler produces both a client and a server render function from the same source). Module 12 uses it to explain why Svelte has a structural performance advantage. Understanding compilation deeply — not just "it makes the code smaller" but "it enables targeted DOM updates with zero abstraction cost" — is what separates a Svelte developer who uses the framework from one who understands it.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/overview](https://svelte.dev/docs/svelte/overview) — the official introduction to Svelte's compilation model and component structure.
+- [svelte.dev/docs/kit/introduction](https://svelte.dev/docs/kit/introduction) — SvelteKit's architecture overview, explaining how the app framework layers on top of the component compiler.
+- [svelte.dev/docs/svelte/svelte-compiler](https://svelte.dev/docs/svelte/svelte-compiler) — the compiler API, showing how `compile()` and `parse()` work under the hood if you ever need to build tooling.
+
+**Advanced pattern: inspecting the compiled output yourself.** You can see exactly what the Svelte compiler produces for any component by visiting the [Svelte REPL](https://svelte.dev/playground) and clicking the "JS Output" or "CSS Output" tabs. Write a component with a `$state` variable and observe how the compiler generates signal reads and writes. Then change the variable to a plain `const` and watch the signal code disappear. This exercise builds deep intuition for what runes actually cost — and what they do not cost.
+
+**Challenge question (combines Lesson 1.1 + Lesson 1.3 + Lesson 1.5):** A teammate argues that Svelte's compilation step is just "an extra thing that can break" compared to React's simpler model where you just ship JSX and a runtime. Write a three-point response explaining why the compilation step actually *reduces* the number of things that can break, considering: (a) bundle size and parsing time on slow devices, (b) CSS scoping without a runtime, and (c) unused-selector warnings that act as free dead-code detection for styles.
 
 ## 2. Style it — The PE7 baseline that you will use forever
 

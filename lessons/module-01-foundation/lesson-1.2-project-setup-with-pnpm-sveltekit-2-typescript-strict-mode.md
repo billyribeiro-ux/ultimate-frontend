@@ -49,7 +49,84 @@ The command `pnpm create svelte@latest my-app` runs the official SvelteKit scaff
 
 After the scaffolder finishes, you `cd` into the folder, run `pnpm install` to download dependencies, and then `pnpm dev` to launch the development server. Vite prints a URL — usually `http://localhost:5173` — and you open it. If everything worked, you see the SvelteKit welcome page. Congratulations: the toolchain has disappeared and you can start writing code.
 
-### 1.5 What you will *not* do in this lesson
+### 1.5 What the scaffolder gives you — file by file
+
+After running the scaffolder, your project folder contains about a dozen files. Here is what each one does so you know which to ignore and which to watch:
+
+| File | Purpose | Touch it? |
+|---|---|---|
+| `package.json` | Lists your dependencies and scripts (`dev`, `build`, `preview`) | Not yet |
+| `pnpm-lock.yaml` | The lockfile — exact versions of every dependency | Never manually |
+| `svelte.config.js` | Tells Vite how to process `.svelte` files | Not yet |
+| `vite.config.ts` | Vite's own config; SvelteKit pre-fills it | Not yet |
+| `tsconfig.json` | TypeScript settings; `strict: true` is already set | Not yet |
+| `src/app.html` | The HTML shell; SvelteKit injects content at `%sveltekit.body%` | Rarely |
+| `src/app.css` | Global styles — PE7 tokens will live here from Lesson 1.5 | Yes, in Lesson 1.5 |
+| `src/routes/+page.svelte` | The welcome page at `/` | Yes, immediately |
+| `.eslintrc.cjs` / `.prettierrc` | Code quality configs | Not yet |
+
+### 1.6 What the compiler does during `pnpm dev`
+
+When you run `pnpm dev`, the following chain fires:
+
+1. **pnpm** reads `package.json` and finds the `dev` script.
+2. The `dev` script runs **Vite** via the SvelteKit CLI.
+3. Vite starts a development server and watches every file under `src/`.
+4. When you save a `.svelte` file, Vite calls the **Svelte compiler** through the `@sveltejs/vite-plugin-svelte` plugin.
+5. The compiler reads your three blocks (`<script>`, markup, `<style>`), performs type checking if `lang="ts"` is present, and emits one `.js` module and one `.css` chunk.
+6. Vite performs **Hot Module Replacement (HMR)**: it sends the new module to the browser over a WebSocket, and the page updates without a full reload.
+
+The entire round trip from save to browser update is 10-50 ms on a modern machine. Understanding this chain helps you diagnose problems: if the browser does not update, is it Vite (check the terminal for errors), the compiler (check for syntax errors), or the browser (check the console for runtime errors)?
+
+### 1.7 "In production" — why a team locked their toolchain down
+
+At a 50-developer fintech company, the frontend team spent their first sprint "just getting the project running." One developer used npm, another used yarn, a third had a different Node version. The lockfiles diverged. A package that worked on one machine silently failed on another because npm hoisted a transitive dependency that pnpm would have blocked. After a week of phantom bugs, the tech lead added a `.npmrc` with `engine-strict=true`, pinned Node via `.node-version`, and enforced pnpm with a `preinstall` script. The next six months of development had zero "works on my machine" bugs related to dependencies. The takeaway: five minutes of toolchain discipline on day one saves weeks of debugging later. This lesson is that five-minute investment.
+
+### 1.8 The TypeScript angle — what strict mode catches on day one
+
+Consider this innocent-looking function:
+
+```ts
+function greet(name) {
+    return `Hello, ${name.toUpperCase()}!`;
+}
+greet(undefined); // Runtime crash: Cannot read properties of undefined
+```
+
+Without strict mode, TypeScript infers `name` as `any` and raises no error. With `strict: true`, TypeScript refuses to compile the function without an explicit parameter type. Once you annotate `name: string`, calling `greet(undefined)` becomes a compile error. That one setting — `strict: true` — would have caught the crash before any code reached the browser. Strict mode is not extra work; it is less debugging.
+
+Another example specific to Svelte:
+
+```ts
+// Without strict mode, this compiles silently:
+let count = null;
+count.toFixed(2); // Runtime: Cannot read properties of null
+
+// With strictNullChecks (part of strict: true):
+let count: number | null = null;
+count.toFixed(2); // Compile error: 'count' is possibly 'null'
+```
+
+### 1.9 Comparing package managers
+
+| Feature | npm | yarn | pnpm |
+|---|---|---|---|
+| Ships with Node | Yes | No | No |
+| Disk usage for 10 projects sharing packages | 10x (copies) | 10x (copies) | 1x (symlinks) |
+| Install speed (warm cache) | Moderate | Moderate | Fast |
+| Strict dependency resolution | No | No | Yes by default |
+| Lockfile format | `package-lock.json` | `yarn.lock` | `pnpm-lock.yaml` |
+| Phantom dependency protection | No | No | Yes |
+
+A **phantom dependency** is a package your code imports but does not declare in `package.json`. With npm, it works because npm flattens `node_modules`. With pnpm, it fails immediately because pnpm's symlink structure only exposes declared dependencies. This strictness catches bugs before they reach CI.
+
+### 1.10 Common interview question
+
+**Q: "Why would a team choose pnpm over npm for a monorepo or a multi-project setup?"**
+
+**Model answer:** pnpm stores every package version once in a global content-addressable store and creates symlinks in each project's `node_modules`. For a monorepo with 20 packages, this can reduce disk usage by 80% and install times by 60%. More importantly, pnpm enforces strict dependency resolution: if a package is not declared in your `package.json`, your code cannot import it, even if it exists as a transitive dependency. This prevents "phantom dependency" bugs where code works locally but fails in CI or on a teammate's machine because they have a different `node_modules` layout. npm allows these phantom imports because it hoists dependencies into a flat structure, making undeclared packages accidentally available.
+
+### 1.11 What you will *not* do in this lesson
 
 You are not going to configure Node, npm, pnpm, Vite, or TypeScript by hand. You are not going to memorise `tsconfig.json` settings. Every configuration file the scaffolder gives you is already correct for this course, and you should leave them alone until a later lesson specifically tells you to touch them. Focus on one thing: **getting a green dev server on your machine**.
 
@@ -64,6 +141,18 @@ You are not going to configure Node, npm, pnpm, Vite, or TypeScript by hand. You
 **Performance.** pnpm's content-addressable store means `pnpm install` on a warm cache completes in seconds, not minutes. For a team of ten developers each running install multiple times per day, this saves hours per week of cumulative wait time. The symlink structure also means your `node_modules` is smaller on disk, which speeds up file-watchers like Vite's — fewer files to scan means faster hot-module replacement. TypeScript's strict mode adds negligible compilation overhead (the type checker does roughly the same work regardless of strictness level; strict mode just surfaces more of its findings as errors).
 
 **Cross-module connections.** The project structure you scaffold here is referenced in every subsequent module. Module 8 (routing) depends on the file-based routing conventions SvelteKit established in this scaffold. Module 12 (performance) uses Vitest and Playwright, which you opted into during setup. Module 10 (API routes) uses the `+server.ts` convention that only exists because you chose SvelteKit rather than plain Svelte. The TypeScript strict config pays dividends most visibly in Module 3 (component props), where every prop contract is enforced by the type checker, and Module 9 (load functions), where the auto-generated types depend on strict mode being enabled.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/kit/creating-a-project](https://svelte.dev/docs/kit/creating-a-project) — the official guide to scaffolding a SvelteKit project, including all the scaffolder options.
+- [svelte.dev/docs/kit/project-structure](https://svelte.dev/docs/kit/project-structure) — a map of every file and folder SvelteKit expects, with explanations.
+- [pnpm.io/motivation](https://pnpm.io/motivation) — pnpm's own explanation of why it exists and how its content-addressable store works.
+
+**Advanced pattern: workspace monorepos with pnpm.** As your project grows, you may want to split code into packages — a component library, a shared types package, and the app itself. pnpm has first-class support for workspaces: add a `pnpm-workspace.yaml` file listing your packages, and pnpm links them together with symlinks. You can import from `@my-org/components` as if it were a published package, but edits are instant because the link points to your local source. This pattern is how large Svelte teams structure their codebases.
+
+**Challenge question (combines Lesson 1.2 + Lesson 1.1 + Lesson 1.4):** A colleague creates a new SvelteKit project but chooses "No" for TypeScript during the scaffolder prompts. They write `<script>` blocks without `lang="ts"`. Later, they try to add TypeScript by renaming files to `.ts`. Explain why this does not work, what they should have done differently, and what specific class of bugs they missed during the weeks they worked without strict mode.
 
 ## 2. Style it — There is nothing to style yet
 

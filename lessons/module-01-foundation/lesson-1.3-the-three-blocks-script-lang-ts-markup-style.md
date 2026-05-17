@@ -67,7 +67,94 @@ A short, unambiguous taxonomy:
 
 The mistakes beginners make almost always come from confusing markup with script. For example, writing `let count = 0` inside the markup block will do nothing — the compiler will simply emit the literal text "let count = 0" into the DOM. Writing `{background: red}` inside the script block is a syntax error. When something looks wrong, ask yourself: *which block is this in?*
 
-### 1.5 The April 2026 difference
+### 1.5 What the compiler does with the three blocks
+
+Let us trace what happens to each block during compilation. Consider this component:
+
+```svelte
+<script lang="ts">
+    const greeting: string = 'Hello';
+</script>
+
+<p class="text">{greeting}</p>
+
+<style>
+    .text { color: var(--color-brand); font-weight: 600; }
+</style>
+```
+
+The Svelte compiler processes all three blocks simultaneously and produces two outputs:
+
+**JavaScript output (simplified):**
+```js
+import { template, text, append } from 'svelte/internal/client';
+
+const root = template('<p class="text svelte-a1b2c3"> </p>');
+
+export default function Component($$anchor) {
+    const greeting = 'Hello';
+    const p = root();
+    const textNode = p.firstChild;
+    textNode.data = greeting;
+    append($$anchor, p);
+}
+```
+
+**CSS output:**
+```css
+.text.svelte-a1b2c3 { color: var(--color-brand); font-weight: 600; }
+```
+
+Three transformations happened. First, the script block's TypeScript was stripped to plain JavaScript (types are erased). Second, the markup became direct DOM instructions — `template()` uses a native `<template>` element for fast cloning, and the expression `{greeting}` became a text-node assignment. Third, the style block was extracted into a separate CSS file with the hash `svelte-a1b2c3` appended to every selector. The compiler chose the hash based on the file's content, so two different files always get different hashes.
+
+The key insight: the compiler does not process the blocks in order (script, then markup, then style). It reads all three together because it needs cross-block information. It needs to know which script variables the markup references (to generate update code). It needs to know which markup elements the style selectors target (to add hashes). This holistic view is what makes the compiled output so efficient.
+
+### 1.6 "In production" — how the three-block model saved a redesign
+
+At a 50-developer media company, the design team requested a full visual refresh of the article card component — new colours, new spacing, new typography. In the old React codebase, the card's styles lived in a CSS module (`ArticleCard.module.css`), its logic in a `.tsx` file, and its tests referenced class names from both. Changing the design meant updating three files, verifying the class name imports still matched, and hoping no other component had accidentally imported the same module. The process took two days and three rounds of code review.
+
+After the migration to Svelte, the same change was a single-file edit. The developer opened `ArticleCard.svelte`, changed the `<style>` block, verified the markup still referenced the same class names (which were two lines above the style), and submitted. One file, one review, 45 minutes. The three-block model did not make the developer more skilled. It made the task structurally simpler by eliminating cross-file coordination.
+
+### 1.7 The TypeScript angle — why `lang="ts"` changes everything
+
+Compare these two script blocks:
+
+```svelte
+<!-- Without lang="ts" -->
+<script>
+    let count = 0;
+    count = 'five'; // No error — JavaScript accepts this silently
+</script>
+
+<!-- With lang="ts" -->
+<script lang="ts">
+    let count: number = 0;
+    count = 'five'; // Error: Type 'string' is not assignable to type 'number'
+</script>
+```
+
+Without `lang="ts"`, the Svelte compiler treats the block as plain JavaScript. No type checking runs. No editor squigglies appear. The developer gets zero feedback about type mismatches until a user encounters a crash. With `lang="ts"`, the compiler pipes the script through TypeScript's checker *before* stripping types. Every annotation is verified. Every type mismatch becomes a red underline in your editor *and* a compile-time error in your terminal.
+
+The critical detail: `lang="ts"` also enables type checking *across* the markup block. Template expressions like `{count.toFixed(2)}` are type-checked — if `count` were typed as `string`, the compiler would flag that `toFixed` does not exist on strings. This cross-block type checking only works when the script block has `lang="ts"`.
+
+### 1.8 Comparison: block structures across frameworks
+
+| Framework | Logic block | Template block | Style block |
+|---|---|---|---|
+| Svelte 5 | `<script lang="ts">` | Inline markup (HTML + `{}`) | `<style>` (auto-scoped) |
+| Vue 3 | `<script setup lang="ts">` | `<template>` | `<style scoped>` |
+| React | Function body | JSX return value | External CSS / CSS-in-JS |
+| Angular | `.ts` class file | `.html` template file | `.css` / `.scss` file |
+
+Svelte and Vue are the only two that put all three concerns in one file by default. React splits logic and template into one file (via JSX) but separates styles. Angular separates all three into different files. Svelte's approach is the most compact because it has no wrapper (`<template>` tag in Vue) and no function-return boilerplate (JSX in React).
+
+### 1.9 Common interview question
+
+**Q: "In a Svelte component, the script block runs once per component instance. What does that mean, and how is it different from a plain `<script>` tag in HTML?"**
+
+**Model answer:** A plain HTML `<script>` tag runs once when the browser encounters it during page parsing — it is a global, page-level execution. A Svelte component's `<script>` block is compiled into a function that runs once per component instance — every time a component is created (mounted into the DOM), its script runs again with fresh variable scopes. If you render `<MyComponent />` three times on a page, the script block runs three times, each with its own independent set of variables. This is fundamentally different from a global script that runs once per page load. It is also different from React, where the function body runs on *every* render, not just on mount. In Svelte 5, the script block runs once at creation time, and subsequent updates are handled by the reactive system (runes) without re-executing the entire script.
+
+### 1.10 The April 2026 difference
 
 Older Svelte (3 and 4) had a fourth block pattern: a `<script context="module">` block for code that should run once per module rather than once per instance. In Svelte 5 this is replaced by simply importing from a regular `.ts` file or a `.svelte.ts` file (Module 11). You will not need a `context="module"` block anywhere in this course, and if you see one online it is older code.
 
@@ -84,6 +171,18 @@ Also: the script must be typed. `<script>` without `lang="ts"` is not an error i
 **Performance.** The three-block architecture has zero runtime cost. At compile time, Svelte extracts the style block into a separate `.css` file (or inlines it, depending on adapter configuration), which the browser loads and caches independently. The script block compiles to a lean JavaScript module with no framework overhead. The markup block compiles to direct DOM instructions — no virtual DOM diffing, no template parsing at runtime. This means that adding a style block to a component does not increase JavaScript bundle size at all; it only adds to the CSS bundle, which the browser processes on a separate thread.
 
 **Cross-module connections.** The three-block model underpins everything in this course. Module 2 (reactivity) lives entirely in the script block. Module 6 (styling) lives entirely in the style block. Module 4 (control flow) lives in the markup block. Module 3 (components) shows how the three blocks compose hierarchically when components nest inside each other. Understanding that the blocks are processed together at compile time — not sequentially at runtime — is essential for debugging the reactive system in Module 2, where students often wonder "why did my `$effect` run before the DOM updated?" The answer is always rooted in understanding the compile-time relationship between the script and markup blocks.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/overview](https://svelte.dev/docs/svelte/overview) — covers the component structure and the role of each block.
+- [svelte.dev/docs/svelte/svelte-files](https://svelte.dev/docs/svelte/svelte-files) — details on what is allowed in each block, including edge cases like multiple script tags.
+- [svelte.dev/docs/svelte/basic-markup](https://svelte.dev/docs/svelte/basic-markup) — the full syntax reference for Svelte's enhanced HTML markup.
+
+**Advanced pattern: module-level code in `.svelte.ts` files.** When you need code that runs once per module (not once per component instance) — for example, a shared counter or a singleton WebSocket connection — create a `.svelte.ts` file in `src/lib/`. The `.svelte.ts` extension tells the Svelte compiler to process runes in the file, but unlike a component's script block, the code runs once when the module is first imported. This is the Svelte 5 replacement for the old `<script context="module">` block. You will use this extensively in Module 11.
+
+**Challenge question (combines Lesson 1.3 + Lesson 1.1 + Lesson 1.7):** A developer puts a global CSS reset (`* { margin: 0; box-sizing: border-box; }`) inside a component's `<style>` block. Explain why this does not work as expected, what the compiled CSS looks like, and where global resets should live instead.
 
 ## 2. Style it — Colour the three blocks visually
 
