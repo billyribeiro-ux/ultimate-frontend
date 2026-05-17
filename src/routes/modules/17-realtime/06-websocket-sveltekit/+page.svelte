@@ -9,8 +9,6 @@
 	 *
 	 * See lesson-17.6-websocket-sveltekit.md for the real server setup.
 	 */
-	import type { WSServerMessage, WSClientMessage } from '$lib/realtime/types.js';
-
 	type ReadyState = 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED';
 
 	interface DisplayMessage {

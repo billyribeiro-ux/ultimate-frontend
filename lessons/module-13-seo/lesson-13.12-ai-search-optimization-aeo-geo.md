@@ -57,6 +57,40 @@ A site that covers twenty things superficially loses to a site that covers five 
 
 For this course, the capstone's scoped domain (one PE7 marketing site + dashboard) is itself an AEO play. Twenty pages about one topic outrank fifty pages about everything.
 
+### 1.6 Writing content that AI engines want to cite
+
+AI engines extract content differently from traditional crawlers. They look for:
+
+- **Definitional sentences.** "X is Y" patterns at the start of a section. An AI generating an answer to "What is AEO?" will lift a sentence that starts "AEO is..." directly.
+- **Lists and tables.** Structured information is easier for AI to extract and reformat than flowing prose. Use bullet points for features, tables for comparisons.
+- **Source citations.** Pages that cite other authoritative sources are themselves considered more trustworthy. Link to research, official documentation, and primary sources.
+- **Recency signals.** A visible "Last updated: 2026-04-15" with a `dateModified` in the schema tells AI engines this information is current. Stale pages lose citation priority.
+- **First-person expertise.** "In our testing of 50 SvelteKit deployments..." signals original research, which AI engines prefer over content that merely summarizes other sources.
+
+### 1.7 The relationship between AEO and traditional SEO
+
+AEO does not replace SEO — it extends it. Every AEO technique *also* helps traditional ranking:
+
+- Structured headings improve SEO passage indexing.
+- FAQ schema creates rich snippets in traditional results.
+- Clear definitional answers improve featured snippet likelihood.
+- Topical depth builds domain authority for link-based ranking.
+- Fast, accessible pages (Core Web Vitals) are required for both AI Overview inclusion and traditional ranking.
+
+The only AEO-specific technique that has no traditional SEO benefit is optimizing for citation format — making your content "quotable" in a way that AI engines prefer to extract. This is a bonus, not a trade-off.
+
+## Deep Dive
+
+**Why this matters at scale.** AI Overviews now appear on 25-40% of informational queries. For sites that depend on organic search traffic for revenue (blogs, SaaS documentation, e-commerce guides), losing visibility in Overviews means losing traffic to competitors who are cited instead. Conversely, being cited in an AI Overview can produce traffic equivalent to a top-3 organic ranking — from a single well-structured page. For a 20-page content site, optimizing the top 5 pages for AEO can produce measurable traffic increases within weeks of the pages being recrawled.
+
+**The mental model.** Traditional SEO is like placing an ad in a newspaper's classifieds section — you want your listing to appear when someone searches. AEO is like being quoted in the newspaper's editorial section — the journalist (AI engine) writes the article, and your content is one of the sources they cite. Being quoted is more valuable than being listed because readers trust editorial citations more than classified ads. To be quote-worthy, your content must be authoritative, specific, clearly structured, and directly answer the question the journalist (AI) is addressing.
+
+**Edge cases.** AI Overviews can cite content that contradicts other cited sources — they synthesize, not just extract. This means your page might be cited alongside a competitor with a different opinion. Ensure your content is clearly attributed (author name, credentials, methodology) so the AI can accurately represent your position. Another edge case: AI engines may paraphrase rather than quote directly. Your structured data (JSON-LD) and clear formatting increase the chances of accurate extraction, but you cannot control how the AI ultimately presents your information. Focus on being the best source, not on controlling the output.
+
+**Performance implications.** AEO has zero direct performance cost — it is a content strategy, not a technical implementation. The technical implementations (FAQPage schema, structured headings, dateModified meta) are all zero-cost additions to the HTML. The indirect performance consideration: AI engines (like Google) penalize slow pages in their source selection. A page with poor Core Web Vitals is less likely to be cited in an AI Overview than an identical page with good scores. This means Module 12's performance optimizations directly support AEO success.
+
+**Connection to other modules.** AEO builds on Module 8 (SSR — AI engines read the HTML, not JavaScript-rendered content), Module 13 Lesson 13.6 (JSON-LD — FAQPage schema is the primary AEO signal), Module 13 Lesson 13.7 (E-E-A-T — expertise signals increase citation likelihood), and Module 12 (Core Web Vitals — fast pages are preferred sources). The capstone project includes an FAQ section with FAQPage schema, structured headings that match target queries, and visible freshness signals — a complete AEO implementation.
+
 ## 2. Style it — the FAQ section as a component
 
 The mini-build is a page with a visible FAQ accordion that doubles as FAQPage schema. The accordion uses `<details>` / `<summary>` — accessible by default, no JS needed, and the plain text inside is fully indexable. PE7 tokens give it the open/closed visual states.
