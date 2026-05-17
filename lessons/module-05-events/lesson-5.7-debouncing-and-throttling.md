@@ -97,6 +97,76 @@ Ask one question: **do I want the last value or do I want regular updates?**
 - If you want the last value (user stopped typing), use **debounce**.
 - If you want regular updates during continuous activity (scroll position, resize), use **throttle**.
 
+### 1.7 Using debounce and throttle with Svelte 5 runes
+
+In a Svelte 5 component, debounce and throttle wrap event handlers or functions called from handlers. The wrapped function can freely read and write `$state` variables because closures work identically with runes:
+
+```svelte
+<script lang="ts">
+    let query: string = $state('');
+    let requestCount: number = $state(0);
+
+    async function sendQuery(q: string): Promise<void> {
+        requestCount += 1;
+        // fetch results...
+    }
+
+    const debouncedSearch = debounce((q: string) => sendQuery(q), 300);
+</script>
+
+<input type="search" value={query} oninput={(e) => {
+    query = (e.target as HTMLInputElement).value;
+    debouncedSearch(query);
+}} />
+```
+
+Notice that `query` is updated immediately (so the input reflects every keystroke) but the network call is debounced. This separation — immediate UI feedback, debounced side effects — is the standard pattern for search inputs.
+
+### 1.8 Cleanup considerations in SvelteKit
+
+When a component unmounts (user navigates away), any pending debounced call should ideally be cancelled. Otherwise, the timer fires after the component is gone, tries to set state on a destroyed component, and at best does nothing — at worst throws an error. The fix is to store the debounced function's timer and clear it in an `$effect` cleanup:
+
+```ts
+$effect(() => {
+    return () => {
+        // Cancel any pending debounced calls on unmount
+        clearTimeout(debouncedSearch.timer);
+    };
+});
+```
+
+Or better: build the debounce *inside* the effect so cleanup is automatic:
+
+```ts
+$effect(() => {
+    const timer = setTimeout(() => sendQuery(query), 300);
+    return () => clearTimeout(timer);
+});
+```
+
+This version re-creates the timer on every `query` change and cancels the old one via cleanup — which is exactly what debounce does, expressed as a reactive pattern rather than a standalone utility. Both approaches are valid; the standalone utility is more portable and testable, while the effect version is more Svelte-idiomatic.
+
+### 1.9 Advanced: leading-edge throttle and trailing-edge debounce
+
+The simple implementations in this lesson handle the most common cases. Production code sometimes needs variants:
+
+- **Leading debounce**: fires on the *first* event, then ignores events for `delay` ms. Useful for double-click prevention.
+- **Trailing throttle**: fires at most once per interval, but always fires the last event (even if it happened during cooldown). Useful for resize handlers where you need both regular updates *and* the final size.
+
+Libraries like `lodash` provide these variants with options objects. For this course, the simple versions are sufficient — but knowing the vocabulary helps when you encounter `{ leading: true, trailing: false }` in production code.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app, unthrottled event handlers are the primary cause of poor INP scores and unnecessary server load. A search input without debounce sends a request per keystroke — at 60 WPM that is 5 requests per second per user. Multiply by concurrent users and you overwhelm your API. A scroll handler without throttle runs layout calculations 60+ times per second and makes the page janky. Debounce and throttle are not optimizations you add later — they are architectural decisions you make on day one for any handler connected to continuous input.
+
+**The mental model.** Debounce is a patient secretary who waits until the phone stops ringing before answering. Throttle is a revolving door that lets one person through per rotation. Both reduce throughput, but for different reasons: the secretary gives you the final, complete message; the revolving door gives you a regular sample of who is arriving. Choose the secretary (debounce) when you want the final value. Choose the revolving door (throttle) when you want ongoing updates without overwhelming the system.
+
+**Edge cases.** The simple debounce cancels the timer on every new call, which means it can be starved — if events never stop for `delay` ms, the function never fires. In extreme cases (a very fast typist, an API that streams frequent updates), you might need a combination: debounce with a maximum wait (`maxWait` option in lodash). The simple throttle ignores the trailing event, which means the final state might be missed. For scroll position tracking, this means the scroll handler might not fire at the exact scroll end position. If precision at the final value matters, use a trailing throttle.
+
+**Performance implications.** Debounce reduces function calls from N (one per event) to 1 (after quiet period). Throttle reduces them from N to N/delay (one per interval). For a search input handling "svelte" (6 chars at 50ms spacing = 300ms total), debounce with 300ms delay fires exactly 1 call instead of 6 — an 83% reduction in server load. For a scroll handler firing at 60fps during a 2-second scroll, throttle at 100ms fires 20 calls instead of 120 — an 83% reduction in main-thread work. These are not theoretical — they directly translate to better INP scores and lower server costs.
+
+**Connection to other modules.** Debounce appears in Module 9A (preventing redundant load function invalidations), Module 9B (rate-limiting remote function calls), Module 10 (form validation as the user types), Module 11 (URL-as-state with debounced `pushState`), and Module 12 (INP optimization for heavy event handlers). Throttle appears in Module 7 (scroll-driven GSAP updates), Module 12 (resize observers), and the capstone project (live dashboard polling). These two primitives, built from closures, are the universal rate-limiters of front-end programming.
+
 ## 2. Style it — A search box with a result counter
 
 The mini-build is a simple search input wired to a simulated network call. Per-page colour: `oklch(70% 0.2 90)` (yellow-green). Show a "requests made" counter so the student can see debouncing work. Mobile first, 44 px target on the input.

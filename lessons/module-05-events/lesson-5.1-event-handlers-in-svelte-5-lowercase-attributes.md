@@ -76,7 +76,33 @@ If you search "svelte click handler" on Google, many results will still show you
 
 Two things to notice. First, the colon. Second, the pipe modifier (`|preventDefault`). Both are gone. In Svelte 5 you use the lowercase attribute name and you call `event.preventDefault()` yourself inside the handler — you will learn that in Lesson 5.4. The old syntax still *works* in Svelte 5.55 as a compatibility shim, but every codebase is migrating away from it, and this course uses the new spelling exclusively. When you see `on:click` in the wild, treat it as a signal that the tutorial is at least a year out of date.
 
-### 1.5 Handlers are ordinary JavaScript functions
+### 1.5 Typing event handlers
+
+When a handler receives the event object, TypeScript needs to know its type. For DOM events, use the specific event type: `MouseEvent` for `onclick`, `KeyboardEvent` for `onkeydown`, `InputEvent` for `oninput`, `SubmitEvent` for `onsubmit`, `FocusEvent` for `onfocus`/`onblur`, `PointerEvent` for `onpointerdown`.
+
+```ts
+function handleClick(event: MouseEvent): void {
+    console.log(event.clientX, event.clientY);
+    const target = event.currentTarget as HTMLButtonElement;
+    console.log(target.textContent);
+}
+```
+
+Two targets exist on every event: `event.target` (the element the event originated from — could be a child) and `event.currentTarget` (the element the handler is attached to). In Svelte, `currentTarget` is almost always what you want, and you often need to cast it to the specific element type to access its properties.
+
+### 1.6 Multiple handlers on the same event
+
+Unlike Svelte 3/4 where multiple `on:click` directives could be applied, Svelte 5 uses a single `onclick` attribute. To run multiple handlers, call them sequentially inside one handler:
+
+```svelte
+<button onclick={(e) => { logClick(e); incrementCount(); }}>
+    Click me
+</button>
+```
+
+This is simpler and more explicit than the old multi-directive syntax. You can see all the actions in one place.
+
+### 1.7 Handlers are ordinary JavaScript functions
 
 A handler is not a special thing. It is just a function. You can write it as a `function` declaration, as an arrow function stored in a `const`, or inline in the attribute itself. All three are legal:
 
@@ -92,6 +118,28 @@ A handler is not a special thing. It is just a function. You can write it as a `
 ```
 
 Use a named function when the logic is more than one line or when two buttons share the same handler. Use an arrow function inline when the body is trivial and only one button uses it. Either is fine. The compiled output is almost identical.
+
+### 1.8 How Svelte 5 attaches handlers internally
+
+When you write `onclick={handleClick}`, the compiler does not generate `addEventListener` calls at runtime. Instead, during the initial render (or hydration), Svelte sets the property directly on the DOM element: `element.onclick = handleClick`. This is slightly different from `addEventListener` in that each element can only have one `onclick` property handler (versus multiple listeners). For the vast majority of use cases this is perfectly fine — and it is faster because property assignment is cheaper than `addEventListener`.
+
+If you need multiple independent listeners on the same event (rare in component code), you can use an `$effect` with `addEventListener` directly, which gives you the full event listener API including `capture`, `passive`, and `once` options.
+
+### 1.9 The event delegation question
+
+Some frameworks (React, Solid) use event delegation: they attach a single listener on the document root and route events to the correct handler based on the target. Svelte 5 does **not** use delegation by default. Each element gets its own handler directly on the DOM node. This makes DevTools inspection clearer (you see the listener on the exact element), avoids the complications of delegation (portals, shadow DOM, stopped propagation), and has negligible performance difference for typical component trees. For lists with thousands of items where attaching thousands of listeners would be wasteful, you can manually delegate inside an `$effect` — but that is an advanced optimization you will rarely need.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component app, event handlers are the primary mechanism for user interaction. Consistency in how handlers are written — lowercase attributes, no parentheses, proper typing, arrow wrappers for arguments — is what makes a codebase readable across a team. A codebase that mixes `on:click` (old), `onClick` (React habit), and `onclick` (correct) is a maintenance nightmare. Svelte 5's alignment with the platform means new team members who know HTML already know the attribute names. There is nothing framework-specific to teach them.
+
+**The mental model.** Think of event attributes as plugging a cable into a socket. The socket is the DOM element. The cable is your function. You plug in one cable (one handler reference) and the socket fires the function when activated. If you accidentally call the function (`handleClick()` with parentheses), you are not plugging in the cable — you are running electricity through it in your hand, right now, before it is connected. The DOM never gets the cable, and you get shocked (infinite re-render loop). Always plug, never run.
+
+**Edge cases.** Custom elements (web components) may dispatch custom events with non-standard names like `ontoggle-detail`. Svelte 5 passes any `on*` attribute through to the DOM, so you can write `ontoggle-detail={handler}` and it works. However, TypeScript may not recognize the attribute type — you may need a type assertion or a `// @ts-ignore` for truly custom event names. Another edge case: `onsubmit` on a form fires even if the submit is triggered programmatically via `form.requestSubmit()`, but not via `form.submit()`. Always use `requestSubmit()` if you want your handler to fire.
+
+**Performance implications.** Each event handler is a property assignment — O(1), essentially free. Even a page with 500 buttons has negligible handler setup cost. The performance concern is not in attaching handlers but in what the handlers *do*. An `onclick` handler that synchronously filters 10,000 items will block the main thread and worsen INP (Module 12). The handler itself should be fast; heavy work should be deferred with `requestAnimationFrame`, debounce (Lesson 5.7), or moved off the main thread.
+
+**Connection to other modules.** Events are the input side of the reactivity system. Module 2 (state) provides the values that handlers modify. Module 3 (components) teaches callback props — functions passed as props that children call as event handlers. Module 5 continues with `preventDefault`, closures, debounce, and custom events. Module 7 (GSAP) uses event handlers to trigger animations. Module 10 (forms) uses `onsubmit` with progressive enhancement. Understanding the handler reference pattern taught here is required for every subsequent lesson that involves user interaction.
 
 ## 2. Style it — A tappable button that feels good
 

@@ -94,6 +94,28 @@ A cheat sheet for fast colour decisions:
 
 You will memorise these from practice. For now, play with the mini-build's sliders and watch L / C / H work independently.
 
+### 1.7 Gamut mapping and the P3 display
+
+Modern displays (MacBook Pro, iPhone, many Samsung phones) support the P3 color gamut, which is significantly wider than sRGB. OKLCH can express colors outside sRGB — and the browser will display them correctly on P3 screens. On sRGB screens, the browser automatically gamut-maps (clamps) the color to the closest displayable equivalent. This means you can write `oklch(70% 0.35 150)` (an extremely saturated green) and trust that P3 users see the full saturation while sRGB users see the closest approximation, with no fallback code needed.
+
+In PE7, we keep chroma values below 0.25 for brand colors to ensure they look excellent on both sRGB and P3 displays. Chroma above 0.3 is reserved for intentional "accent pop" moments (error red, success green) where the extra saturation on P3 displays is a feature, not a risk.
+
+### 1.8 Accessibility and OKLCH contrast
+
+WCAG contrast requirements (4.5:1 for normal text, 3:1 for large text) are defined in terms of relative luminance, which OKLCH's L component approximates closely. Two OKLCH colors with L values that differ by at least 0.4 (e.g., L=90% text on L=20% background) will almost always pass WCAG AA contrast requirements. This is a useful heuristic during design — you can estimate contrast from the L values alone without needing to run a contrast checker for every pair. Of course, always verify with a real contrast tool before shipping, but OKLCH makes the initial palette design dramatically less trial-and-error.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component design system, color consistency is the difference between "everything looks cohesive" and "every page feels like a different website." With hex or HSL, maintaining consistent perceived brightness across a palette of eight hues requires manual tuning — every hue needs different lightness values to *look* the same brightness. With OKLCH, you set L once and rotate H, and every hue genuinely looks the same weight. This means a junior designer can extend the palette (add a new category color, a new status color) without breaking the visual hierarchy. The system *enforces* perceptual consistency rather than *requiring* expert judgment.
+
+**The mental model.** Think of OKLCH as a perfect cylindrical paint-mixing machine. You set three dials: the brightness dial (L), the vividness dial (C), and the hue wheel (H). Unlike older machines where turning the hue wheel would accidentally shift brightness (making blue look darker than yellow), this machine guarantees that brightness stays exactly where you set it regardless of hue. When you want a darker variant, you turn only the brightness dial — the color stays put. When you want a muted variant, you turn only the vividness dial — the brightness stays put. No cross-contamination between controls.
+
+**Edge cases.** Not all L+C+H combinations produce displayable colors. Very high chroma at very high or very low lightness exceeds what monitors can display. For example, `oklch(95% 0.4 120)` (extremely bright, extremely saturated green) is outside even the P3 gamut. The browser gamut-maps it, but the result may not match your intent. The practical limit: at L=50%, maximum displayable chroma is about 0.32 for most hues. At L=90% or L=10%, maximum chroma drops to about 0.1-0.15. The `from` syntax helps here — deriving colors from an already-displayable token guarantees the result stays in gamut.
+
+**Performance implications.** OKLCH color parsing has zero measurable performance impact. The browser converts OKLCH to its internal representation (usually linear sRGB or display P3) once during style computation. Subsequent paints use the converted value. There is no per-frame OKLCH calculation. The `oklch(from ...)` relative syntax adds one extra computation during style resolution (evaluating the `calc()` expression), which is negligible. You can use hundreds of relative-color derivations without any rendering penalty.
+
+**Connection to other modules.** OKLCH was introduced in Module 1 Lesson 1.5 and is reinforced here in Module 6. Module 7 Lesson 7.14 bridges OKLCH to Three.js (which does not understand OKLCH natively, requiring a conversion helper). Module 12 uses OKLCH contrast awareness for accessibility audits. Module 13 uses OKLCH-based tokens to ensure structured data markup (like star ratings) meets color contrast requirements. The PE7 token system's insistence on OKLCH is what makes dark mode a three-line change, what makes per-page color personalities possible, and what makes the entire design system extensible without expert intervention.
+
 ## 2. Style it — A live OKLCH picker
 
 The mini-build is three sliders (L, C, H) and a big preview square. The current OKLCH string is displayed in a monospace panel so students can copy-paste it. Per-page colour starts at `oklch(72% 0.2 200)` (teal) and the sliders mutate it.

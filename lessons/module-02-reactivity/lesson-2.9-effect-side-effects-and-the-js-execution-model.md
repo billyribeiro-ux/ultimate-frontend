@@ -84,6 +84,52 @@ There are legitimate cases — for example, writing `localStorage.setItem('x', v
 
 One more subtlety: Svelte tracks **reads** inside an effect, not calls. If you call a function that internally reads state, the effect subscribes to that state indirectly. If you read a state variable inside an `if` branch that is currently false, the effect does not subscribe to it on this run, only on future runs that take the branch. This is usually fine but occasionally surprises new learners when an effect does not fire for a state change they expected.
 
+### 1.7 Effects and the component lifecycle
+
+Effects have a specific relationship to the component lifecycle that is important to internalize:
+
+- **Creation**: An effect is created when the component mounts and the `<script>` block executes.
+- **First run**: The effect runs once after the component is mounted and the DOM is updated. This is guaranteed to happen in the browser, never on the server.
+- **Subsequent runs**: Every time a tracked dependency changes and the DOM has been updated accordingly, the effect re-runs.
+- **Cleanup**: Before each re-run and on component destruction, the cleanup function (if returned) executes.
+- **Destruction**: When the component is removed from the DOM (user navigates away, a parent's `{#if}` becomes false), all effects are cleaned up and never run again.
+
+This lifecycle means effects are the correct place for browser-only setup that should be torn down when the component disappears. They are not the correct place for data computation (use `$derived`), and they are not the correct place for one-time initialization that does not depend on reactive state (use `onMount` or a top-level `if (browser)` guard for that, though effects handle it fine too).
+
+### 1.8 The untrack escape hatch
+
+Sometimes you want to read a state variable inside an effect without subscribing to it. Svelte provides `untrack()` from `'svelte'` for this:
+
+```ts
+import { untrack } from 'svelte';
+
+$effect(() => {
+    // This effect runs when `query` changes but NOT when `config` changes
+    const currentConfig = untrack(() => config);
+    sendSearch(query, currentConfig);
+});
+```
+
+`untrack()` executes the provided function without recording any reads as dependencies. Use it sparingly — it is an escape hatch for cases where you know an effect should not re-run for a particular input. If you find yourself untracking most of the reads, reconsider whether the effect is structured correctly.
+
+### 1.9 Effects are not for transforming data
+
+This point was made in Section 1.5 but deserves elaboration because it is the most violated rule in real codebases. The temptation is strong: "I need `b` to always equal `a * 2`, and I already know `$effect`, so I will write an effect that sets `b`." The problem is that this creates a hidden data-flow path. When another developer reads the code months later, they see `b` declared as `$state` and assume they can write to it freely. They do not realize an effect is silently overwriting their value on the next tick. `$derived` makes the relationship visible at the declaration site: `const b = $derived(a * 2)`. Anyone reading that line knows immediately that `b` is computed, not stored.
+
+The rule is simple: if the output is a value, use `$derived`. If the output is an action (writing to localStorage, setting document.title, starting a timer, calling an API), use `$effect`. If you are unsure, ask yourself: "can I express this as a pure function of its inputs?" If yes, it is derived. If no, it is an effect.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component application, effects are where the most insidious bugs live. An effect that writes to state creates an invisible action-at-a-distance. An effect that does too much work makes the UI janky. An effect without cleanup leaks memory. The discipline of keeping effects small, side-effect-only, and always cleaned up is the difference between a production app that runs smoothly for hours and one that degrades over time. Senior engineers review effects with more scrutiny than any other piece of reactive code because effects are where complexity hides.
+
+**The mental model.** Think of the reactive graph as a spreadsheet (state = input cells, derived = formula cells). Effects are the *printer connected to the spreadsheet*. Every time a cell updates, the printer notices and prints a new page. The printer does not change cell values — it observes them and performs an external action. If you try to use the printer to write values back into cells, you get a feedback loop: the cell changes, the printer fires, the printer writes a cell, the cell changes again, the printer fires again. That loop is why writing state from effects is almost always wrong.
+
+**Edge cases.** Effects do not run during server-side rendering. This means any code that depends on `window`, `document`, `navigator`, `localStorage`, or any other browser API is safe inside an effect — you do not need a separate `if (typeof window !== 'undefined')` guard. However, this also means the server-rendered HTML will not reflect whatever the effect would have set. If an effect sets `document.title`, the SSR HTML has no title (unless you also set it in `<svelte:head>`). Plan for both environments. Another edge case: if an effect reads state that changes during the same microtask as the effect's creation, the effect will fire on the next tick, not immediately. Effects are always asynchronous relative to state changes.
+
+**Performance implications.** Every `$effect` creates a subscription in the reactive graph. The subscription is lightweight (a few bytes), but the callback itself can be expensive. A common anti-pattern is an effect that re-runs on every keystroke because it reads a search input's `$state`. If the effect's body does expensive work (filtering 10,000 items, calling an API), the UI will jank. The fix is to debounce the expensive work (Lesson 5.7) or to move the computation into a `$derived` with `$derived.by` (Lesson 2.8), which caches its result. Module 12 Lesson 12.4 is entirely dedicated to effect performance hygiene.
+
+**Connection to other modules.** Effects are the bridge between Svelte's reactive world and everything outside it. Module 7 (GSAP) uses effects to start animations when state changes. Module 8 (routing) uses effects implicitly through SvelteKit's lifecycle. Module 9B (remote functions) uses effects to trigger queries. Module 11 (state management) uses effects for localStorage persistence. Module 12 dedicates an entire lesson to effect performance. Anywhere your code talks to the browser, a third-party library, or the network, an effect is the likely mechanism.
+
 ## 2. Style it — A title-syncing demo
 
 The mini-build is a counter whose value is mirrored to `document.title` via an `$effect`. As you click, the browser tab's title updates in real time. A PE7-styled card shows the current value.

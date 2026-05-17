@@ -130,6 +130,48 @@ Each factory call produces a new handler with its own captured `delta` but both 
 
 Closures hold references to their captured variables, which means the garbage collector cannot free those variables until the closure itself is unreachable. In a component that adds a handler and never removes it, this is harmless — the component and its handlers live and die together. In a long-lived module that accumulates closures in an array, it can leak. Be aware, but do not be paranoid: the trap is specific and rare.
 
+### 1.7 Closures as the foundation of JavaScript patterns
+
+Closures are not just a trick for fixing loop bugs. They are the foundational mechanism behind most of JavaScript's advanced patterns:
+
+- **Module pattern.** Before ES modules existed, closures were how JavaScript created private variables. A function returns an object whose methods close over local variables — the variables are private, the methods are public.
+- **Debounce and throttle** (Lesson 5.7). The timer variable is private to the closure. Each wrapped function has its own timer that no outside code can access or corrupt.
+- **Memoization.** A cache map lives inside the closure. The returned function checks the cache before computing.
+- **Currying and partial application.** `const add5 = (x) => x + 5` is a closure over the number 5 (trivial here, but the pattern extends to complex configurations).
+- **Reactive stores.** The `$state` rune itself is implemented using a closure-like mechanism internally — the signal cell captures the current value and the subscriber list in its scope.
+
+Understanding closures deeply means you understand *why* these patterns work, not just *how* to copy them. Every time you see a function that "remembers" something, a closure is at work.
+
+### 1.8 Closures in async handlers
+
+Closures become especially important in async event handlers. When a handler starts an async operation, the closure keeps the handler's local variables alive until the operation completes:
+
+```ts
+function makeDeleteHandler(id: string): () => Promise<void> {
+    return async () => {
+        // `id` is captured by the closure — it survives the await
+        const confirmed = window.confirm(`Delete item ${id}?`);
+        if (!confirmed) return;
+        await deleteItem(id);  // `id` is still available here
+        items = items.filter((i) => i.id !== id);
+    };
+}
+```
+
+The `id` variable is captured when `makeDeleteHandler` is called. The returned async function can take seconds to complete (waiting for the user to confirm, then waiting for the network), and `id` remains available throughout because the closure keeps it alive.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app, closures appear in every event handler that references component state, every callback passed to a child, every debounced function, every factory that produces handlers. A team that does not understand closures will struggle to debug "stale closure" bugs — where a handler captures a variable at one point in time and reads an outdated value later. In Svelte 5 this is less common because runes are reactive (reading `count` in a handler always reads the current value, not a captured snapshot), but it still appears when capturing primitive values in factory functions or when working with non-reactive code.
+
+**The mental model.** A closure is a backpack that a function carries with it everywhere it goes. When the function is created, it packs every local variable from its birth environment into the backpack. Later, no matter where the function is called — in a different file, in a different tick, in a callback from a third-party library — it can reach into the backpack and pull out those variables. The backpack is invisible to everyone else; only this function can open it. That is encapsulation. That is why closures enable private state.
+
+**Edge cases.** The "stale closure" bug still exists in Svelte 5 in one specific case: if you create a closure that captures a primitive derived from a rune (e.g., `const x = count; return () => console.log(x);`), the closure captures the *value* of `count` at that moment, not a live reference. Subsequent changes to `count` are not reflected in `x`. The fix is to read the rune directly inside the handler body rather than capturing a snapshot. Another edge case: closures inside `setTimeout` or `setInterval` callbacks capture the variable reference, not the value. If the variable is a `let` that changes between when the timer was set and when it fires, the callback sees the *new* value — because closures capture by reference, not by value.
+
+**Performance implications.** Each closure allocates a small amount of memory for the captured scope. For a component with 10 handlers, this is negligible. For a list with 1,000 items, each with 3 closures, you have 3,000 closure objects — still negligible in modern JS engines (each is ~50-100 bytes). The performance concern with closures is not memory but rather garbage collection: if closures keep references to large objects (DOM nodes, large arrays), those objects cannot be freed until the closure dies. In SvelteKit apps where components mount and unmount on navigation, this is naturally handled — component death frees all its closures and their captured data.
+
+**Connection to other modules.** Closures are the mechanism behind Module 5 Lesson 5.7 (debounce/throttle), Module 7 (GSAP callback factories), Module 11 (reactive class methods — which are closures over `this`), and Module 9B (remote function call wrappers). Any time you pass a function to a third-party library (GSAP's `onComplete`, TanStack Table's `accessorFn`, a Valibot transform), you are relying on closures to give that function access to your component's state.
+
 ## 2. Style it — A grid of "add N" buttons
 
 The mini-build is a 3×3 grid of buttons, each of which adds a different amount to a counter. The amount is baked into the handler by a closure factory. Per-page colour: `oklch(68% 0.18 180)` (teal).

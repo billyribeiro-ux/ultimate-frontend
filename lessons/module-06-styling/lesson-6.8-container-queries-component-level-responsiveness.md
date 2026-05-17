@@ -94,13 +94,37 @@ When you have containers inside containers, queries target the nearest one by de
 
 The container query looks at the *ancestor*, not the element. You cannot make an element query its own size. That is actually a feature — it prevents circular layout dependencies (where changing the size changes the rules that change the size). In practice, wrap the component in a thin host and put `container-type` on the host.
 
-### 1.6 When media queries are still simpler
+### 1.6 Container units in practice
+
+Container query units (`cqi`, `cqw`) are the container-aware equivalents of viewport units (`vw`, `vh`). They let you size elements relative to the container's dimensions rather than the viewport. The most useful application is fluid typography inside a component:
+
+```css
+.card__title {
+    font-size: clamp(0.875rem, 3.5cqi, 1.5rem);
+}
+```
+
+This sets the title to scale with the container's inline size, clamped between a minimum (0.875rem on tiny containers) and a maximum (1.5rem on wide ones). Combined with PE7's fluid type scale, this gives you truly responsive text inside components — something that was impossible before container queries because `vw`-based fluid type only responded to the viewport.
+
+### 1.7 When media queries are still simpler
 
 Container queries are powerful but have some cost and add complexity. A few cases where a media query is still the right tool:
 
 - **Viewport-level layout shifts** — sidebar appearing, mobile menu opening, full-screen mode. These are about the viewport, not a container.
 - **One-off breakpoints at the page level** — if the whole page changes, the page-level breakpoint is fine.
 - **Legacy browsers** — container queries are fully supported in 2026 but older data in analytics may still justify media fallbacks.
+
+## Deep Dive
+
+**Why this matters at scale.** In a design system with 20+ components, container queries eliminate the "size prop" anti-pattern entirely. Without them, teams create `<Card size="sm" />`, `<Card size="md" />`, `<Card size="lg" />` — tripling the component's API surface and requiring every consumer to manually set the right size for their context. With container queries, the card adapts automatically. The consumer places it; the card figures out its own layout. This decoupling reduces API complexity by ~30% in a typical design system and eliminates an entire category of "the card looks broken in this column width" bugs.
+
+**The mental model.** A container-queried component is like a chameleon. You do not have to tell a chameleon what color to be — you put it on a branch and it adapts. A container-queried component does not need to be told "you are narrow" — you place it in a layout and it observes its own width and changes shape. The alternative — media queries — is like painting the chameleon by hand every time you move it to a new branch. That works for one chameleon. It breaks at scale.
+
+**Edge cases.** Container queries inside Svelte's scoped `<style>` blocks work correctly — the hash suffix is applied to the selectors, not the container rule. However, if you try to query a container defined in a *parent* component's style block, you need a named container to target it specifically, because unnamed queries target the *nearest* container ancestor (which might be a closer wrapper you did not intend). In multi-level component nesting, always name your containers to be explicit about which ancestor you are querying. Another edge case: `container-type: inline-size` creates size containment, which means the element cannot depend on its children for its own width — it must have an explicit or parent-determined width. This is usually what you want (the container takes the width its parent gives it) but can surprise you if you expect the container to shrink-wrap its content.
+
+**Performance implications.** Container queries are evaluated during the browser's layout phase, which already computes element sizes. The additional cost of checking `@container` breakpoints is negligible — it is a comparison between a computed value (the container's width) and a constant (your breakpoint). Even 100 container-queried elements on a page produce no measurable performance difference compared to 100 media-queried elements. The containment context created by `container-type` can actually *improve* paint performance because the browser knows it can paint that subtree independently.
+
+**Connection to other modules.** Container queries first appeared in Module 3 Lesson 3.10 (this lesson's companion in the component architecture story). Module 6 teaches them as a styling technique. The capstone project uses them for the dashboard's widget cards — each card adapts between compact (in a narrow sidebar), medium (in a 2-column grid), and wide (in a full-width hero) with zero JavaScript and zero configuration props. The pattern composes with Module 3's custom-property knobs: the `@container` rule reassigns knob values, and the component's existing rules pick up the new values automatically.
 
 ## 2. Style it — The same card in two columns
 

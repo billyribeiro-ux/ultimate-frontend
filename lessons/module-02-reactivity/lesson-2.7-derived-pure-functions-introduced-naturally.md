@@ -85,7 +85,19 @@ const subtotal: number = $derived(
 
 One declaration, zero possibility of drift.
 
-### 1.6 The April 2026 difference
+### 1.6 Derived chains and the topological sort
+
+When derived values depend on other derived values — `total` depends on `tax`, `tax` depends on `subtotal`, `subtotal` depends on `items` — Svelte builds a **dependency graph** internally. This graph is a directed acyclic graph (DAG) where edges point from a source signal to its dependents. When `items` changes, Svelte performs a topological sort of the graph and re-evaluates nodes in dependency order: `subtotal` first, then `tax`, then `total`. It never evaluates `total` before `tax` because that would produce a stale intermediate value.
+
+This is entirely automatic. You do not declare the order; you declare the relationships, and the runtime figures out the order. In practice this means you can write your derived declarations in any order in the source code — `total` before `subtotal` would still work — because the graph, not the source order, determines the execution order. But for readability, this course always writes them in dependency order (sources first, final derivations last).
+
+### 1.7 The cost of a derived value
+
+A `$derived` expression is re-evaluated only when its tracked inputs change. Between changes, reading a derived value returns the cached result with zero computation. This lazy-with-cache model means derived values are almost free in terms of CPU — the cost is one evaluation per change, not one evaluation per read.
+
+However, there is a memory cost. Each `$derived` occupies a slot in the reactive graph. If you have a list of 1,000 items and you create a `$derived` for each item, you have 1,000 graph nodes. For most applications this is fine, but if you are rendering thousands of reactive cells (like a spreadsheet), you may want to reconsider the granularity — batch the derivation at the list level rather than the item level.
+
+### 1.8 The April 2026 difference
 
 Svelte 3/4 had a magical `$:` syntax for derived values:
 
@@ -94,6 +106,34 @@ $: doubled = count * 2;
 ```
 
 Svelte 5 replaces this with `$derived(count * 2)` — explicit, typed, and consistent with the rest of the rune system. If you see `$:` in a tutorial, it is outdated (there is actually a compat mode that still supports it in 5, but the course never uses it).
+
+### 1.9 When to use `$derived` vs when to compute inline
+
+Not every computation needs to be a `$derived` variable. If the computation is trivial — `count + 1`, for example — and is only used in one place in the template, you can compute it inline: `<p>{count + 1}</p>`. Svelte will re-evaluate the expression on every render of that node, which is identical in cost to a `$derived` for a simple expression.
+
+Use `$derived` when:
+
+- The computation is used in more than one place (avoids duplication).
+- The computation is expensive and you want it cached (e.g., filtering a large array).
+- The computation has a semantic name that aids readability (`subtotal` is clearer than an inline reduce).
+- You need to reference the value in an `$effect` or pass it to a child component.
+
+Use inline expressions when:
+
+- The computation is trivial and used once.
+- Naming it would not add clarity.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, the difference between "everyone stores derived values as `$state` and updates them manually" and "everyone uses `$derived`" is the difference between zero consistency bugs and dozens. Manual synchronization does not scale linearly — it scales quadratically, because every new piece of primary state adds potential drift points for every existing derived value. A dashboard with ten widgets, each deriving three values from shared state, has 30 derivations. If even one is manual, it will eventually drift. `$derived` makes drift structurally impossible.
+
+**The mental model.** Think of primary state as cells in a spreadsheet and `$derived` as formulas. Cell A1 contains a number you typed. Cell A2 contains `=A1*2`. You never *type into* A2; it always shows the formula's result. If you tried to type into A2, the spreadsheet would reject you — that cell is a formula, not an input. `$derived` is the formula cell. `$state` is the input cell. The spreadsheet analogy is not accidental — the reactive signal model that powers Svelte's runes traces its academic lineage directly back to the same dependency-tracking algorithms that power spreadsheet engines.
+
+**Edge cases.** If a `$derived` expression conditionally reads different state variables depending on a branch, only the variables actually read in the most recent evaluation are tracked. This means the set of dependencies can change between evaluations. In practice this rarely matters, but it can surprise you if a derived value "stops updating" because the branch that reads a particular state variable stopped being taken. Another edge case: circular dependencies. If `a = $derived(b * 2)` and `b = $derived(a + 1)`, the compiler will reject this with an error about circular references. The dependency graph must be acyclic.
+
+**Performance implications.** Each `$derived` creates one node in the reactive graph. The graph is walked on every state change to determine which nodes need re-evaluation. For typical applications (tens to hundreds of derived values), this walk is sub-microsecond. For extreme cases (thousands of interleaved derived values), the graph traversal itself can become measurable. The solution is to batch derivations: instead of 1,000 per-item derived values, compute one derived array that maps over the items. Module 12 covers this optimization pattern in Lesson 12.5.
+
+**Connection to other modules.** `$derived` reappears everywhere. Module 3 uses it for computed props. Module 5 uses it for derived event state (e.g., "is the form valid?" derived from all field states). Module 11 uses it in reactive classes for computed totals. Module 12 uses it as a memoization tool for expensive computations. The concept of "a value that is always a function of other values, guaranteed consistent" is the single most powerful tool for eliminating bugs in a reactive system.
 
 ## 2. Style it — A live cart total
 

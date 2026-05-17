@@ -113,6 +113,74 @@ The return type of an effect function is `void | (() => void)`. You either retur
 
 Effects do not run on the server, so cleanup does not run on the server either. You only ever see cleanup in the browser. This is usually what you want — server rendering produces HTML and moves on; there is nothing to clean up.
 
+### 1.7 The lifecycle of a cleanup-bearing effect in detail
+
+Let us trace the full lifecycle of an effect with cleanup to build a precise mental model:
+
+1. **Component mounts.** The `<script>` block runs. The `$effect(() => { ... })` call registers the effect in the reactive graph.
+2. **First execution.** After the DOM update, Svelte runs the effect body. The body sets up a subscription (e.g., `setInterval`) and returns a cleanup function. Svelte stores that cleanup function internally.
+3. **Dependency changes.** A tracked reactive value that the effect read changes. Svelte schedules the effect for re-execution.
+4. **Cleanup before re-run.** Before the effect body runs again, Svelte calls the stored cleanup function from step 2. The old interval is cleared.
+5. **Re-execution.** The effect body runs again with the new values. A new interval is started. A new cleanup function is returned and stored.
+6. **Component destroyed.** The user navigates away or a parent `{#if}` removes this component. Svelte calls the most recent cleanup function. The current interval is cleared. The effect is removed from the graph. No further executions occur.
+
+This sequence is guaranteed. You can rely on cleanup always running before the next execution, and always running on destruction. There is no "sometimes the cleanup runs, sometimes it does not" ambiguity.
+
+### 1.8 Cleanup and AbortController for fetch requests
+
+One of the most important cleanup patterns in a real application is aborting in-flight fetch requests. If an effect depends on a search query state variable and re-runs on every change, you want to abort the previous fetch before starting a new one. Otherwise, the old fetch might resolve after the new one and overwrite the current results with stale data.
+
+```ts
+$effect(() => {
+    const controller = new AbortController();
+    
+    fetch(`/api/search?q=${query}`, { signal: controller.signal })
+        .then((r) => r.json())
+        .then((data) => { results = data; })
+        .catch((err) => {
+            if (err.name !== 'AbortError') throw err;
+        });
+    
+    return () => controller.abort();
+});
+```
+
+The `.catch` ignores `AbortError` because aborting is intentional — it is not a real failure. This pattern prevents race conditions where a slow response for "sv" arrives after a fast response for "svelte" and overwrites the correct results.
+
+### 1.9 Composing cleanup across multiple subscriptions
+
+Sometimes an effect sets up multiple subscriptions that all need cleanup:
+
+```ts
+$effect(() => {
+    const intervalId = setInterval(tick, 1000);
+    const handler = (e: KeyboardEvent) => { /* ... */ };
+    window.addEventListener('keydown', handler);
+    const observer = new IntersectionObserver(callback);
+    observer.observe(target);
+
+    return () => {
+        clearInterval(intervalId);
+        window.removeEventListener('keydown', handler);
+        observer.disconnect();
+    };
+});
+```
+
+The single returned function cleans up all three. If the cleanup gets complex, you can extract it into a named function for clarity. The important thing is that one effect returns one cleanup function that handles everything that effect set up.
+
+## Deep Dive
+
+**Why this matters at scale.** Memory leaks are the silent killers of single-page applications. A SvelteKit app where users navigate between 20 routes can accumulate leaked subscriptions across dozens of component mount/unmount cycles in a single session. Each leaked interval, listener, or observer consumes memory and CPU. After an hour of use, the tab becomes sluggish and eventually crashes. The worst part: these bugs are invisible in development (where you rarely navigate more than a few times) and catastrophic in production (where users keep the app open all day). Cleanup discipline is not optional in any app that runs for more than a few minutes.
+
+**The mental model.** Think of every subscription as a contract with an external service. When you call `setInterval`, you are signing a contract with the browser: "call this function every N milliseconds until I say stop." The cleanup function is you saying stop. If you forget, the contract runs forever, even after you have moved out of the building (the component has unmounted). The browser keeps calling, the function keeps running, and nobody is home to receive the call. That is the leak. Svelte's effect cleanup mechanism is the stamp on the contract that says "this contract expires when the component dies." But you still have to write the cancellation clause — Svelte just guarantees it will be called.
+
+**Edge cases.** What if the effect body returns early (via an early `return` for a guard check) before reaching the cleanup? In that case, no cleanup is registered for this run, and Svelte will not call one before the next run. This is fine for guards like `if (!element) return;` where the effect has nothing to clean up. But be careful: if you set up a subscription before the guard and the guard prevents the cleanup from being returned, you leak. Always structure the effect so subscriptions are created only when cleanup is also returned. Another edge case: if the cleanup function itself throws, Svelte logs the error but does not prevent the next run from starting.
+
+**Performance implications.** Cleanup functions themselves are nearly free — they are just function objects stored in a reference. The cost is in what they *do*: `clearInterval` and `removeEventListener` are O(1) browser operations. `observer.disconnect()` is also cheap. The performance concern is not the cleanup itself but the *absence* of cleanup. A leaked `IntersectionObserver` observing 50 elements keeps running its callback on every scroll, doing layout calculations the browser cannot optimize away. A leaked `setInterval` keeps running its callback, which may read detached DOM nodes and trigger forced layouts. The performance cost of *not* cleaning up is orders of magnitude larger than the cost of the cleanup call itself.
+
+**Connection to other modules.** Cleanup is the backbone of Module 7 (GSAP), where `gsap.context().revert()` in cleanup is the only correct way to manage animations in Svelte. Module 8 (routing) relies on cleanup to tear down per-page subscriptions on navigation. Module 11 (state management) uses cleanup for WebSocket connections in real-time stores. Module 12 (performance) audits leaked subscriptions as a primary source of memory growth. If you master cleanup now, every lesson that involves a third-party library or a browser API becomes straightforward — the pattern is always the same: set up in the effect body, tear down in the returned function.
+
 ## 2. Style it — A self-destructing timer
 
 The mini-build is a stopwatch powered by `setInterval`. The effect starts the interval and returns a cleanup. A button lets you pause and resume. A note explains that navigating away cleans up the timer automatically. PE7 tokens for styling; `prefers-reduced-motion` respected on the number transition.

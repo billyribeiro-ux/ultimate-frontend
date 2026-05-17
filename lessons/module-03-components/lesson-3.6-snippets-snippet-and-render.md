@@ -107,6 +107,53 @@ interface Props {
 
 The parent declares additional snippets inside the component tag with `{#snippet header()}…{/snippet}` — we will do exactly that in the mini-build below.
 
+### 1.7 Snippets as first-class values
+
+Unlike Svelte 3/4 slots, snippets are first-class JavaScript values. You can store them in variables, put them in arrays, pass them through multiple levels of components, and conditionally select which one to render at runtime:
+
+```svelte
+<script lang="ts">
+    import type { Snippet } from 'svelte';
+    
+    let { variant = 'default', headerA, headerB }: {
+        variant: 'a' | 'b';
+        headerA?: Snippet;
+        headerB?: Snippet;
+    } = $props();
+    
+    const activeHeader: Snippet | undefined = $derived(
+        variant === 'a' ? headerA : headerB
+    );
+</script>
+
+{#if activeHeader}
+    {@render activeHeader()}
+{/if}
+```
+
+This power means you can build advanced patterns like "slot registries" where a layout collects snippets from deeply nested children and renders them in a portal-like location. The pattern is advanced and rare, but knowing snippets are values (not magic markup holes) gives you confidence to compose them freely.
+
+### 1.8 When to use snippets vs when to use components
+
+A common question: if both snippets and components let you reuse markup, when do you choose which?
+
+- **Use a component** when the reusable piece has its own state, its own effects, its own lifecycle, or its own encapsulated logic. A `Modal` that manages its own open/closed state is a component.
+- **Use a snippet** when you need to inject *caller-defined* markup into a component's layout without creating a new file. The `Card`'s header, body, and footer are snippets because the Card does not own that content — the caller does.
+
+The rule of thumb: components encapsulate behavior; snippets delegate appearance. A component says "I know what to do." A snippet says "you tell me what to show."
+
+## Deep Dive
+
+**Why this matters at scale.** In a production component library, the snippet pattern (passing caller-defined markup into a component) appears in every compound component: dialogs (title, body, actions), tabs (tab label, tab content), tables (header cell, body cell), and data lists (item renderer). Without a typed mechanism for this, teams resort to untyped string props, render functions with complex signatures, or worse — inline HTML in JavaScript. Snippets give you type-safe, IDE-supported, syntax-highlighted markup injection that the compiler checks at build time. A library of 20 components might define 60 snippet props total. Every one of them shows up in autocomplete, is checked for typos, and renders with full Svelte template features.
+
+**The mental model.** Think of a snippet as a *stencil*. A component is a painting — self-contained, complete, cannot be altered. A snippet is a stencil — a shape you hand to someone else so they can spray-paint through it. The `Card` component is a frame; it does not know what picture goes inside. The caller provides the stencil (the snippet), and the component applies it at render time. This separation means you can change the content without touching the frame, and change the frame without touching the content.
+
+**Edge cases.** A snippet declared inside a component tag is scoped to that tag. You cannot reference it from a sibling or from outside. If you declare a snippet at the file's top level, it is available everywhere in that file but cannot be exported as a module. Parameterized snippets (`{#snippet row(item: Item)}`) must have their argument types match what the child component passes to `{@render row(item)}` — a type mismatch is a compile-time error. Another edge case: rendering a snippet that might be `undefined`. Always guard with `{#if snippet}{@render snippet()}{/if}` or make the prop required.
+
+**Performance implications.** Snippets have zero runtime overhead compared to inline markup. The compiler treats a snippet render site the same as any other template expression — it creates the DOM nodes directly, no virtual DOM, no extra function call overhead. The only "cost" is the function object itself (a few bytes in memory per snippet instance), which is negligible. Compared to the React pattern of passing render functions (`renderItem={(item) => <div>...</div>}`), which creates a new function on every render and triggers child re-renders, Svelte snippets are referentially stable and do not cause unnecessary updates.
+
+**Connection to other modules.** Snippets are the foundation of the advanced patterns in Lesson 3.7 (passing snippets as props with parameters — the render-prop pattern). Module 4 uses snippets inside `{#each}` for custom list rendering. Module 6's transition system works with snippet-based component boundaries. Module 11's TanStack Table integration uses parameterized snippets for cell renderers. Module 12's error boundaries use the `failed` snippet for fallback UI. Snippets are Svelte 5's answer to every pattern that other frameworks solve with render props, higher-order components, or scoped slots.
+
 ## 2. Style it — Card chrome that never changes
 
 `Card.svelte` owns the chrome — border, radius, padding, optional header and footer styling. The content styling is the parent's responsibility. This is the classic *container/content* separation: the card guarantees consistent chrome across every card in the app while parents retain complete freedom over what goes inside.

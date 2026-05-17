@@ -79,6 +79,38 @@ The trade-off is that SSR needs a server. `adapter-node`, `adapter-vercel`, `ada
 
 A common confusion: "if I SSR, does that mean every request waits for my database?" Only if you wrote it that way. SSR is about *where* the HTML is generated, not about *when* the data is fetched. You can combine SSR with caching, with streaming (`Promise` returns in load, Lesson 9A.9), or with full SSG. SvelteKit lets you pick the right mix per route.
 
+### 1.6 The cost model of SSR
+
+SSR is not free. It costs CPU time on your server for every request. Each request must:
+
+1. Run the route's `load` function (possibly hitting a database or API).
+2. Import and execute the component tree to produce an HTML string.
+3. Serialize the load data into a `<script>` tag for hydration.
+4. Send the complete response.
+
+For a simple page, this takes 5-20ms on a modern server. For a complex page with many components and data, it can take 50-200ms. At high traffic, those milliseconds multiply. The mitigation strategies are:
+
+- **Caching at the CDN or edge.** Many pages (marketing, blog posts) can be cached for minutes or hours, eliminating per-request server cost.
+- **Streaming.** Send the shell immediately and stream the slow parts as they become ready (Lesson 9A.9).
+- **SSG.** For pages that change rarely, generate at build time and serve as static files (Lesson 9A.10).
+- **Partial prerendering.** Render the shell at build time, fill in per-user data at request time. This is emerging in SvelteKit's adapter ecosystem.
+
+### 1.7 SSR and security boundaries
+
+A critical point that beginners miss: code that runs during SSR has full server access. Your `load` function can read environment variables, query databases, access the filesystem. But the *rendered HTML* is sent to the browser, so any secret data included in the markup or serialized data is exposed to the client. SvelteKit's `+page.server.ts` (server-only load) serializes its return value with `devalue` and sends it to the client as JSON. If your load function returns `{ user: { email, internalNotes } }`, both fields are visible in the page source. Only return data that is safe for the requesting user to see.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app with 20 routes, SSR is the difference between a site that scores 90+ on Lighthouse Performance (for LCP and FCP) and one that scores 40. The reason is physics: no amount of JavaScript optimization can make a client-rendered page appear faster than the network round-trip to download and parse the JS bundle. SSR sidesteps the problem entirely — the HTML arrives pre-rendered, and the browser can paint immediately. For SEO-critical pages (anything that should appear in search results), SSR is non-negotiable. For authenticated dashboards, it is strongly recommended. The only pages where CSR is acceptable are those where SEO does not matter and the user is already authenticated with a loaded shell.
+
+**The mental model.** SSR is like a restaurant that prepares your plate in the kitchen (server) and brings it to your table ready to eat (browser). CSR is like a restaurant that brings you a bag of raw ingredients (JS bundle) and a recipe card (component code), and you cook the meal at your table (browser). The first method means you eat faster. The second means the kitchen does less work but the table (your user's phone) does all the cooking. On a powerful device the difference is small. On a mid-range phone with a slow connection, the difference is the user waiting 3 seconds to see food vs. seeing it immediately.
+
+**Edge cases.** SSR runs your component code in a Node.js environment where `window`, `document`, `navigator`, `localStorage`, and all browser APIs are undefined. Any top-level code that references these will crash SSR. The safe patterns are: (1) put browser-only code in `onMount` or `$effect`, (2) guard with `import { browser } from '$app/environment'`, (3) use `+page.server.ts` for truly server-only logic. Another edge case: SSR does not run `$effect` blocks, `onMount` callbacks, or event handlers. Only the synchronous render path executes on the server. This means the server-rendered HTML reflects the initial state, not any state that effects or mount callbacks would set.
+
+**Performance implications.** SSR's impact on Core Web Vitals is dramatic. LCP improves by 500-3000ms on mobile because the largest content element is in the initial HTML, not waiting for JS execution. CLS improves because server-rendered elements have their final dimensions from the start. INP is neutral — SSR does not affect interaction responsiveness once the page is hydrated. The cost is server CPU time, which scales linearly with traffic. For high-traffic pages, SSG (prerendering) eliminates that cost entirely.
+
+**Connection to other modules.** SSR was previewed in Module 1 (compiled output). This lesson (8.2) explains the mechanism. Lesson 8.3 covers hydration (making SSR'd pages interactive). Module 9A teaches load functions (the server-side data-fetching layer). Module 12 connects SSR to LCP optimization. Module 13 connects SSR to SEO (crawlers see the full HTML). Every architectural decision in the course — from token-based styling to typed load functions — is designed to work correctly across both server and client environments.
+
 ## 2. Style it — PE7 for a "proof" page
 
 The mini-build is a card that displays the server's render timestamp. We give it a calm green personality (`oklch(70% 0.18 150)`) because the message is positive — *look, SSR works*. The timestamp uses `ui-monospace` to make it look like a machine value. Every spacing token and color token comes from PE7.

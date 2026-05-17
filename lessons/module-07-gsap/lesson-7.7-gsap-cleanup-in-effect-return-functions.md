@@ -90,7 +90,11 @@ gsap.globalTimeline.getChildren().length
 
 If it returns a non-zero number and you do not expect any running animations, you have leaked tweens. Time to check cleanup.
 
-### 1.6 Cleanup and reduced motion
+### 1.6 Why cleanup matters more in SvelteKit than in static sites
+
+In a static HTML page, GSAP animations run once and stay. In a SvelteKit app with client-side navigation, components mount and unmount dozens of times per session. Every navigation from a GSAP-heavy page to another page destroys the route's component tree. Without cleanup, the tweens from the old page persist in GSAP's global timeline, targeting DOM elements that no longer exist. After ten navigations, you might have 40+ zombie tweens consuming requestAnimationFrame cycles for nothing. This is why SvelteKit apps have stricter cleanup requirements than traditional multi-page sites — the long-lived SPA session means leaks accumulate.
+
+### 1.7 Cleanup and reduced motion
 
 The reduced-motion guard comes *inside* the context callback, not outside:
 
@@ -109,6 +113,18 @@ $effect(() => {
 ```
 
 The context is always created so the cleanup path is the same regardless of the preference; only the animations inside differ.
+
+## Deep Dive
+
+**Why this matters at scale.** In a marketing site with 20 routes, each containing 3-5 GSAP animations, proper cleanup is the difference between a site that runs smoothly all day and one that becomes sluggish after 15 minutes of browsing. A leaked tween costs approximately 1-2ms of main-thread time per frame (it checks if its target still exists, finds it does not, and does nothing useful). Thirty leaked tweens after a browsing session means 30-60ms of wasted work per frame — enough to drop from 60fps to 40fps and trigger INP violations. The fix (one `ctx.revert()` call per route) costs zero runtime but prevents the entire problem category.
+
+**The mental model.** Think of `gsap.context()` as a room reservation at a hotel. When you check in (create the context), you are given a room that contains all your animations. When you check out (`ctx.revert()`), the hotel cleans the room completely — removes all your belongings (kills tweens), restores it to its original state (reverts DOM), and makes it available for the next guest. Without checking out, your stuff accumulates in rooms across the hotel, the cleaning staff cannot clean, and eventually the hotel (the browser) runs out of capacity.
+
+**Edge cases.** If an animation has already completed (a `gsap.to` that ran to its end), calling `ctx.revert()` still reverts the DOM to its pre-animation state. This means animated elements snap back to their starting positions. Usually this is fine because the component is being destroyed anyway. But if you are using GSAP inside a component that stays mounted (e.g., a modal that opens and closes), you need to decide: should closing the modal revert the entrance animation? If not, use `ctx.kill()` instead of `ctx.revert()`, or do not include the entrance animation in the cleanup context. Another edge case: `ScrollTrigger` instances inside a context are also killed on `revert()`. If you have a ScrollTrigger that should outlive its owning component (rare), create it outside the context.
+
+**Performance implications.** A `gsap.context` with `revert()` on cleanup has essentially zero cost when animations are not running (the context is empty after all tweens complete). The cost is only during active animations: the context maintains a list of active tweens, which is O(n) in the number of tweens created inside it. For typical page animations (5-15 tweens), this is negligible. The performance *benefit* of cleanup is enormous: it prevents the global timeline from growing unboundedly, which would cause GSAP's ticker to do unnecessary work on every frame.
+
+**Connection to other modules.** This lesson is the culmination of Module 2's `$effect` cleanup pattern (Lesson 2.11) applied to a real-world library. Module 8 (routing) triggers cleanup implicitly via component destruction on navigation. Module 12 (performance) audits leaked tweens as a primary cause of memory growth and frame drops. The pattern — set up in effect body, tear down in returned cleanup — is identical whether you are cleaning up a `setInterval`, a WebSocket, an IntersectionObserver, or a GSAP context. The mechanism is always Svelte's `$effect` return function; only the cleanup call changes.
 
 ## 2. Style it — A dashboard with several looping tweens
 

@@ -81,6 +81,63 @@ In Lesson 3.3 we will add an explicit `interface Props { ... }` and attach it to
 
 That works, but it is not yet strict enough for a university-level course. We tighten it in the next lesson. For now, focus on the mechanics of `$props()` itself.
 
+### 1.7 Props are reactive by default
+
+A crucial property of `$props()` that beginners sometimes miss: **props are reactive**. If a parent component changes the value it passes as a prop (because the parent's own `$state` changed), the child component re-renders the affected portion of its template automatically. You do not need to "subscribe" to props, you do not need to add a watcher, and you do not need to call any update function. The reactivity is wired up by the compiler at build time.
+
+This means you can use a prop value directly in `$derived` expressions:
+
+```svelte
+<script lang="ts">
+    let { price = 0, quantity = 1 } = $props();
+    const total = $derived(price * quantity);
+</script>
+```
+
+When the parent updates `price` or `quantity`, the child's `total` recomputes automatically. The prop flows in, the derived value updates, the DOM reflects the change — all without a single explicit subscription.
+
+### 1.8 The rest pattern for forwarding unknown props
+
+A component sometimes needs to accept arbitrary HTML attributes (like `class`, `id`, `aria-label`) and forward them to its root element. The rest pattern handles this:
+
+```svelte
+<script lang="ts">
+    let { label, value, ...rest } = $props();
+</script>
+
+<article {...rest} class="info-card">
+    <p>{label}</p>
+    <p>{value}</p>
+</article>
+```
+
+The `...rest` collects every prop that is not `label` or `value` into an object, and `{...rest}` spreads that object as attributes on the element. This is how you build components that feel "native" — callers can add `class="my-override"`, `data-testid="metric"`, or any ARIA attribute without the component needing to know about them in advance. We will use this pattern extensively in the component library later.
+
+### 1.9 Props vs state: when to upgrade
+
+A common question: "if I receive a value as a prop, can I also make it stateful?" The answer is: you *can*, but you probably should not. If you write `let { count } = $props(); count = 5;` the compiler will warn you. Props are inputs from the parent; they represent the parent's truth. If you need a local copy that the child can modify independently, create a new state variable initialized from the prop:
+
+```svelte
+<script lang="ts">
+    let { initialCount = 0 } = $props();
+    let localCount = $state(initialCount);
+</script>
+```
+
+Now `localCount` is independent state. Changes to the parent's `initialCount` after mount do *not* automatically update `localCount` — it has become its own source of truth. This is an important distinction: props flow downward continuously; a state variable initialized from a prop takes a snapshot at creation time and diverges from there.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component app, props are the primary mechanism for data flow. A component library with 20 components, each accepting 3–8 props, has hundreds of data flow points. If even one of those is untyped, incorrectly defaulted, or mutated by the child, you get subtle bugs that are hard to trace. The discipline of "props flow down, never mutated by the child, always typed" is the single most important architectural rule for maintainable component trees. Teams that violate it end up with "works on my machine" bugs that only manifest when specific prop combinations occur.
+
+**The mental model.** A component is a function. Props are its parameters. Just as a well-designed function does not modify its arguments (that would be a side effect), a well-designed component does not modify its props. The parent "calls" the component with arguments; the component uses those arguments to produce output. If the component needs mutable local state, it declares its own `$state` variables separate from props. This function-like mental model is what makes components composable: you can reason about each one in isolation, knowing that its behavior is fully determined by its props (and its internal state), with no hidden external mutations.
+
+**Edge cases.** If a prop is an object or array and the parent passes a `$state` object, the child can accidentally mutate the parent's state through the prop reference. For example, `items.push(newItem)` inside the child modifies the parent's array. This is technically allowed but architecturally dangerous — it creates implicit upward data flow that breaks the "props flow down" contract. The fix is to use callback props for mutations: the parent passes an `onAdd` callback, and the child calls it when it wants to add an item. Lesson 3.5 covers `$bindable` as the controlled exception to this rule.
+
+**Performance implications.** Props themselves have near-zero overhead. The compiler generates a direct reference from parent to child — there is no intermediate serialization, no cloning, no diffing. Changing a prop triggers a targeted update only of the DOM nodes that read that prop, not a full re-render of the child component. This is one of Svelte's advantages over React, where changing a prop re-renders the entire child subtree (unless you manually wrap it in `React.memo`). In Svelte, granular reactivity means only the specific text node, attribute, or expression that references the prop is updated.
+
+**Connection to other modules.** Props are the glue of the component tree. Module 4 (control flow) passes loop variables as props to child components. Module 5 (events) passes callback functions as props for child-to-parent communication. Module 6 (styling) uses CSS custom properties as a parallel "styling props" channel. Module 8 (routing) passes `data` from load functions as a prop to page components. Module 11 (state management) compares prop drilling to context and stores. Understanding props deeply here makes every subsequent pattern — callback props, render props via snippets, data props from load functions — immediately comprehensible.
+
 ## 2. Style it — Brand personality moves with the component
 
 `InfoCard` already carries its own styles from Lesson 3.1. In this lesson the consumer route overrides the per-page `--color-brand` to teal, and every instance picks it up through the cascade — even though the component itself never mentions teal. This is your first taste of the pattern used for the entire UI library later: the parent sets tokens, the child reads them.

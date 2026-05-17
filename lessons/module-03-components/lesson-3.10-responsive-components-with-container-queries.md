@@ -98,6 +98,34 @@ The knob values change, the existing rules pick them up, and the component resha
 
 Container queries (`@container`) and `container-type` are **baseline** since 2023 and are in every evergreen browser. You no longer need a polyfill, a PostCSS plugin, or a feature-detection fallback. Write them directly and trust the browser to do its job.
 
+### 1.7 Building a responsive component: the three-breakpoint pattern
+
+The most useful pattern for a real component is to define three container breakpoints that cover the common widths:
+
+- **Compact** (default, no query needed): below 280 px. Tight padding, stacked layout, smaller fonts.
+- **Medium** (`@container (min-width: 280px)`): the sweet spot. Comfortable padding, still mostly stacked but with inline metadata.
+- **Wide** (`@container (min-width: 480px)`): side-by-side layout, larger fonts, more generous spacing.
+
+These three states handle the vast majority of real-world placements. A card in a 200 px sidebar gets compact. The same card in a 350 px column gets medium. The same card in a 700 px hero region gets wide. One file, three layouts, zero JavaScript, zero `ResizeObserver`, zero class-toggling logic.
+
+### 1.8 Container queries inside Svelte's scoped styles
+
+Because Svelte scopes CSS by adding a hash suffix to selectors, `@container` queries inside a `<style>` block work identically to any other scoped rule. The hash is applied to the selectors inside the container query, not to the query itself. This means two instances of the same component on the same page can have different container query matches if their containers are different widths — and the styles remain scoped and collision-free.
+
+One subtlety: if you set `container-type: inline-size` on the component's own root element, and that root element has Svelte's scoped hash, the container query will match correctly because the query looks at the *nearest ancestor* with `container-type` set — which is the root element itself (for descendants inside it). This is the recommended pattern: put `container-type` on your component's root `<article>` or `<div>`, and write `@container` rules for children inside it.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component design system, every component that might appear in multiple contexts (sidebar, main content, modal, card grid) needs to be responsive to its container. Without container queries, teams build "size variants" — `<Card size="sm">`, `<Card size="lg">` — that the parent must set manually. This creates coupling: the parent has to know how wide its children are and tell them. Container queries invert this: the child observes its own width and adapts autonomously. The parent simply places the component; the component figures out the rest. This decoupling is what makes a component library truly reusable across different layouts without configuration.
+
+**The mental model.** Think of a container query as a thermostat for width. A thermostat does not need you to tell it the temperature — it measures it and adjusts the heating automatically. Similarly, a component with container queries does not need the parent to tell it "you are narrow" — it measures its own container width and adapts its layout automatically. Just as you do not rewire your thermostat every time you move to a new room, you do not reconfigure a container-queried component every time you place it in a new layout. It just works.
+
+**Edge cases.** You cannot query the element that has `container-type` set on it — only its descendants can query it. This means the root element itself cannot change its own padding based on its own width via a container query. The workaround is to use a thin wrapper: set `container-type` on an outer `<div>`, and put your visual component as the first child inside it. Another edge case: `container-type: inline-size` prevents the element from using `height: auto` based on content in some edge cases (it must establish a containment context). In practice, this rarely causes issues for `inline-size`, but be aware that using `container-type: size` (tracking both axes) can produce unexpected height collapse.
+
+**Performance implications.** Container queries have near-zero runtime cost. The browser already knows the computed width of every element during layout — a container query simply checks that width against your breakpoint during style resolution. There is no JavaScript, no `ResizeObserver` callback overhead, no forced reflow. A page with 50 container-queried components does not perform measurably worse than one with 50 media-queried components. The only consideration is that `container-type: inline-size` creates a containment context, which means the browser can optimize paint for that subtree independently — this is actually a performance *benefit*, not a cost.
+
+**Connection to other modules.** Container queries first appeared in Module 1 Lesson 1.5 as part of PE7's philosophy. Module 6 Lesson 6.8 teaches them in full depth with the styling vocabulary. This lesson (3.10) is where they merge with the component architecture story — because a truly reusable component must own its own responsiveness. The capstone project combines container queries with the `MediaCard` pattern to build a component that works everywhere from a narrow mobile sidebar to a full-width desktop hero, without the page telling it which layout to use.
+
 ## 2. Style it — Three widths, one file
 
 The mini-build places the *same* `MediaCard` component in three containers of widely different widths (a narrow sidebar column, a medium card column, and a wide hero region). Each instance uses a container query on its own root to pick between compact, stacked, and wide layouts. Zero JavaScript.

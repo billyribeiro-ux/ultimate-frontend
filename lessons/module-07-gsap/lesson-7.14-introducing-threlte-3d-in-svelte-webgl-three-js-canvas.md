@@ -132,6 +132,43 @@ Threlte exposes a `useTask` hook for per-frame updates, but for anything that co
 
 Same rules as every other GSAP code: check `prefersReducedMotion.current` and either skip the ScrollTrigger or give the mesh a static rotation.
 
+### 1.10 Threlte's component model and reactivity
+
+Threlte components are fully reactive. When you bind a prop to a `$state` variable, the Three.js object updates automatically:
+
+```svelte
+<script lang="ts">
+    let color = $state('#ff6699');
+</script>
+
+<T.MeshStandardMaterial {color} />
+```
+
+Changing `color` in state causes Threlte to update the material's color property without destroying and recreating the mesh. This reactive bridge means you can drive 3D scene properties from the same runes-based state system you use for 2D UI. Sliders can control light intensity. Toggles can swap geometries. Form inputs can adjust camera position. The 3D scene is just another consumer of your reactive state.
+
+### 1.11 Performance considerations for 3D in production
+
+WebGL rendering is expensive. A single `<Canvas>` runs a render loop that produces a new frame whenever the scene changes. On mobile devices, this can consume significant GPU and battery. Production best practices:
+
+- **Use `frameloop="demand"` on `<Canvas>`** to render only when something changes, not 60fps continuously.
+- **Set a device pixel ratio limit** with the `dpr` prop: `<Canvas dpr={[1, 1.5]}>` limits the render resolution on high-DPI screens.
+- **Lazy-load the canvas** — do not render 3D on the initial server response. Use `{#if browser}` and consider lazy-importing the scene component with `import()` so the Three.js bundle does not block the initial page load.
+- **Keep polygon counts low.** A hero torus with 32×200 segments is fine; a detailed character model with 100k triangles needs LOD (Level of Detail) management.
+
+Module 12 Lesson 12.12 covers Threlte performance in depth.
+
+## Deep Dive
+
+**Why this matters at scale.** 3D on the web is increasingly common in marketing sites, product configurators, and data visualizations. But most implementations are fragile: they crash on SSR, leak WebGL contexts on navigation, fail to adapt to reduced motion preferences, and destroy page performance. Threlte + SvelteKit + GSAP, properly integrated with the patterns taught in this course (browser guard, effect cleanup, ScrollTrigger with `ctx.revert()`, reduced motion checks), gives you 3D that is production-ready — it handles SSR gracefully, cleans up on navigation, respects accessibility preferences, and co-exists with 2D UI without blocking the main thread.
+
+**The mental model.** Think of Threlte as a translator between two worlds: Svelte's declarative component model and Three.js's imperative scene graph. In Three.js, you write `scene.add(new Mesh(geometry, material))`. In Threlte, you write `<T.Mesh><T.BoxGeometry /><T.MeshStandardMaterial /></T.Mesh>`. The Threlte translator converts your declarative markup into the imperative calls Three.js expects, handles creation and disposal, and syncs reactive state changes to the scene graph. You never have to manually manage the Three.js lifecycle — Threlte does it for you, the same way Svelte manages the DOM lifecycle for 2D components.
+
+**Edge cases.** Threlte's `<Canvas>` creates a WebGL context. Browsers limit the number of simultaneous WebGL contexts (typically 8-16). If a SvelteKit app creates a new canvas on every navigation without destroying the old one (e.g., a layout-level canvas that remounts), you can exhaust the context limit. The fix is cleanup: Svelte's component lifecycle destroys the canvas on unmount, which releases the context. But if you are lazy-loading scenes and creating multiple canvases on one page, be aware of the limit. Another edge case: Three.js objects (geometries, materials, textures) need explicit `.dispose()` calls to free GPU memory. Threlte handles this automatically when components unmount, but manually created Three.js objects (inside effects or imperative code) must be disposed manually.
+
+**Performance implications.** A Threlte `<Canvas>` with `frameloop="always"` (the default) renders 60fps continuously, consuming GPU cycles even when nothing is changing. For a hero animation that only moves on scroll, this is wasteful. Use `frameloop="demand"` and call `invalidate()` only when the scene needs a new frame. With GSAP ScrollTrigger driving the animation, you can invalidate inside the `onUpdate` callback. This reduces GPU usage from 100% (60fps rendering) to near-zero (rendering only on scroll frames), which dramatically improves battery life on mobile and reduces thermal throttling.
+
+**Connection to other modules.** This lesson connects Module 7 (GSAP) with the concept of 3D rendering. Module 8 (routing) ensures 3D scenes survive navigation correctly. Module 12 Lesson 12.12 covers Threlte performance optimization in depth (lazy canvas, DPR limiting, demand frameloop). Module 13 Lesson 13.15 covers the SEO implications of canvas content (LCP, invisible text alternatives, accessibility). The capstone project includes a Threlte hero section that demonstrates the complete integration: SSR-safe mounting, GSAP scroll-driven rotation, OKLCH color bridging, reduced motion fallback, and cleanup on navigation.
+
 ## 2. Style it — A spinning PE7-coloured torus
 
 The mini-build has a cobalt brand (`oklch(58% 0.2 250)`). The stage is a full-width, 16:9 container holding a `<Canvas>`. A torus sits at the origin with a `MeshStandardMaterial` whose colour comes from the converted PE7 brand token. Two lights, one perspective camera. Scroll to rotate.

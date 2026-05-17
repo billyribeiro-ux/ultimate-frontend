@@ -89,6 +89,51 @@ Reading the file top to bottom, you see mobile first and progressively add deskt
 
 Mixing `min-width` and `max-width` in the same codebase produces "dead zones" where neither query matches, or "double zones" where both apply. It is a solved problem if you pick one direction and stick to it. This course picks `min-width` and sticks to it forever.
 
+### 1.6 Why architecture matters more than any single rule
+
+A common question from beginners is "why do I need six layers and a whole system when I am just building a simple website?" The answer is time. A simple website, if it is successful, becomes a complex website. One page becomes twenty. One developer becomes four. One component library version becomes five. Without a CSS architecture, every new developer and every new sprint adds rules that fight existing rules. The first sprint is fine; the tenth sprint is a minefield of `!important` overrides, orphaned selectors, and dead code nobody dares delete because nobody knows what depends on it.
+
+PE7 is an answer to that decay. Its six layers, its strict token discipline, its one-directional media queries, and its insistence on OKLCH are not opinions for the sake of opinions — they are constraints that prevent an entire category of maintenance problems. You pay a small learning cost now, and you avoid a compounding maintenance cost for the lifetime of the project.
+
+Think of it this way: a house built without a foundation still has walls and a roof. It even looks like a house. But when the soil shifts — when a team scales, when brand requirements change, when dark mode needs to be added — the foundation-less house cracks. PE7 is the foundation. It does not make your walls look different from the outside, but it makes every future remodel cheaper, safer, and faster.
+
+### 1.7 How PE7 compares to other CSS methodologies
+
+You may have encountered BEM, ITCSS, Tailwind, or CSS Modules elsewhere. PE7 is not in opposition to all of them — it borrows and synthesises the best parts:
+
+- **From ITCSS** it borrows the idea of layers ordered by specificity, but uses native `@layer` instead of relying on file concatenation order.
+- **From BEM** it borrows the double-underscore naming for child elements (`.card__title`), because clear naming reduces ambiguity. But it does not use BEM modifiers — PE7 uses CSS custom properties for variants instead.
+- **From Tailwind** it borrows nothing at the implementation level but shares the philosophy of "design tokens that constrain choices." Where Tailwind does this through utility classes, PE7 does it through custom properties.
+- **From CSS Modules** it borrows scoping — but Svelte's built-in hash-based scoping is better because it does not require extra tooling.
+
+The result is a system that requires no pre-processor, no PostCSS plugin, no special bundler configuration. Everything PE7 uses is native CSS from the Baseline 2023 set: `@layer`, `oklch()`, `clamp()`, custom properties, native nesting, container queries, and `min-width` media queries. If it runs in a 2023 browser, PE7 works.
+
+### 1.8 The token naming convention
+
+Every PE7 token follows a predictable naming pattern: `--{category}-{name}`. Categories include:
+
+- `--color-*` — colours (`--color-brand`, `--color-surface`, `--color-text-muted`)
+- `--space-*` — spacing values (`--space-xs` through `--space-3xl`)
+- `--text-*` — font sizes (`--text-sm`, `--text-base`, `--text-lg`, `--text-xl`)
+- `--radius-*` — border radii (`--radius-sm`, `--radius-md`, `--radius-lg`)
+- `--shadow-*` — box shadows (`--shadow-sm`, `--shadow-md`, `--shadow-lg`)
+- `--dur-*` — animation/transition durations (`--dur-fast`, `--dur-normal`, `--dur-slow`)
+- `--ease-*` — easing functions (`--ease-out`, `--ease-expressive`)
+
+Naming consistency has a real payoff. When you see `var(--space-lg)` in a style block, you know immediately that it is a spacing value from the token system. You do not have to look up what `1.5rem` means in context. You do not have to wonder whether the person who wrote it meant "large by this component's standard" or "large by the global standard." The name carries the meaning, and the meaning is global. Every `--space-lg` in the project is the same distance. Every `--color-brand` in the project is the same hue.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, CSS architecture is the difference between "I can change the brand colour in one minute" and "I need to search 200 files, and some of them have raw hex values that do not match." PE7's token + layer system means a rebrand — changing `--color-brand` from violet to teal — is a single-line change in `app.css`. Every component in the project picks it up automatically. Dark mode is the same story: override six surface/text tokens in a `prefers-color-scheme` media query and every component adapts. Without architecture, a dark-mode feature request becomes a six-sprint project of manually rewriting colour values in every file.
+
+**The mental model.** Think of PE7 as a vending machine with fixed slots. The tokens layer stocks the machine with named values. The base, layout, and components layers are the customers who buy from the machine by name. Nobody reaches behind the glass to grab an unnamed raw value. If you want a new colour, you stock it in the machine first; every component that needs it requests it by name. This indirection is the entire value: you can restock the machine (change token values) without modifying a single customer (component).
+
+**Edge cases.** The main gotcha is unlayered CSS. Svelte's scoped `<style>` blocks are unlayered by default, which means they beat every global `@layer` rule. This is usually correct — you want a component's own styles to win — but it can surprise you when a global token override in `@layer components` seems to "not work" on a specific element. The fix is to remember the cascade hierarchy: unlayered > `animations` > `components` > `layout` > `base` > `tokens` > `reset`. If you need a global rule to beat a scoped style, you probably need to restructure the component's relationship with the token, not escalate specificity.
+
+**Performance implications.** CSS custom properties have essentially zero runtime cost in modern browsers. The browser resolves them during style calculation, which is already a per-frame operation. Having 80 tokens declared on `:root` does not measurably affect style-calc time. The `@layer` rule itself has zero runtime cost — it is purely a parse-time cascade decision. The only potential performance concern is extremely deep nesting of `var()` calls (e.g., `var(--a)` resolving to `var(--b)` resolving to `var(--c)` ten levels deep), which some browsers handle less efficiently. PE7 keeps token resolution to one or two levels of indirection, so this is never a concern in practice.
+
+**Connection to other modules.** PE7's architecture appears in every single module of this course. Module 3 (components) uses CSS custom properties as the "knob" pattern for variant styling. Module 6 dives deep into each layer. Module 7 uses tokens to drive GSAP animation values. Module 8 shows how tokens survive the SSR/hydration boundary unchanged. Module 12 shows how the token system aids performance by preventing cascade fights that force browser repaints. Module 13 uses the same token-based color system to maintain contrast ratios for accessibility-related SEO signals. Understanding PE7 deeply here is an investment that pays dividends in every subsequent module.
+
 ## 2. Style it — The tokens in action
 
 The mini-build is a token inspector that reads three PE7 tokens — `--color-brand`, `--space-lg`, `--radius-lg` — and demonstrates a scoped override. The top-level `section` overrides `--color-brand` so every descendant inside this lesson's card sees a custom hue without any other file changing. Mobile baseline is single-column; `@media (min-width: 480px)` introduces a two-column layout.

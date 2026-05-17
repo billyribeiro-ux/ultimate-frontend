@@ -248,6 +248,23 @@ Aligned with Google's March/April 2026 updates (Core Update, Spam Update, E-E-A-
 
 ---
 
+## Module 14 — 3D with Threlte 🔺
+
+Student builds production-ready 3D experiences with Threlte from scene fundamentals through physics, post-processing, and performance optimization.
+
+- 14.1 — What Threlte is (Three.js abstraction for Svelte 5, `<Canvas>`, `<T.*>` components, declarative scene graph)
+- 14.2 — Scene fundamentals (PerspectiveCamera, OrbitControls, DirectionalLight, AmbientLight, MeshStandardMaterial)
+- 14.3 — Loading 3D models (GLTF/GLB via `useGltf` from @threlte/extras, loading states, error handling)
+- 14.4 — Interactivity (`interactivity` plugin from @threlte/extras, onclick/onpointerenter on meshes, cursor changes)
+- 14.5 — Scroll-driven 3D scenes (GSAP ScrollTrigger driving camera position and mesh rotation via $effect)
+- 14.6 — Post-processing (EffectComposer from @threlte/extras, bloom, vignette, chromatic aberration)
+- 14.7 — Physics with Rapier (@threlte/rapier, RigidBody, Collider, gravity, bounce, user interaction)
+- 14.8 — Production 3D (lazy loading, DPR clamping, frameloop="demand", dispose patterns, prefers-reduced-motion fallback to poster image, SSR safety with `{#if browser}`)
+
+**Module project:** 3D Product Showcase.
+
+---
+
 ## Capstone — The PE7 Flagship Project 🏁
 
 See [`lessons/capstone/README.md`](./lessons/capstone/README.md) and [`lessons/capstone/platform-spec.md`](./lessons/capstone/platform-spec.md).
@@ -258,10 +275,18 @@ See [`lessons/capstone/README.md`](./lessons/capstone/README.md) and [`lessons/c
 
 ## Threlte / 3D lesson summary
 
-| Lesson   | Module | Focus                                                      |
-| -------- | ------ | ---------------------------------------------------------- |
-| 7.14     | GSAP   | Threlte setup, first `<Canvas>`, GSAP-driven 3D scroll     |
-| 12.12    | Perf   | Lazy canvas, DPR, `frameloop="demand"`, reduced-motion     |
-| 13.15    | SEO    | SSR fallbacks for canvas content, LCP strategy for WebGL   |
+| Lesson   | Module   | Focus                                                      |
+| -------- | -------- | ---------------------------------------------------------- |
+| 7.14     | GSAP     | Threlte setup, first `<Canvas>`, GSAP-driven 3D scroll     |
+| 12.12    | Perf     | Lazy canvas, DPR, `frameloop="demand"`, reduced-motion     |
+| 13.15    | SEO      | SSR fallbacks for canvas content, LCP strategy for WebGL   |
+| 14.1     | Threlte  | What Threlte is — declarative scene graph, `<T.*>`         |
+| 14.2     | Threlte  | Scene fundamentals — camera, lights, PBR materials         |
+| 14.3     | Threlte  | Loading GLTF/GLB models with useGltf                       |
+| 14.4     | Threlte  | Interactivity — raycasting, pointer events on meshes       |
+| 14.5     | Threlte  | Scroll-driven 3D via GSAP ScrollTrigger                    |
+| 14.6     | Threlte  | Post-processing — bloom, vignette, chromatic aberration    |
+| 14.7     | Threlte  | Physics with Rapier — RigidBody, Collider, gravity         |
+| 14.8     | Threlte  | Production 3D — lazy load, DPR clamp, demand frameloop     |
 
-All three use `@threlte/core` and `@threlte/extras` — installed with `pnpm add three @threlte/core @threlte/extras`.
+All use `@threlte/core` and `@threlte/extras` — installed with `pnpm add three @threlte/core @threlte/extras`. Physics lessons also require `pnpm add @threlte/rapier`.

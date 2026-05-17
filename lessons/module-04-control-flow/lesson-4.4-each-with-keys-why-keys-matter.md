@@ -63,6 +63,46 @@ Before a re-render, Svelte has a map from old keys to old DOM nodes. During the 
 
 Module 6 introduces `animate:flip`, an animation directive that only works on keyed `{#each}` blocks. It uses the key to track which item moved from where to where and computes a smooth transition. Everything about good list animation in Svelte depends on keys being correct.
 
+### 1.7 Keys in the context of server-side rendering
+
+When a keyed list is rendered on the server, the HTML contains no key information — it is just a list of DOM nodes. The keys exist only in Svelte's client-side runtime, where they are used during hydration to map the existing HTML nodes to the data items. After hydration, any list mutation uses the keys to determine the minimal DOM operations needed. This means keys have zero cost during SSR (they do not appear in the HTML, they do not increase payload size) and only affect client-side behavior.
+
+### 1.8 Compound keys for complex data
+
+Sometimes a single field is not enough to uniquely identify an item. A chat message might belong to a conversation and have a sequence number within it. Neither alone is unique, but together they are:
+
+```svelte
+{#each messages as msg (`${msg.conversationId}-${msg.seq}`)}
+    <ChatBubble {msg} />
+{/each}
+```
+
+The key expression can be any JavaScript expression that produces a unique, stable value. String concatenation, template literals, even `JSON.stringify` of a small object are all valid. The only requirements are uniqueness and stability — the same item must always produce the same key.
+
+### 1.9 What the compiler does with keys
+
+When you provide a key expression, the Svelte compiler generates code that maintains a `Map<KeyValue, DOMFragment>` internally. On each update, it:
+
+1. Creates a new Map from the updated array (key → item).
+2. Walks the old Map: for each old key, checks if it exists in the new Map.
+3. Old keys not in the new Map → those DOM fragments are destroyed.
+4. New keys not in the old Map → fresh DOM fragments are created.
+5. Keys in both → existing DOM fragments are reused and moved to their new position if needed.
+
+This algorithm is O(n) in the size of the array, which is optimal — you cannot do better than looking at every item once. The move operation is a DOM `insertBefore` call, which is far cheaper than destroying and recreating an element with all its attributes, listeners, and child nodes.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app with dynamic lists — product catalogs, message threads, notification feeds, admin tables — keyed lists are not an optimization; they are a correctness requirement. Any list that supports reordering, filtering, or insertion needs keys. Without them, form state (typed text, checkbox state, focus), animation state (FLIP positions), and component lifecycle (effect cleanup) all break subtly. The bug manifests as "the wrong row is highlighted" or "my input text jumped to a different item" — bugs that are easy to reproduce but hard to diagnose without understanding keys.
+
+**The mental model.** Think of keys as name badges at a conference. Without badges, if everyone shuffles their seats, you identify people by position: "the person in seat 3." If seat 3 now holds a different person, you address the wrong one. With badges, you identify people by name regardless of where they sit. When the list reorders, Svelte uses the badge (key) to find the right DOM node, not the seat number (index). The badge is permanent; the seat is temporary.
+
+**Edge cases.** Duplicate keys are a runtime error. If your data source can produce duplicates (e.g., a poorly-designed API that returns items with the same ID), you must either deduplicate before rendering or append a unique suffix. Another edge case: if an item's key field changes (e.g., a database migrates UUIDs), Svelte treats the old-key item as destroyed and the new-key item as created. This forces a full remount of that item's DOM, losing any internal state. For items with rich internal state (expanded accordions, playing videos), key stability is critical.
+
+**Performance implications.** Keys add a small constant overhead per list item: one Map entry (a few bytes) and one key comparison per update cycle. For lists of fewer than 10,000 items, this overhead is unmeasurable. For extremely large lists (10,000+ items), the cost is still O(n) but the constant factor of the Map lookup becomes relevant — at that scale you should be virtualizing the list anyway (only rendering visible items), which Module 12 touches on. The performance *benefit* of keys is large: moving a DOM node (`insertBefore`) is dramatically cheaper than destroying one node and creating another, especially for complex items with many children, event listeners, and nested components.
+
+**Connection to other modules.** Keys appear in Module 6 (animations — `animate:flip` requires keys to calculate FLIP positions). Module 7 (GSAP) needs keys to avoid animating the wrong element after a reorder. Module 11 (TanStack Table) relies on row keys for selection and expansion state. Module 12 (performance) uses keys to ensure minimal DOM operations in large datasets. Any pattern that involves "this specific item, not this position" depends on keys being correct.
+
 ## 2. Style it — Stripes and a focus ring that stays put
 
 The mini-build is a to-do list with alternating row backgrounds and a strong focus ring on the inputs. Both visual cues make the keyed behaviour visible: with keys, the focus ring follows the task you focused on even after you rotate the list.

@@ -68,6 +68,35 @@ If the rule is a scoped component style, it goes in the component's own `<style>
 
 DevTools in Chrome 120+ shows a "Layers" badge next to each rule in the Styles panel and lists them in resolution order. When a rule is overridden, the strike-through shows you which layer won. This is a new debugging experience — earlier CSS had no way to display *why* a rule lost — and it is worth opening a page and poking at the badges once so you know where they live.
 
+### 1.7 Layer inheritance and nested layers
+
+CSS supports nested layers: `@layer components.card { ... }`. Nested layers inherit the priority of their parent. In PE7 we do not use nesting — it adds complexity without benefit for our flat six-layer stack — but you should know it exists. Some third-party libraries ship their own `@layer` declarations. If you import a library that declares `@layer lib-base, lib-components`, those layers slot *below* your own unnamed rules (unlayered beats layered) and can optionally be placed within your stack using explicit ordering:
+
+```css
+@layer reset, tokens, base, third-party, layout, components, animations;
+@layer third-party {
+    @import 'some-library.css' layer;
+}
+```
+
+This gives you precise control over where third-party styles land in the cascade — a problem that was historically unsolvable without `!important` hacks.
+
+### 1.8 Why PE7 does not use `!important`
+
+The `!important` annotation inverts the layer order: among `!important` declarations, *earlier* layers win (the reverse of normal). This was designed for user stylesheets and accessibility overrides, not for developers fighting their own code. In PE7, `!important` never appears in project code. If you feel the need to reach for it, the correct fix is to move your rule to a higher layer or to reconsider the specificity of the competing rule. The only place you will see `!important` in this project is inside the `animations` layer's `prefers-reduced-motion` block, where it ensures accessibility overrides cannot be accidentally defeated by component transitions.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component application with four developers, the cascade is the number one source of CSS bugs. Developer A writes `.btn { color: blue }` in the base layer. Developer B writes `.page .btn { color: red }` in a page-specific file loaded later. Developer C adds `.sidebar .btn { color: green }` in a sidebar file. Without layers, the winner depends on specificity and source order — both of which are fragile. With PE7's layers, the answer is always deterministic: the rule in the highest-priority layer wins, regardless of specificity or file order. This means four developers can work on different parts of the same page without ever fighting each other's cascade.
+
+**The mental model.** Think of layers as floors in a building. Rules on higher floors always have priority over rules on lower floors, regardless of how loud (specific) the rule on a lower floor is. A whisper on the 6th floor (animations) beats a scream on the 3rd floor (base). The only thing louder than the top floor is someone standing on the roof (unlayered rules). This hierarchy is declared once and applies everywhere. You never have to ask "which rule wins?" — you look at which floor it lives on.
+
+**Edge cases.** The `@layer` declaration order must appear *before* any rules are added to those layers. If you accidentally write `@layer components { .btn { ... } }` before the `@layer reset, tokens, ...;` declaration line, the `components` layer is created at that point with a priority determined by its position in the file, not by the declaration line. In PE7, the declaration line is always the very first CSS in `app.css`, and all subsequent `@layer` blocks contribute to already-declared layers. If you see a layer that seems to have the wrong priority, check whether a stray `@layer` block appeared before the declaration.
+
+**Performance implications.** Cascade layers have zero runtime performance impact. They are resolved during stylesheet parsing, which happens once when the CSS is loaded. The browser's style engine does not re-evaluate layer priorities on each reflow — they are fixed for the lifetime of the stylesheet. In fact, layers can *improve* performance by reducing the effective number of rules the engine needs to consider for a given element: if the browser knows a rule's layer is lower-priority than an already-matched rule in a higher layer, it can skip specificity comparison entirely.
+
+**Connection to other modules.** Layers were introduced in Module 1 Lesson 1.5. This lesson (6.1) teaches them in full depth. Module 7 uses the `animations` layer for `prefers-reduced-motion` overrides. Module 12 relies on layer discipline to ensure component styles never accidentally override accessibility rules. The capstone project uses all six layers simultaneously, with third-party library styles placed in a custom `third-party` sub-layer. Every CSS decision in the course traces back to the layer architecture defined here.
+
 ## 2. Style it — A small comparison component
 
 The mini-build is a three-column demo showing the same button styled by a `base` rule, a `components` rule, and an animation override. Toggling a checkbox disables the components layer to prove visually that the fallback comes from `base`. Per-page colour: `oklch(65% 0.22 280)` (deep violet).

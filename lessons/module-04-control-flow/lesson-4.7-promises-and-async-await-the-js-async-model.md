@@ -96,9 +96,49 @@ JavaScript runs on a single main thread. Synchronous code runs top to bottom. Wh
 
 You do not need to master the event loop today. You need to know this much: **`await` pauses the function, not the page.** The browser continues to be responsive. When the Promise settles, your function resumes automatically.
 
-### 1.7 Why this lesson before `{#await}`
+### 1.7 Why Promises matter for SvelteKit load functions
+
+You will encounter Promises everywhere in SvelteKit. Every `load` function is async. Every `fetch` call returns a Promise. Every remote function returns a Promise. The `{#await}` block (Lesson 4.8) renders different UI for each Promise state. Understanding Promises deeply here — their three states, their one-way transitions, their error handling — is the prerequisite for everything in Modules 9A, 9B, and 10.
+
+In a load function, you will write `await fetch(...)` and the server will wait for the data before rendering HTML. In a component, you might start a fetch in response to a user action and render a loading state while it runs. In Module 9A Lesson 9A.9, you will return a *nested* Promise from a load function that SvelteKit streams to the browser progressively. All of these patterns depend on you being completely comfortable with the Promise model from this lesson.
+
+### 1.8 Common patterns: parallel, sequential, and race
+
+Three patterns you will use repeatedly with Promises:
+
+**Sequential** — one after another, where B needs A's result:
+```ts
+const user = await fetchUser();
+const posts = await fetchPosts(user.id);
+```
+
+**Parallel** — fire all at once, wait for all (Lesson 9A.6):
+```ts
+const [user, notifications] = await Promise.all([fetchUser(), fetchNotifs()]);
+```
+
+**Race** — take whoever finishes first:
+```ts
+const result = await Promise.race([fetchFast(), timeout(3000)]);
+```
+
+Each pattern serves a different need. Sequential when there are data dependencies. Parallel when the requests are independent (3x speed improvement). Race when you need a timeout or a fallback source. Module 9A Lesson 9A.6 covers parallel loading in depth.
+
+### 1.9 Why this lesson before `{#await}`
 
 Lesson 4.8 teaches Svelte's `{#await}` block, which renders different markup for pending / fulfilled / rejected states. `{#await}` takes a Promise as input — so before you can understand it, you need to know what a Promise *is* and how to produce one. That is what we just covered.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production SvelteKit app with 20 routes, every route has at least one load function that makes at least one async call. A dashboard page might make five calls in parallel. A detail page might make two sequential calls. An admin page might submit forms, handle validation errors, and retry on transient failures — all asynchronously. If any developer on the team does not understand Promises deeply — does not understand that `fetch` resolves on 500, does not understand that forgotten `await` gives you a Promise object instead of a value, does not understand that parallel `Promise.all` is 3x faster than sequential awaits — the app accumulates performance bugs and silent failures that only manifest under real network conditions.
+
+**The mental model.** A Promise is an envelope. When you call `fetch`, someone hands you a sealed envelope labeled "pending." You cannot open it yet. Eventually, the envelope becomes "fulfilled" (the letter is inside and you can read it) or "rejected" (the envelope contains an error notice). `await` is the act of sitting at your desk with the envelope, waiting for it to be openable. While you wait, you are idle but the rest of the office (the event loop) continues working. When the envelope opens, you read it and continue your work. You never have to poll the envelope — `await` takes care of the waiting.
+
+**Edge cases.** A common mistake: starting a `fetch` inside a component without handling the case where the component unmounts before the fetch resolves. The old fetch resolves, tries to set state on a destroyed component, and either errors or causes a warning. The fix is `AbortController` in an `$effect` cleanup (Lesson 2.11). Another edge case: `JSON.parse` (called by `response.json()`) can throw if the response body is not valid JSON — for example, if the server returned an HTML error page. Always handle `.json()` failures explicitly. A third edge case: `fetch` in a server load function uses SvelteKit's enhanced fetch, which deduplicates identical requests and can read from the internal cache — behavior that does not exist in the browser.
+
+**Performance implications.** Every `await` in a sequential chain adds the full round-trip time of that request to the total load time. If your load function awaits three 200 ms requests sequentially, the page takes 600 ms to render. Switching to `Promise.all` brings it to 200 ms — a 3x improvement that directly affects LCP (Lesson 12.1). This is not a micro-optimization; it is the single biggest performance win available in most data-heavy pages. Network waterfalls are the number one cause of slow pages in SSR applications.
+
+**Connection to other modules.** Promises appear in Module 9A (load functions), Module 9B (remote functions return Promises), Module 10 (form action submissions), Module 11 (optimistic UI awaits server confirmation), and Module 12 (streaming with Promise returns). Lesson 4.8 uses Promises directly in the `{#await}` template block. Module 9A Lesson 9A.6 covers `Promise.all` for parallel loading. Module 9A Lesson 9A.9 covers streaming with nested Promises. Every interaction between your app and the network passes through the Promise model taught in this lesson.
 
 ## 2. Style it — A loading skeleton and a data grid
 

@@ -79,6 +79,28 @@ You almost never want to use it to hide real bugs — a hydration mismatch is a 
 
 Svelte 5 rewrote hydration to be smaller and faster. Specifically, the compiler now knows exactly which nodes need event listeners and walks a narrow list rather than the whole DOM. In practice this means hydration costs are lower than Svelte 4, and hydration mismatches are harder to cause. You will still meet them, but less often.
 
+### 1.7 The hydration budget
+
+Every byte of JavaScript that must download and execute before hydration completes extends the "dead zone" — the period where the page looks done but does not respond to interaction. On a mid-range phone, parse time alone is approximately 1ms per KB of JavaScript. A 200 KB hydration bundle (compressed) is roughly 600 KB uncompressed, which takes approximately 600ms just to parse — before a single line executes. Add execution time and you are looking at 800ms-1.2s of non-interactive time on mobile.
+
+SvelteKit minimizes this by code-splitting per route. Each page only hydrates its own components, not the entire app. But third-party libraries in the bundle (charting libraries, rich text editors, GSAP) add to the budget. The discipline: every library imported by a page component contributes to that page's hydration time. Lazy-load heavy libraries with dynamic `import()` (Lesson 12.3) so they load after hydration completes.
+
+### 1.8 Partial hydration and islands (future direction)
+
+Some frameworks (Astro, Qwik) experiment with partial hydration: only interactive components are hydrated, while static content remains inert HTML. SvelteKit does not currently implement this model — it hydrates the entire page. However, Svelte's compiled output is already extremely lean (no runtime, targeted DOM operations), which makes full hydration faster than partial hydration in many other frameworks. The April 2026 version's narrow-list hydration walker is a step toward even more targeted hydration, and future SvelteKit versions may offer explicit islands for specific use cases.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 20-route production app, hydration performance directly determines the user's perceived responsiveness on first visit. A user arriving from a Google search result sees the page painted (thanks to SSR) and immediately tries to interact. If hydration takes 400ms, their first click does nothing. They click again. The second click fires after hydration and does the action twice. This "unresponsive first click" problem is the most common user complaint about modern web apps and is directly caused by slow hydration. Svelte's lean compiled output gives you a structural advantage, but you must still be disciplined about bundle size and third-party library imports.
+
+**The mental model.** Hydration is like plugging in a Christmas tree's lights. The tree (HTML) is already standing and decorated (painted on screen). The lights (event handlers, reactive state) are draped but not connected. Plugging in the cord (running the JS bundle) makes the lights come on — the tree was already beautiful, but now it sparkles (responds to interaction). If you plug in too many extension cords (import too many libraries), it takes longer to find the outlet and connect everything. The tree looks the same the whole time, but until the cord is in, the lights are dark.
+
+**Edge cases.** Hydration mismatches from third-party scripts are common and hard to fix. An ad script that injects a banner, a chat widget that adds a floating button, or an analytics tag that inserts a pixel — all of these modify the DOM between SSR and hydration, potentially moving elements and confusing Svelte's DOM walker. The fix is to load such scripts after hydration completes (in `onMount` or with `defer`), or to wrap the affected area in a `<svelte:boundary>` so mismatches are caught gracefully. Another edge case: browser extensions that modify the DOM (ad blockers, translation tools) can cause hydration mismatches that are impossible to prevent and harmless to the user. Svelte's warnings are informational in these cases.
+
+**Performance implications.** Svelte 5's hydration is O(n) in the number of components on the page — it visits each component exactly once to wire up its reactive system. The per-component cost is small (creating signal cells, attaching a few event listeners), but it is not zero. A page with 200 components takes longer to hydrate than one with 20. For very complex pages (like a dashboard with many widgets), consider lazy-loading below-the-fold widgets so they hydrate after the initial viewport is interactive. This technique reduces Time to Interactive for the visible portion of the page.
+
+**Connection to other modules.** Hydration is the bridge between Module 8 (SSR) and everything interactive. Module 9A (load functions) provides the data that is serialized into the HTML for hydration. Module 12 (performance) measures hydration time as part of INP optimization. Module 7 (GSAP) must wait for hydration before starting DOM animations (which is why effects are the correct trigger point). Every decision about what to include in a page's component tree — and what to lazy-load — is ultimately a hydration budget decision.
+
 ## 2. Style it — making the "moment" visible
 
 The mini-build renders two timestamps side by side: one that was written into the HTML on the server, and one that is updated on the client after `onMount` runs. We give the page a warning-ish amber personality (`oklch(75% 0.18 85)`) because the topic is fragile. The server timestamp uses `ui-monospace` and a muted color; the client timestamp uses the brand color to draw the eye. Spacing and type come from PE7 tokens.

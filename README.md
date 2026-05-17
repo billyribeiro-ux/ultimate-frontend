@@ -7,7 +7,7 @@ A university-level course that takes a complete beginner from **zero JavaScript*
 - **Target student:** complete beginner — zero JS, zero TS, basic HTML/CSS
 - **Philosophy:** root-level understanding — never memorize surface patterns, always understand *why*
 - **Package manager:** pnpm exclusively
-- **Curriculum:** 13 modules + capstone, ~130 lessons, one mini-build per lesson
+- **Curriculum:** 14 modules + capstone, ~138 lessons, one mini-build per lesson
 
 ## Quick start
 
@@ -23,7 +23,7 @@ Open http://localhost:5173.
 ```
 ultimate-frontend/
 ├── README.md                # this file
-├── CURRICULUM.md            # full 13-module lesson index (with Threlte lessons marked)
+├── CURRICULUM.md            # full 14-module lesson index (with Threlte lessons marked)
 ├── TEMPLATE-lesson.md       # atomic lesson format every lesson must follow
 ├── src/
 │   ├── app.css              # PE7 token system + @layer architecture (Lesson 1.5)
