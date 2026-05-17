@@ -71,6 +71,18 @@ If you cannot articulate a specific reason you need to run *before* the DOM upda
 
 Identical to `$effect`: the function is `() => void` (or `() => () => void` if you return cleanup).
 
+## Deep Dive
+
+**Why this matters at scale.** In production apps, scroll-anchoring is not optional — it is an expected UX behaviour. Chat applications, real-time log viewers, notification feeds, and collaborative editors all need to answer the question "was the user at the bottom before the new content arrived?" A 50-component app with even one scrolling feed needs this pattern. Without `$effect.pre`, developers resort to brittle hacks: setTimeout delays hoping the DOM has not painted yet, or double-render patterns that flash content. `$effect.pre` gives you a guaranteed timing window for measurement.
+
+**The mental model.** Think of the Svelte reactivity tick as a two-phase commit. Phase 1 is "prepare": state has changed, effects are queued, but the DOM still reflects the old state. Phase 2 is "commit": the DOM is updated to reflect the new state, and post-update effects run. `$effect.pre` runs at the boundary between phase 1 and phase 2 — after Svelte knows *what* will change, but before it has *applied* the change to the DOM. This is the last moment you can measure the old DOM. After this moment, the old DOM is gone. This two-phase model maps directly to database transaction concepts: read the old row before writing the new one.
+
+**Edge cases.** A critical subtlety: `$effect.pre` still tracks dependencies just like `$effect`. If you forget to read the relevant state inside the pre-effect, it will not re-run when that state changes. In the scroll-anchoring example, you must read `messages.length` (or some other signal that changes when messages arrive) to ensure the pre-effect runs on new messages. Another edge case: if multiple state changes batch together in one tick, `$effect.pre` runs once for the batch, not once per change. The DOM you observe is the state before *any* of the batched changes are applied. A third edge case: `$effect.pre` cleanup functions run at the same timing as regular effect cleanup — before the next execution of the same effect.
+
+**Performance implications.** Pre-effects add negligible overhead — they are just effects scheduled at a different point in the tick. However, reading DOM measurements (scrollHeight, offsetWidth, getBoundingClientRect) inside a pre-effect forces the browser to perform a synchronous layout calculation. This is unavoidable for measurement patterns, but be aware that measuring many elements in a single pre-effect can cause layout thrashing. Keep pre-effect DOM reads minimal: measure one container's scroll state, not fifty individual element positions. If you need to measure many elements, batch them into a single read pass.
+
+**Cross-module connections.** `$effect.pre` appears in specific places throughout the course. Module 7 uses it for capturing element positions before GSAP animations (measuring the "from" state). Module 8 uses it for preserving scroll position during SvelteKit page transitions. Module 12 covers it in the context of performance-sensitive measurement patterns. The pattern "pre-effect captures old state, regular effect applies new behaviour based on that capture" is a recurring two-effect dance that you will recognise once you have seen it here.
+
 ## 2. Style it — A chat log with sticky-bottom scroll
 
 The mini-build is a small chat log. New messages arrive on a button press. The log auto-scrolls to the bottom only if the user was already at the bottom — if they have scrolled up to read earlier messages, new arrivals do not yank the view. PE7 tokens for styling; `prefers-reduced-motion` respected.

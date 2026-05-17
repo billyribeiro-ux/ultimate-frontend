@@ -70,6 +70,62 @@ A metalness of 0.3 and roughness of 0.4 gives a subtle sheen that works well for
 
 The rendering equation: Camera observes Meshes that have Materials which respond to Lights. If any link is missing, the chain breaks. This lesson ensures you understand each piece before combining them into complex scenes.
 
+Consider what happens when you render a sphere with `MeshStandardMaterial` at `metalness: 0.5, roughness: 0.3`:
+
+1. The camera determines which pixels on screen correspond to the sphere's surface.
+2. For each pixel, the renderer traces a line from that pixel back to the surface point on the sphere.
+3. At that surface point, the material shader calculates how much light arrives from each light source in the scene.
+4. The shader applies the PBR equations — how much light reflects specularly (mirror-like), how much scatters diffusely, and how roughness blurs the specular reflection.
+5. The final color is written to the canvas pixel.
+
+This entire process happens per-pixel, per-frame, on the GPU. The more lights, the more meshes, and the higher the resolution, the more work the GPU does. Understanding this pipeline helps you make informed decisions about scene complexity.
+
+### 1.7 The environment map (an advanced topic introduced early)
+
+When you set `metalness` to 1 on a material, the surface should look like a mirror — reflecting its surroundings. But what is there to reflect? By default, nothing. The scene background is empty. This is why pure metals look dark without an environment map.
+
+An **environment map** is a pre-rendered image of a surrounding environment (a sky, a studio, a forest) mapped onto a sphere that wraps the scene. Reflective materials sample this map to produce convincing reflections. Threlte's `<Environment>` component from `@threlte/extras` loads an HDR environment map and applies it to the scene:
+
+```svelte
+<Environment url="/hdr/studio.hdr" />
+```
+
+You do not need to understand HDR rendering in depth for this lesson. The takeaway is: metallic surfaces need something to reflect. If your metal object looks dark, add an environment map. This is the single most common "fix" for unconvincing PBR scenes.
+
+### 1.8 Camera positioning strategy
+
+Beginners place cameras randomly and wonder why their scene looks wrong. A systematic approach:
+
+1. **Start with the object at the origin** (0, 0, 0). This is where Threlte's auto-centering places most objects.
+2. **Move the camera backward** along the Z axis: `position={[0, 0, 5]}`. The object is now 5 units away, visible in the center.
+3. **Raise the camera slightly**: `position={[0, 2, 5]}`. This gives a slight top-down angle, which is more natural than looking straight at something.
+4. **Adjust field of view** to taste. Lower FOV (35-45) compresses the perspective (telephoto feel). Higher FOV (60-75) makes the scene feel wider and more dramatic.
+
+OrbitControls lets users override your camera position, but the initial position determines the first impression. Choose it intentionally.
+
+### 1.9 The relationship between units and real-world scale
+
+Three.js has no inherent units — a position of `[0, 1, 0]` means "one unit up," not "one meter up." But for consistent lighting and physics (Module 14.7), you should adopt a convention. The standard convention is: **1 unit = 1 meter**. A human-height object is 1.7 units tall. A coffee mug is 0.12 units tall.
+
+This convention matters for:
+- **Light intensity** — physically correct light falloff is based on distance. If your "room" is 1000 units wide, light intensities need to be enormous to illuminate it.
+- **Camera near/far planes** — the default near plane of 0.1 means objects closer than 10cm clip. If your scale is 1 unit = 1 kilometer, objects within 100 meters would disappear.
+- **Physics** — gravity at -9.81 assumes meters. If your units are centimeters, gravity would need to be -981.
+
+Keep the 1-unit-equals-1-meter convention and you avoid an entire category of "why does my scene look wrong" bugs.
+
+## Deep Dive
+
+**Why this matters at scale.** The camera-light-material triad is foundational. Every 3D bug you will encounter in production — "the model is black," "the scene is too dark," "the object looks flat," "reflections are wrong" — traces back to one of these three elements being misconfigured. Teams that understand the triad debug 3D issues in seconds. Teams that do not understand it spend hours adjusting random values hoping something works.
+
+**The mental model.** Think of the three elements as a photographer thinks about a studio shoot. The **camera** is your viewpoint and lens (wide-angle vs telephoto). The **lights** are your studio lighting rig (key light, fill light, ambient). The **material** is the object's surface (matte paper, glossy plastic, brushed metal). A photographer adjusts all three to get the shot they want. You do the same in code.
+
+**Edge cases.** Materials with `metalness: 1` and no environment map render as near-black — this is correct physically (a mirror in a void reflects nothing) but surprises beginners. Materials with `roughness: 0` produce sharp reflections that can look unrealistic if the environment map has visible seams or low resolution. The `transparent: true` property must be explicitly set on materials that use opacity — without it, opacity values below 1 are ignored. Emissive materials bypass the lighting equation entirely — they glow regardless of lights, which is useful for screens, signs, and bloom targets but confusing if applied accidentally.
+
+**Performance.** Each light in the scene increases the GPU work per pixel. DirectionalLight is cheap (parallel rays, one shadow map). PointLight and SpotLight are more expensive because they require distance-based falloff calculations and potentially multiple shadow maps. A scene with 10 lights can cut frame rate significantly on mobile GPUs. For most product showcases, two to three lights (ambient + directional + optional fill) is sufficient and performant.
+
+**Cross-module connections.** Camera positioning connects to Module 7's GSAP ScrollTrigger work — scroll-driven camera animation uses the same `position` and `fov` props. Materials connect to Module 12's performance optimization — reducing texture resolution and using simpler materials on mobile. The OrbitControls interaction model connects to Module 5's event handling — pointer events on meshes and camera controls share the same input pipeline and can conflict if not coordinated.
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The 3D canvas sits inside a card component with PE7 styling:

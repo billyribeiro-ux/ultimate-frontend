@@ -68,6 +68,64 @@ Three.js requires a WebGL context, which only exists in the browser. SvelteKit r
 
 The solution: wrap your canvas in `{#if browser}` where `browser` comes from `$app/environment`. This ensures the 3D scene only mounts client-side. The server renders whatever is in the `{:else}` block — typically a placeholder or poster image.
 
+```svelte
+<script lang="ts">
+    import { browser } from '$app/environment';
+    import { Canvas } from '@threlte/core';
+</script>
+
+{#if browser}
+    <Canvas>
+        <!-- your scene -->
+    </Canvas>
+{:else}
+    <img src="/poster.webp" alt="3D product showcase" />
+{/if}
+```
+
+This pattern is not optional. Even if your component only runs in the browser conceptually, SvelteKit attempts to render it on the server during SSR for SEO and fast initial paint. The `{#if browser}` guard is a compile-time directive that the server evaluates as `false`, skipping the entire `<Canvas>` subtree.
+
+### 1.6 The mental model: scene graph as a component tree
+
+The single most important concept in Threlte is this: the Three.js scene graph maps directly to Svelte's component tree. In raw Three.js, you manually call `scene.add(mesh)` and `mesh.add(child)`. In Threlte, nesting `<T.Mesh>` inside `<T.Group>` automatically calls `.add()` under the hood. Unmounting a component automatically calls `.remove()` and `.dispose()`.
+
+This means every pattern you know from building 2D component trees applies to 3D: conditional rendering with `{#if}`, list rendering with `{#each}`, component composition with slots and props. A mesh that should only appear when a condition is met? Wrap it in `{#if}`. A list of products to display as 3D models? Use `{#each}`. A reusable material? Extract it as a component.
+
+### 1.7 The render loop
+
+Three.js requires an animation loop — a function that runs 60 times per second (or whatever the monitor's refresh rate is) to re-draw the scene. In imperative Three.js, you write `requestAnimationFrame` manually. Threlte handles this inside `<Canvas>`. The loop runs automatically, calling the renderer on every frame.
+
+You can hook into this loop with `useFrame` from `@threlte/core` — a function that runs your code on every frame. This is how you build continuous animations (spinning objects, particles, camera movement) without managing `requestAnimationFrame` yourself.
+
+```typescript
+import { useFrame } from '@threlte/core';
+
+useFrame((state, delta) => {
+    // delta is the time since last frame in seconds
+    meshRef.rotation.y += delta * 0.5; // rotate slowly
+});
+```
+
+The `delta` parameter prevents speed-dependent animation — if the frame rate drops, `delta` increases proportionally, keeping the rotation speed constant regardless of performance.
+
+### 1.8 TypeScript integration
+
+Threlte is built with TypeScript from the ground up. The `<T.*>` component uses TypeScript generics to type-check props against the actual Three.js class constructor and properties. If you write `<T.MeshStandardMaterial color="hotpink" metalness={0.5}>`, TypeScript verifies that `color` accepts a string (or `THREE.Color`) and that `metalness` is a number between conceptual bounds (though the range itself is not enforced by types). If you misspell a prop — `<T.MeshStandardMaterial metalnss={0.5}>` — you get a compile error.
+
+This type safety requires `@types/three` to be installed as a dev dependency. Without it, TypeScript cannot verify props against the Three.js class definitions, and all `<T.*>` props become `any`.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production application, 3D is never the whole page — it lives alongside navigation, forms, data tables, and authentication. Threlte's Svelte-native approach means your 3D code follows the same patterns as your 2D code. A team does not need to learn a separate paradigm for 3D. Code review, component testing, state management, and routing all work identically. This dramatically reduces the cost of maintaining 3D features over time compared to a raw Three.js integration that exists as an island of imperative code inside your otherwise declarative application.
+
+**The mental model.** Think of Threlte as a translation layer, not an abstraction layer. It does not hide Three.js — it translates the Three.js API into Svelte's declarative model. Every `<T.X>` component instantiates the real `THREE.X` class. Every prop maps to a real property or constructor argument. You can always "escape" via `bind:ref` and use the underlying Three.js object directly. The mental model is: "I am writing Three.js, but expressed as a component tree instead of imperative function calls."
+
+**Edge cases.** Not every Three.js class works perfectly with `<T.*>`. Some classes have constructor signatures that do not map cleanly to props (e.g., `THREE.CurvePath` which builds up state through method calls). For these, you create the object in a `$effect` and use `bind:ref` to inject it. Additionally, some Three.js features (like custom shaders) require direct access to the underlying WebGL state, which means dropping down to imperative code inside a Threlte component. Threlte accommodates this — it is not a prison.
+
+**Performance.** Threlte adds minimal overhead on top of Three.js. The reactive prop system uses Svelte's fine-grained reactivity, so only changed properties trigger updates — not entire re-renders. The biggest performance concern is not Threlte itself but Three.js: GPU memory for textures and geometry, draw calls per frame, and shader complexity. Threlte's automatic disposal prevents the most common Three.js memory leak (forgetting to call `.dispose()`), which in production manifests as steadily increasing VRAM usage that eventually crashes the WebGL context.
+
+**Cross-module connections.** Threlte connects to Module 2 (reactivity — `$state` drives scene properties), Module 5 (events — `onclick` on meshes), Module 7 (GSAP — `bind:ref` gives GSAP access to Three.js objects), and Module 12 (performance — lazy loading, DPR clamping, `frameloop="demand"`). The patterns are not new; the medium is.
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The mini-build is a simple scene container. Style the container with PE7 tokens:
