@@ -142,6 +142,18 @@ The scope argument to `gsap.context` is the action's own node, which means the a
 
 **Challenge question:** (Combines Lessons 7.11, 7.3, and 5.9) Build a `use:dragDrop` action that uses pointer events for drag and GSAP for snap-back animation. Type the action with `Action<HTMLElement, { snapDuration?: number }>`. Handle `pointercancel` in the `destroy` method.
 
+## Deep Dive
+
+**Why this matters at scale.** Actions are the most elegant GSAP integration point. use:fadeIn, use:parallax, use:reveal make animation as easy as adding a CSS class. Write pattern once, apply everywhere.
+
+**The mental model.** Actions receive DOM elements and return { update, destroy }. Create GSAP in the body, handle param changes in update, kill in destroy. Components stay clean.
+
+**Edge cases.** If parameters are reactive, update() is called on change. For static animations, the action fires once and update is never called — zero overhead.
+
+**Performance implications.** Actions have the best performance profile: zero overhead when no animation is active. Unlike $effect, update() only fires on parameter change.
+
+**Connection to other modules.** Module 5 introduced events. Module 7.6 taught the $effect bridge. Module 7.12 builds a specific action. Module 12.6 teaches general action patterns.
+
 ## 2. Style it — A gallery with a single `use:lift` action
 
 The mini-build is a six-card gallery with a blue brand (`oklch(66% 0.18 250)`). Each card uses `use:lift={{ distance: -6 }}`. The action lives in `src/lib/actions/lift.ts`. Hovering any card lifts it; leaving returns it. Keyboard focus triggers the same animation via `:focus-visible`. Touch targets 44px.

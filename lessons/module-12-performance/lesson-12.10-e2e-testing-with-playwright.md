@@ -112,6 +112,18 @@ A bad E2E suite tries to cover every component prop and every edge case. Those b
 
 Playwright downloads large browser binaries on install (`pnpm playwright install`). Parallel agents in this course are producing content, so **we do not run the browsers in this lesson** — we only write the test files. To actually run them on your own machine, run `pnpm playwright install` once (it takes a few minutes) and then `pnpm playwright test`. For this lesson, the proof is that the test file type-checks.
 
+## Deep Dive
+
+**Why this matters at scale.** E2E tests verify the full stack: routing, data loading, form submissions, client interactions. They catch issues unit tests cannot.
+
+**The mental model.** Playwright runs a real browser. test() functions navigate, click, type, and assert. Locators find elements by role, text, or test ID.
+
+**Edge cases.** E2E tests are slower (seconds per test). Use them for critical paths: auth flow, checkout, form submission. Do not E2E test every component variation.
+
+**Performance implications.** Each test starts a browser context. Parallel execution across browsers multiplies test time by the number of browsers. Focus on the primary browser.
+
+**Connection to other modules.** Module 12.9's Vitest covers isolated logic. Playwright covers integration and user flows.
+
 ## 2. Style it — Nothing to style
 
 E2E tests have no visible output beyond pass/fail in the terminal and the HTML report Playwright generates. The style rules do not apply.

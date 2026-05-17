@@ -118,6 +118,18 @@ A principle you will see throughout SvelteKit: **use HTML first, reach for JavaS
 
 **Challenge question:** (Combines Lessons 8.8, 8.7, and 8.6) Build a wizard flow with 3 steps. Use `goto` to navigate between steps. Use `beforeNavigate` to warn the user if they try to leave with unsaved changes. Use `afterNavigate` to scroll to top on each step.
 
+## Deep Dive
+
+**Why this matters at scale.** goto(), preloadData(), pushState() handle cases where <a> links are insufficient: wizard flows, auth redirects, keyboard shortcuts.
+
+**The mental model.** goto() navigates to a URL. Options: replaceState avoids history entries, noScroll preserves position, keepFocus maintains keyboard focus. preloadData() fetches without navigating.
+
+**Edge cases.** goto() returns a Promise resolving after navigation. Do not call goto() during SSR. beforeNavigate can cancel navigation. afterNavigate fires after the new page renders.
+
+**Performance implications.** goto() triggers client-side navigation at near-zero cost. preloadData() fires load functions in the background, enabling instant navigation when the user clicks.
+
+**Connection to other modules.** Module 9's invalidate() triggers data re-loading. Module 11's URL-as-state uses goto() extensively. Module 12's lazy loading uses preloadData() for prefetching.
+
 ## 2. Style it — PE7 for a control panel
 
 The mini-build is a control panel with buttons for each `$app/navigation` helper. We give the page a rose personality (`oklch(70% 0.2 15)`). Every button hits a 44px minimum block size. The panel layout stacks on mobile and becomes two columns at the 480px breakpoint.

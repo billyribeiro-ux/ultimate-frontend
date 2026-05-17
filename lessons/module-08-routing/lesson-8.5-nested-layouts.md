@@ -100,6 +100,18 @@ Layouts are for **structural shell** and **data that every child page needs** (l
 
 **Challenge question:** (Combines Lessons 8.5, 8.4, and 6.9) Build a site with two route groups: `(marketing)` with a full-width layout and `(app)` with a sidebar layout. Give each group a different `--color-brand` override. Verify that navigating between groups changes the layout AND the accent colour.
 
+## Deep Dive
+
+**Why this matters at scale.** Layouts define shells that persist across navigations, preventing unnecessary re-renders and providing consistent UI structure.
+
+**The mental model.** Layouts compose: root layout wraps group layout wraps page. Each layout receives children as a snippet and renders it. Data flows through layout load functions into child pages.
+
+**Edge cases.** Layout resets (@) break the inheritance chain. Route groups apply different layouts without affecting URLs. The most common mistake is putting page-specific UI in layouts.
+
+**Performance implications.** Layouts re-render only when their own data changes. Navigation between pages in the same layout only swaps the page content, preserving layout state and DOM.
+
+**Connection to other modules.** Module 9's layout data loads once and shares across child pages. Module 11's context is often provided at the layout level. Module 6's styling scopes to layout boundaries.
+
 ## 2. Style it — PE7 for a three-layer shell
 
 The mini-build shows a nested layout live. The outer layout is a pink/magenta (`oklch(72% 0.18 340)`) panel containing an inner teal panel, which contains the page. Each layer has a labelled border so you can see where one ends and the next begins. Mobile-first: layers stack vertically; no media queries needed.

@@ -147,6 +147,18 @@ For custom transitions, reduced motion is your responsibility. Read `prefersRedu
 
 **Challenge question:** (Combines Lessons 6.16, 6.11, and 6.2) Build a custom transition that "colour-wipes" an element: the background transitions from one OKLCH colour to another via a horizontal gradient, while opacity fades in. Use the `css` function for compositor performance. Parameterise the start and end colours.
 
+## Deep Dive
+
+**Why this matters at scale.** Custom transitions create brand-specific animations no built-in transition provides. A design system with 5-10 custom transitions becomes a competitive differentiator — every interaction feels uniquely branded.
+
+**The mental model.** A transition function receives (node, params) and returns { delay, duration, easing, css, tick }. The css function generates CSS for each frame on the compositor. tick runs JS on the main thread. Prefer css for performance.
+
+**Edge cases.** The css function returns style attribute strings, not <style> blocks. tick receives (t, u) where u = 1-t. If the transition reads computed styles during setup, layout may not be final if other transitions run simultaneously.
+
+**Performance implications.** CSS-based transitions (css return) compile to @keyframes on the compositor. JS-based (tick return) run on the main thread and can cause drops if tick does layout reads. Benchmark on mid-range mobile.
+
+**Connection to other modules.** Module 7 provides GSAP for complex transitions. Module 6.17 parameterizes custom transitions. Module 12 ensures custom transitions respect prefers-reduced-motion.
+
 ## 2. Style it — A hero section with a custom curtain reveal
 
 The mini-build is a hero with a deep indigo brand (`oklch(45% 0.18 265)`). An "Enter" button mounts a hero card using the custom `curtain` transition from above. The reveal is horizontal, 500ms, cubicOut. Mobile-first responsive, reduced motion skips the reveal.

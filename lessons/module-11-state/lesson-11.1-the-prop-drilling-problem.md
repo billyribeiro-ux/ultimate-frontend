@@ -62,6 +62,52 @@ One of the reasons prop drilling is a smell is that deeply-drilled props become 
 
 The habit to build is this: **every time you add a prop to a component, ask whether that component actually *uses* the prop or merely *forwards* it.** If it forwards, stop and pick one of the three solutions above.
 
+### 1.6 What SvelteKit does under the hood
+
+When you declare `let { currentUserId }: Props = $props()`, the Svelte compiler generates a getter that reads the prop value from the parent's binding. Every time the parent re-renders with a new value, the getter fires and triggers reactive dependencies in the child. In a drilled chain of five components, the update propagates through five getter chains. Each intermediate component has compiled code that exists only to forward the value — wasted bundle size for props it never reads.
+
+Svelte's context API sidesteps this entirely. `setContext` stores a value on the component's internal context map (a JavaScript `Map`). `getContext` walks up the component tree's internal parent chain until it finds a component whose context map contains the requested key. This walk happens once, during initialization. After that, the value is a direct reference.
+
+### 1.7 The TypeScript angle
+
+Prop drilling scales the type maintenance linearly with tree depth. Every intermediate component must declare the forwarded prop in its `$props()` interface. Rename the prop and you edit every file in the chain. Change the type and you edit every file. With context, only two files mention the value: the provider and the consumer.
+
+### 1.8 Comparison: when to use each solution
+
+| Scenario | Context | `.svelte.ts` store | Reactive class | Props |
+| --- | --- | --- | --- | --- |
+| Parent + deeply nested child | Best | Overkill | Overkill | Drilling smell |
+| App-wide theme/user | Works but global is better | Best | Best | Drilling smell |
+| Direct parent to child | Unnecessary | Unnecessary | Unnecessary | Best |
+| Survives navigation | Within layout only | Yes | Yes | N/A |
+| Testable in isolation | Via provider harness | Via import | Via constructor | Via props |
+
+> **In production sidebar.** In a code review, we counted drilled props in our 60-component SvelteKit app. We found 14 props forwarded through at least 2 intermediates. Refactoring them to context (7 cases), module stores (5 cases), and reactive classes (2 cases) removed 38 prop declarations across 22 files. The review found two bugs: one prop forwarded with the wrong name (it worked by accident because both types were `string`), and one prop removed from the provider but still declared on three intermediates. Both were invisible before the refactor and impossible with context or stores.
+
+### 1.9 Common interview question
+
+**Q: "What is prop drilling, and how does Svelte solve it?"**
+
+**Model answer:** Prop drilling is when a component declares a prop it does not use, only forwarding it to a child. Svelte provides three solutions: (1) Context API for subtree-local state — the parent sets a value and any descendant reads it directly. (2) `.svelte.ts` module stores for app-wide state — a file exports reactive state any component can import. (3) Reactive classes for stateful logic with behavior. The choice depends on scope: context for subtrees, module stores for global state, reactive classes for complex state with methods.
+
+## Deep Dive
+
+**Why this matters at scale.** Prop drilling becomes unmaintainable when data passes through 2+ intermediate components that do not use it. The fix depends on data scope and lifecycle. In a 60-component app, each drilled prop that crosses 3 intermediates means 3 files to update for every rename, type change, or removal. Multiply by 10-15 drilled props and routine refactoring becomes a half-day project.
+
+**The mental model.** Props are explicit and traceable. Drilling is fine for 1-2 levels. Beyond that, the intermediate components gain unnecessary coupling to data they do not consume. The habit to build: every time you add a prop to a component, ask whether it *uses* the prop or merely *forwards* it.
+
+**Edge cases.** Context does not survive navigation outside its layout boundary. If a user navigates away and back, the context is destroyed and recreated. For state that must persist across navigations, use a `.svelte.ts` module store. For state that must persist across page reloads, add `localStorage` persistence (Lesson 11.4).
+
+**Performance implications.** Prop drilling has zero runtime overhead per level — it is compile-time binding. The cost is developer maintenance, not runtime performance. Context has a one-time initialization cost (the tree walk during `getContext`), which is negligible.
+
+## Going Deeper
+
+- **Svelte docs:** [setContext / getContext](https://svelte.dev/docs/svelte/context) covers the context API.
+- **Advanced pattern:** Create a typed context builder: `function createTypedContext<T>(name: string): { set: (value: T) => void; get: () => T }`. This eliminates raw Symbol handling and gives a type-safe pair for each context.
+- **Challenge:** Take a component tree with 3 levels of prop drilling. Refactor to context. Count the lines removed and prop declarations eliminated.
+
+**Connection to other modules.** Module 11.2 solves with context. Module 11.3 with reactive modules. Module 11.6 with URL state.
+
 ## 2. Style it — A "bad tree" visual that makes the smell visible
 
 The mini-build renders a diagram of a drilled tree in red and a fixed tree in green, so that students can see the difference on the page. Styling rules:

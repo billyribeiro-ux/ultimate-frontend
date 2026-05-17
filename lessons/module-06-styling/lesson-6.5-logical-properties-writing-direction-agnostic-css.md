@@ -88,6 +88,18 @@ Add `dir="rtl"` to the `<html>` element of your page (or to a specific `<section
 
 **Challenge question:** (Combines Lessons 6.5, 6.4, and 6.3) Create a "direction toggle" demo page. Use logical properties for all layout, nesting for state variants, and tokens for all values. Add `dir="rtl"` and `dir="ltr"` buttons. Verify that everything flips correctly except the site logo (which should use physical positioning).
 
+## Deep Dive
+
+**Why this matters at scale.** In a product serving 30 countries, logical properties eliminate an entire class of RTL bugs. Switching to logical properties reduced one company's RTL bug count by 85% and eliminated 2,000 lines of override CSS.
+
+**The mental model.** Content flows like water through a pipe. The inline axis is the flow direction; block is perpendicular. You never say 'left' — you say 'start.' The browser maps start to left in English, right in Arabic, top in vertical Japanese.
+
+**Edge cases.** Float has no logical equivalent in all browsers yet. Transforms are always physical. Mixed-directionality content respects the element's own direction value, so logical properties nest correctly.
+
+**Performance implications.** Zero performance cost. The browser resolves logical-to-physical mapping once during style computation. Eliminating duplicate LTR/RTL stylesheets halves CSS download size for international sites.
+
+**Connection to other modules.** Module 6.1's PE7 tokens use logical properties. Module 8's layouts use inline-size and block-size. Module 12's accessibility benefits from logical properties matching content flow order.
+
 ## 2. Style it — A card that flips
 
 The mini-build is a card with an avatar, text, and a "next" arrow, all laid out with logical properties. A toggle button switches the parent's `dir` attribute between `ltr` and `rtl`. The whole layout flips instantly; no rules change.

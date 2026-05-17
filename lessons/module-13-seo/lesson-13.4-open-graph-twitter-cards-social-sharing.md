@@ -73,6 +73,18 @@ Before you ship, always test:
 
 Facebook and LinkedIn both cache OG data aggressively. After a change, click "Scrape again" in the debugger or the preview will show the stale version for hours.
 
+## Deep Dive
+
+**Why this matters at scale.** OG tags control link previews on social media. og:image must be absolute and ideally 1200x630px.
+
+**The mental model.** og:title, og:description, og:image, og:url are the minimum. Twitter uses twitter:card, twitter:title, twitter:description, twitter:image.
+
+**Edge cases.** og:image must be an absolute URL. Relative paths silently fail. Test with Facebook's sharing debugger and Twitter's card validator.
+
+**Performance implications.** Meta tags are static HTML — zero runtime cost. The og:image URL triggers a separate fetch by the social platform's crawler.
+
+**Connection to other modules.** Module 13.3's SEO component contains these tags. Module 9's load functions provide dynamic data.
+
 ## 2. Style it — the preview card we design in CSS
 
 PE7 tokens already give us everything we need to draw a 1200×630 preview at scale inside the mini-build. The page renders a scaled-down replica of the OG card using the same tokens as the SEO component — one source of truth for brand color across the whole system.

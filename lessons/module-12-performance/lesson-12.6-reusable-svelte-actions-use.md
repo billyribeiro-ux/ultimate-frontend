@@ -180,6 +180,18 @@ If the parameter object is reactive (for example, a `$state` that changes over t
 
 Actions are *the* right place to touch the DOM directly. They run once per element, clean up on unmount, and do not need to be wrapped in an effect that competes with the component's other reactive work. An `IntersectionObserver` inside an action is vastly cheaper than a scroll listener on `window` that measures every element on every frame. A `clickOutside` with a single document listener shared across many nodes is cheaper than one listener per node. Every action you write is a small performance win because it uses a lower-level DOM API than a naive effect would.
 
+## Deep Dive
+
+**Why this matters at scale.** Actions are the most underutilized Svelte feature. They encapsulate DOM-level behavior: click-outside, intersection, tooltip positioning, focus trap.
+
+**The mental model.** Actions receive (node, params) and return { update, destroy }. update() fires when params change. destroy() fires on unmount. The action owns the element's behavior lifecycle.
+
+**Edge cases.** Actions cannot access component state directly. Pass reactive values as params — the action's update() fires when they change. Do not create event listeners without cleanup.
+
+**Performance implications.** Actions add zero overhead when not active. Each action is one DOM listener setup on mount and one cleanup on unmount. No per-frame cost.
+
+**Connection to other modules.** Module 7.11-12 taught GSAP actions. This generalizes to any DOM behavior.
+
 ## 2. Style it — A tooltip, a click-outside dropdown, and an intersect fade-in
 
 The mini-build shows three interactive examples in a single page, each backed by one of the actions above. Per-page accent: `oklch(72% 0.18 220)` (action blue).

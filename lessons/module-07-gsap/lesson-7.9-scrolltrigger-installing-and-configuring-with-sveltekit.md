@@ -155,6 +155,18 @@ The code inside the media-query block only runs when the user does **not** prefe
 
 **Challenge question:** (Combines Lessons 7.9, 7.7, and 7.4) Build a scroll-driven timeline that sequences 5 elements with overlapping reveals. Pin the first section while the rest scroll past. Clean up with `gsap.context`. Add `ScrollTrigger.matchMedia` for reduced motion.
 
+## Deep Dive
+
+**Why this matters at scale.** Scroll-driven animation is the most requested feature. ScrollTrigger connects GSAP to scroll position for parallax, reveal, progress indicators, and pinned sections.
+
+**The mental model.** ScrollTrigger observes scroll position relative to trigger elements. Start/end positions are viewport-relative: 'top center' means trigger's top reaches viewport center.
+
+**Edge cases.** ScrollTrigger caches positions on creation. DOM changes invalidate caches. Call ScrollTrigger.refresh() after content changes. In SvelteKit, also refresh after navigation.
+
+**Performance implications.** Scroll listener uses passive events and rAF batching. Each trigger costs one getBoundingClientRect() per scroll frame. Use ScrollTrigger.batch() for 100+ elements.
+
+**Connection to other modules.** Module 6.10 taught CSS scroll-driven animation. Module 7.10 addresses SvelteKit cleanup. Module 7.12 builds a reusable scroll-reveal action.
+
 ## 2. Style it — A long-form article with scroll-triggered section reveals
 
 The mini-build is a fictional article with a graphite brand (`oklch(50% 0.06 260)`). Four sections: intro, body-1, body-2, conclusion. Each section's h2 and first paragraph animate in as the section enters the viewport. The hero image pins with a slow parallax (`scrub: 1`). Mobile-first.

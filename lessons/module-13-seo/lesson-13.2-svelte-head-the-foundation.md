@@ -67,6 +67,18 @@ Before you add Open Graph, JSON-LD, canonicals, or anything else, every SvelteKi
 
 Everything else in Module 13 layers on top of this foundation.
 
+## Deep Dive
+
+**Why this matters at scale.** Every SEO tag passes through <svelte:head>. It is the single most important element for search visibility.
+
+**The mental model.** Head tags from child components merge with parent tags. Duplicate tags are deduplicated by SvelteKit. Children override parent tags with the same name.
+
+**Edge cases.** Dynamic head tags must update when page data changes. Use reactive expressions inside <svelte:head>. Static strings are fine for global tags in the layout.
+
+**Performance implications.** Head tag rendering adds negligible overhead to SSR. Tags are string concatenation during server render.
+
+**Connection to other modules.** Module 13.3 builds a reusable SEO component. Module 9's load functions provide dynamic data for head tags.
+
 ## 2. Style it — metadata is invisible, but the SERP preview is visible
 
 The mini-build renders a simulated Google result card showing what the metadata produces. No new tokens needed — a scoped accent override gives this page its own personality. The SERP preview card is constrained to `max-inline-size: 600px` so the visual and the title-width rule match.

@@ -175,6 +175,18 @@ Nothing in the file naming. The recommended pattern has been stable since Svelte
 - **Advanced pattern:** Use a `+page.server.ts` load that returns a streamed promise (Lesson 9A.9) for slow private data, alongside a `+page.ts` load that fetches fast public data. The fast data renders immediately; the slow private data streams in.
 - **Challenge:** Build a page that has both files. In the universal load, call `await parent()` and log the result. What do you see? Now remove the `await parent()` call. Does the page still work? Why or why not? (Hint: `parent()` in a universal load includes the server load's data only if the server load is an ancestor *layout*, not the same route's server load. The same-route server data arrives via the `data` parameter, not `parent()`.)
 
+## Deep Dive
+
+**Why this matters at scale.** Choosing the right load file determines whether data runs on server, client, or both. Universal loads enable client-side caching; server loads protect secrets.
+
+**The mental model.** +page.ts runs on both server and client. +page.server.ts runs only on the server. Universal loads can fetch from APIs and access browser globals. Server loads can access databases and secrets.
+
+**Edge cases.** Universal loads run twice on first page load (SSR then hydration). If your load function has side effects (analytics, logging), it fires twice. Server loads run once per request.
+
+**Performance implications.** Server loads add zero client-side JavaScript. Universal loads include the load function code in the client bundle. For data-heavy loads, server-only reduces bundle size.
+
+**Connection to other modules.** Module 10's form actions are server-only. Module 11's context provides alternative data distribution. Module 9B's remote functions blur the server/client boundary.
+
 ## 2. Style it — PE7 for a "two files, one result" diagram
 
 The mini-build is a single page that has both `+page.ts` and `+page.server.ts`. Each file returns one field, and the component displays them side by side with a label saying where they came from. We give the page a warm teal personality (`oklch(68% 0.16 180)`).

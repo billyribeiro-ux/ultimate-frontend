@@ -101,6 +101,18 @@ The same gap works for both orientations because `gap` respects the main axis.
 
 **Challenge question:** (Combines Lessons 6.7, 6.6, and 6.5) Build a responsive page with a Flexbox navigation bar (row on desktop, column on mobile), a Grid card section, and a Flex tag list. Use logical properties throughout. Verify in RTL.
 
+## Deep Dive
+
+**Why this matters at scale.** Flexbox is the workhorse of component-level layout. In a typical 50-component design system, Flexbox appears in 80% of components. Getting Flexbox right at the component level means getting the entire design system right.
+
+**The mental model.** Flexbox is a conveyor belt. Items flow in one direction. You control direction, wrapping, and space distribution. If you find yourself using flex-wrap and trying to align across rows, you probably want Grid.
+
+**Edge cases.** flex-shrink defaults to 1, meaning items shrink and can cause unexpected text truncation. Set flex-shrink: 0 on items that must not shrink. min-width: auto prevents shrinking below content size — override with min-width: 0 for text truncation.
+
+**Performance implications.** Flexbox is the fastest CSS layout mode. A row of 100 items reflows in under 0.5ms. Deeply nested flex containers (5+ levels) create cumulative layout cost. The order property changes visual order without DOM order, creating accessibility concerns.
+
+**Connection to other modules.** Module 3's composition uses Flexbox. Module 5's event exercises lay out controls with Flexbox. Module 8's navigation uses flex-direction. Module 12 checks that visual order matches DOM order.
+
 ## 2. Style it — A tag chip row + a holy-grail frame
 
 The mini-build shows a wrap-friendly chip list plus a flex-column holy-grail layout where the content block expands to push the footer down. Per-page colour: `oklch(68% 0.18 290)` (purple).

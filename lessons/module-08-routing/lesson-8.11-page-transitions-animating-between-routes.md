@@ -113,6 +113,18 @@ For named transitions (where specific elements morph between pages), you tag ele
 
 **Challenge question:** (Combines Lessons 8.11, 8.8, and 6.11) Build a page transition that uses View Transitions for route changes AND Svelte transitions for in-page element mount/unmount. Verify both respect reduced motion independently.
 
+## Deep Dive
+
+**Why this matters at scale.** Page transitions make navigation feel intentional. View Transitions API provides browser-native cross-document animation.
+
+**The mental model.** onNavigate provides the hook. Call document.startViewTransition() inside it. SvelteKit handles the async lifecycle. The old page snapshot animates to the new page render.
+
+**Edge cases.** View Transitions require careful handling of layout shifts. Elements that move between pages need view-transition-name CSS. Async content that loads after transition causes visual glitches.
+
+**Performance implications.** View Transitions run on the compositor thread and are highly performant. The snapshot is a raster image, so complex pages do not slow the transition.
+
+**Connection to other modules.** Module 7's GSAP complements for complex choreography. Module 6's CSS transitions provide animation primitives. Module 12's performance addresses transition impact on INP.
+
 ## 2. Style it — PE7 for a hub page with transition links
 
 The mini-build is a two-page hub: one index page with two coloured cards, and one detail page per card. Clicking a card navigates; a view transition crossfades between them. We use PE7 OKLCH tokens with distinct per-card accents. Every interactive element hits the 44px minimum.

@@ -126,6 +126,18 @@ This is the reference pattern for every staggered list in this course.
 
 **Challenge question:** (Combines Lessons 6.17, 6.11, and 6.16) Build a staggered grid reveal using a custom transition function that combines fly + scale. Use the `mounted` flag pattern for first-paint. Cap the stagger at 600ms. Add an easing dropdown to switch between cubicOut, backOut, and expoOut.
 
+## Deep Dive
+
+**Why this matters at scale.** Parameterized transitions transform one-off animations into reusable primitives. Parameters enable stagger: the same transition with increasing delay creates a cascade that looks choreographed.
+
+**The mental model.** Parameters flow like props. Stagger maps index to delay: item 0 starts immediately, item 1 at 50ms, item 2 at 100ms. Total time: (n-1) * stagger + duration. The easing parameter accepts any (t) => number function.
+
+**Edge cases.** Cap maximum delay for large lists. Stagger on page load can cause FOUC — set initial CSS to match the transition start state. IntersectionObserver-based triggering ensures only visible items animate.
+
+**Performance implications.** Staggered transitions create multiple simultaneous animations. For CSS-based transitions, the browser handles them efficiently. The easing function runs once per frame per transition — keep it simple.
+
+**Connection to other modules.** Module 7's GSAP stagger is more powerful (grid-based, from-center, random). Module 6.11-16's built-in transitions all accept the same parameter interface. Module 12's lazy loading provides scroll-driven trigger timing.
+
 ## 2. Style it — A feature grid with a cyan brand
 
 The mini-build is a six-item feature grid with a cyan brand hue (`oklch(72% 0.14 220)`). Each feature tile flies in with a 60ms stagger on first paint. Mobile-first: one column; two columns at 480px; three at 720px (container query friendly).

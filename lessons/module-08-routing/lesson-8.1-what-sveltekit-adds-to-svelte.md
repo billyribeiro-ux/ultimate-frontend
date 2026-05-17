@@ -79,6 +79,18 @@ Since SvelteKit 2.50 the reactive page state API lives in `$app/state`, not `$ap
 
 **Challenge question:** (Combines Lessons 8.1, 8.2, and 8.4) Build a mental model diagram showing how a browser request flows through SvelteKit: URL → routing → load functions → SSR → HTML response → hydration → interactive page.
 
+## Deep Dive
+
+**Why this matters at scale.** SvelteKit adds routing, data loading, SSR, and deployment to Svelte. Understanding the boundary between compiler and framework prevents architectural mistakes.
+
+**The mental model.** Svelte compiles components. SvelteKit orchestrates: it decides which component to render for a URL, loads its data, renders it on the server, and hydrates on the client.
+
+**Edge cases.** SvelteKit apps are simultaneously a server application and a client application. Code that runs in load functions runs on the server first, then on the client for navigation. This dual execution is the source of most beginner bugs.
+
+**Performance implications.** SvelteKit's SSR adds server rendering time but dramatically improves First Contentful Paint and SEO. The hydration step on the client adds a brief JavaScript execution cost.
+
+**Connection to other modules.** Module 1-7 taught Svelte components. This module adds the application framework. Module 9 teaches data loading. Module 12 teaches deployment.
+
 ## 2. Style it — PE7 for the module
 
 The mini-build for this lesson is a table of stack layers. Each row is a card with a left border. We give Module 8 a per-page color personality by setting `--color-brand` to a cool blue (`oklch(70% 0.18 230)`). Svelte-owned layers use a warm accent so the two families are visually distinct. Spacing comes from `--space-*`, type comes from `--text-*`, and the 44px minimum height on every card satisfies touch-target rules. Mobile-first: the grid is one column until `min-width: 480px` is not even needed here — one column scales to any width.

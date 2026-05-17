@@ -122,6 +122,18 @@ Setting `duration` to 0 collapses every child tween to instant. One check, whole
 
 **Challenge question:** (Combines Lessons 7.4, 7.3, and 7.7) Build a multi-step onboarding animation with a timeline. Use `gsap.context` for cleanup. Add a "Skip" button that seeks to the end. Add a reduced-motion guard that collapses all durations to 0.
 
+## Deep Dive
+
+**Why this matters at scale.** Complex sequences justify GSAP's existence. A hero reveal needing 5 coordinated animations is unmaintainable with CSS @keyframes.
+
+**The mental model.** A timeline is a music sequencer: each tween is a track, the playhead triggers each at its scheduled position. Position parameter controls timing relationships.
+
+**Edge cases.** Keep nesting to 2 levels. Use labels for readable references. A timeline's duration includes all children — verify with tl.duration().
+
+**Performance implications.** Timelines use one rAF callback instead of N. Past tweens stop calculating. For reversible animations, tl.reverse() replays correctly.
+
+**Connection to other modules.** Module 7.3 introduced tweens. Module 7.8 adds stagger. Module 7.6 connects to Svelte reactivity. Module 8.11 uses timelines for page transitions.
+
 ## 2. Style it — A hero reveal with a teal-blue brand
 
 The mini-build is a hero section with a teal-blue brand (`oklch(68% 0.14 230)`). The hero has a logo mark, a headline, a subheadline, a CTA button, and three feature cards below. A timeline choreographs all seven elements: logo pops in, then headline flies in, then subheadline fades in overlapping, then CTA scales in, then feature cards stagger in. "Replay" button restarts the timeline. Mobile-first.

@@ -68,6 +68,18 @@ For most apps, `+page.server.ts` is the safer default. The crawler gets the SEO 
 
 SvelteKit gives every page access to every parent layout's data via `page.data`. If the root layout returns a default `seo` object and a page returns its own, the page's version replaces the default key-by-key. You can either do a full replace (the simple approach — the page sends a complete `seo` object) or a shallow merge (the layout reads both and spreads them). The mini-build below uses the full replace because it is the harder-to-get-wrong pattern.
 
+## Deep Dive
+
+**Why this matters at scale.** Load functions create a single source of truth for both page content and meta tags. The data in <svelte:head> always matches what is rendered.
+
+**The mental model.** Return SEO fields from load: title, description, image. The page component passes them to the SEO component. Both the page content and meta tags read the same data.
+
+**Edge cases.** Keep SEO data in the load function, not in the component. This ensures SSR renders correct meta tags on the first response.
+
+**Performance implications.** SEO data adds a few bytes to the load function return. The cost is the same as any other data property.
+
+**Connection to other modules.** Module 9A's load functions provide the data layer. Module 13.3's SEO component consumes the data.
+
 ## 2. Style it — no new styles, pure data flow
 
 This lesson's mini-build renders a blog post snippet using data from the server. The existing PE7 tokens cover everything. Focus on *where* the data is coming from, not how it looks.

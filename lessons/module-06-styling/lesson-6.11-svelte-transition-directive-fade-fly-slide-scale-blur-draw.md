@@ -116,6 +116,18 @@ This is the recommended way to make per-component accessibility decisions in Sve
 
 **Challenge question:** (Combines Lessons 6.11, 6.10, and 6.3) Build a card that uses CSS transitions for hover states AND a Svelte `transition:fade` for show/hide. Use PE7 motion tokens for both. Verify that reduced motion collapses both the CSS transition (via the global reset) and the Svelte transition (via `prefersReducedMotion.current`).
 
+## Deep Dive
+
+**Why this matters at scale.** Svelte transitions solve what CSS cannot: animating elements entering and leaving the DOM. CSS transitions require both states in the DOM simultaneously. Svelte intercepts DOM removal, plays exit animation, then removes the element.
+
+**The mental model.** A Svelte transition is a contract between compiler and DOM. On enter, the element is inserted at the transition start state and animated to the end. On leave, the compiler keeps the element in DOM, animates it, and removes it after completion.
+
+**Edge cases.** Transitions on components require the directive on the outermost element, not the component tag. The |local modifier restricts the transition to the element's own conditional block. Use |local by default in reusable components.
+
+**Performance implications.** Svelte transitions compile to requestAnimationFrame loops. For a single fade, cost is negligible. For 50 simultaneous transitions, frame budget is tight — batch removals with staggered delays.
+
+**Connection to other modules.** Module 7 teaches GSAP for complex sequences. Module 8's page transitions use View Transitions API. Module 12's reduced-motion handling overrides transition parameters globally.
+
 ## 2. Style it — A notification stack with per-page personality
 
 The mini-build is a stack of dismissible toast notifications with a teal brand hue (`oklch(72% 0.14 190)`). Each toast uses `transition:fly` to enter from the right and leave to the right. Duration comes from PE7 tokens (300ms base). Mobile-first: toasts are full-width on narrow screens and capped at 24rem at `min-width: 480px`. Dismiss buttons are 44px tall.

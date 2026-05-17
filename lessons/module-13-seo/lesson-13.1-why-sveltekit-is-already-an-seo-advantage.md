@@ -69,6 +69,18 @@ SvelteKit gives you the SSR baseline for free, and that is the single biggest SE
 
 Module 13 walks through every one of these. By the end, your SvelteKit app will not just be *indexable* — it will be *ranked*.
 
+## Deep Dive
+
+**Why this matters at scale.** SSR-by-default means content is visible to crawlers without configuration. Client-rendered SPAs require additional work for the same result.
+
+**The mental model.** Search engines render JS inconsistently. Google has a rendering budget limiting JS execution. SSR ensures content is in the initial HTML, bypassing the JS rendering queue.
+
+**Edge cases.** Social media crawlers (Facebook, Twitter) do not execute JavaScript at all. Without SSR, shared links show blank previews. SSR solves this automatically.
+
+**Performance implications.** SSR adds server rendering time (typically 5-50ms) but improves First Contentful Paint by 200-1000ms compared to client rendering.
+
+**Connection to other modules.** Module 9's load functions provide SSR data. Module 12's performance directly impacts crawl efficiency.
+
 ## 2. Style it — PE7 already respects mobile-first indexing
 
 The PE7 token system in `src/app.css` was designed with this lesson in mind. Fluid clamps mean the mobile and desktop versions of every component share a single stylesheet, so Googlebot's mobile crawl never sees a "lite" version of your site. `prefers-reduced-motion` is respected globally, so Core Web Vitals measurements on low-end devices are not penalised by decorative animation. You do not introduce any new tokens in this lesson — you look at what is already there with a fresh SEO lens.

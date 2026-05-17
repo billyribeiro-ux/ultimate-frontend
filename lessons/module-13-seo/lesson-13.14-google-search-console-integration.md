@@ -74,6 +74,18 @@ The most actionable pattern is **high impressions + low CTR**. That means Google
 
 **Low position + high impressions** is a content problem. Google shows you because the query is somewhat relevant, but you rank 15th because your content does not match intent. Expand the page or write a dedicated one.
 
+## Deep Dive
+
+**Why this matters at scale.** Search Console is the only direct feedback from Google about search performance. Verification, sitemap submission, and performance monitoring.
+
+**The mental model.** Verify via meta tag, DNS, or HTML file. Submit sitemap URL. Monitor coverage, performance, and Core Web Vitals reports.
+
+**Edge cases.** Meta tag verification exposes no secrets but requires the tag to remain in <head>. DNS verification is more permanent.
+
+**Performance implications.** Search Console data has a 2-3 day lag. Coverage reports update weekly. Performance data is available daily.
+
+**Connection to other modules.** Module 13.8's sitemap submission triggers crawling. Module 13.10's CWV are reported here.
+
 ## 2. Style it — a demo meta tag on a demo page
 
 The mini-build is a page with a fake verification token in its head (clearly labelled as such). PE7 tokens for the display.

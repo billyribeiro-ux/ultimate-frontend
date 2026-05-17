@@ -178,6 +178,18 @@ Each use gets its own fully-typed table without a single cast. That is the ceili
 
 TypeScript's job is to tell you about a mistake at 9:15 AM instead of at 3:30 AM. The generic patterns above do exactly that. Mistype a column name, and the IDE lights up immediately. Change a field's type in `Member`, and every cell component that reads it is flagged. Remove a column from the interface, and every dependent cell is a compile error. This is the entire argument for TypeScript-strict, and TanStack Table is designed to pay it off.
 
+## Deep Dive
+
+**Why this matters at scale.** Generics flow from data type through column defs to cell renderers. ColumnDef<Employee> constrains accessor keys to actual Employee properties.
+
+**The mental model.** createColumnHelper<T>() provides typed accessor methods. columnHelper.accessor('name', {...}) is type-safe — 'naem' is a compile error.
+
+**Edge cases.** Custom cell renderers receive typed info objects. info.getValue() returns the typed value. Custom header renderers receive the column's meta type.
+
+**Performance implications.** Type checking is build-time only. Zero runtime cost. The generics prevent a class of bugs that would otherwise surface as undefined values in cells.
+
+**Connection to other modules.** Module 11.7-8 provide runtime foundation. Module 9A's auto-types follow a similar generic flow.
+
 ## 2. Style it — Badges, alignment, and selection highlights
 
 The mini-build renders a custom `<RoleBadge>` in the role column, right-aligned numerics via the `meta.align` column meta, and a left-border highlight on selected rows. Per-page accent: `oklch(70% 0.2 320)` (magenta).

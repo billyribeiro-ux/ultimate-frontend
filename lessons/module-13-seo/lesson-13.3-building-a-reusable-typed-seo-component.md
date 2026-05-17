@@ -55,6 +55,18 @@ A canonical URL tells search engines "this is the one true URL for this page" �
 
 A wrong title on a button makes one user frown. A wrong `og:image` URL breaks link previews on every share of the page. SEO mistakes are load-bearing in ways regular UI bugs are not. A strict TypeScript interface is the cheapest insurance policy you can buy. If you try to pass `ogImage` as a relative URL, the type system should catch it. If you forget `description`, the build should fail. Write the interface, then let the compiler hold your page to it.
 
+## Deep Dive
+
+**Why this matters at scale.** A typed SEO component enforces required meta tags. Missing title or description is a compile error, not a runtime discovery.
+
+**The mental model.** The component renders no visible DOM — only <svelte:head> elements. TypeScript props ensure every page provides required SEO data.
+
+**Edge cases.** Keep the component focused: title, description, canonical, and noindex. Open Graph and Twitter Cards can extend the base component.
+
+**Performance implications.** Zero DOM overhead — the component renders only <head> elements. TypeScript checking is build-time only.
+
+**Connection to other modules.** Module 13.2 teaches the <svelte:head> foundation. Module 13.4 extends with social tags.
+
 ## 2. Style it — the SEO component emits no DOM
 
 The SEO component has no visible UI — it only emits `<svelte:head>` tags. There is nothing to style inside it. The *demo* page that shows an SEO component in action can still use the PE7 tokens to render a nicely styled "current SEO state" debug panel, which is what the mini-build does.

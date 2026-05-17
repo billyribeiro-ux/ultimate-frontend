@@ -159,6 +159,18 @@ We keep the base action simple in this lesson; advanced variants are fine to lay
 
 **Challenge question:** (Combines Lessons 7.12, 7.11, and 7.9) Build a long marketing page that uses `use:revealOnScroll` for 20 section reveals AND ScrollTrigger for one pinned hero section. Compare Performance tab recordings to see the cost difference.
 
+## Deep Dive
+
+**Why this matters at scale.** Scroll-reveal is the most common production animation. IntersectionObserver provides a lightweight alternative to ScrollTrigger for simple one-shot reveals.
+
+**The mental model.** IntersectionObserver fires callbacks when intersection thresholds cross. Zero per-frame cost. ScrollTrigger is for scrub/pin. Observer is for one-shot reveals.
+
+**Edge cases.** Threshold 0.1-0.2 is ideal for reveals. Elements above fold on load are already intersecting. Call unobserve() after first trigger for one-shot animations.
+
+**Performance implications.** Creating 100 observers is efficient — browser batches calculations. Each has ~200 bytes memory cost. For 1000+ elements, use one observer with multiple targets.
+
+**Connection to other modules.** Module 7.9 taught ScrollTrigger for complex animations. Module 12.6 teaches the general action pattern. Module 12.3 uses IntersectionObserver for lazy loading.
+
 ## 2. Style it — A long marketing page with a moss brand
 
 The mini-build is a marketing page with a moss brand (`oklch(60% 0.1 140)`). A hero, four feature sections, a testimonial row, and a CTA. Every section uses `use:revealOnScroll` with slightly different parameters. Mobile-first.

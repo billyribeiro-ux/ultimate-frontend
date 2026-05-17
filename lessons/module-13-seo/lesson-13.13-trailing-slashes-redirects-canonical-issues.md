@@ -78,6 +78,18 @@ Even when the actual URL is `/products/shoe?ref=twitter&sort=newest`. Google tre
 
 A redirect chain is `/a → /b → /c → /d`. Googlebot follows up to about 5 hops, then gives up. Every hop wastes crawl budget. Collapse chains into direct 301s whenever you move content multiple times. Check with `curl -I -L` in a terminal.
 
+## Deep Dive
+
+**Why this matters at scale.** Trailing slash variants create duplicate content, diluting link equity. SvelteKit's trailingSlash config enforces one canonical format.
+
+**The mental model.** Set trailingSlash: 'never' or 'always' in svelte.config.js. SvelteKit redirects the non-canonical version. Add <link rel='canonical'> as a safety net.
+
+**Edge cases.** Changing trailingSlash on an existing site requires redirects from the old format. Search engines may take weeks to reindex.
+
+**Performance implications.** The redirect is a 301 response — fast and cached by browsers. The canonical link tag adds one <link> element to <head>.
+
+**Connection to other modules.** Module 8's routing defines URL structure. Module 13.2's canonical link tag prevents duplicate content.
+
 ## 2. Style it — a visible redirect-source page
 
 The mini-build includes two routes: one that redirects, and one that receives. The receiver has a small banner that notes "You arrived here via a 301 redirect." PE7 tokens only.

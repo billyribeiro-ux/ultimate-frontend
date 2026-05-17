@@ -61,6 +61,18 @@ The `contentUrl` points to the poster image — a real 2D asset Google can fetch
 
 Lighthouse SEO is a 100-point deterministic audit. Score 100 by hitting every checkbox: document title, meta description, viewport, crawlable links, valid hreflang (if you use it), image alt attributes, structured data. Nothing on that list checks whether a canvas is semantic. As long as the *page* around the canvas is semantic, you get 100 — even with a WebGL hero. This lesson proves that claim by building exactly such a page.
 
+## Deep Dive
+
+**Why this matters at scale.** Crawlers cannot see canvas pixels. All meaningful content must exist as HTML text alongside the 3D scene.
+
+**The mental model.** The poster-image pattern provides a static fallback. Place text descriptions in visually-hidden elements. Use alt text on the poster image.
+
+**Edge cases.** The poster image serves as the LCP element. If the 3D scene loads first, LCP is undefined because canvas pixels are not LCP candidates.
+
+**Performance implications.** The poster-image swap adds one image request. The 3D scene loads independently without blocking LCP.
+
+**Connection to other modules.** Module 12.12's Threlte performance ensures 3D does not block LCP. Module 13.10's CWV addresses poster timing.
+
 ## 2. Style it — the poster fills the canvas slot until the scene loads
 
 PE7 tokens drive the poster's rounded frame. The poster is absolutely positioned over the canvas with `opacity` transitioning to 0 once the canvas signals ready. `prefers-reduced-motion` disables the transition. A CSS-only fallback (a gradient with a shape) is used here to avoid requiring Threlte to be installed — swap in the real Threlte canvas in the capstone.

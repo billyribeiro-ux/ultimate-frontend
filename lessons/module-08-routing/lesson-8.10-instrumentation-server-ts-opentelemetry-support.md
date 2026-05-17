@@ -113,6 +113,18 @@ We do not wire up a real OpenTelemetry backend in this course repository, becaus
 
 **Challenge question:** (Combines Lessons 8.10, 8.9, and 8.2) Set up OpenTelemetry tracing with a console exporter. Add a custom span inside a `handle` hook. View the trace output showing the request flow: instrumentation → handle → load → render → response.
 
+## Deep Dive
+
+**Why this matters at scale.** Observability in production requires structured telemetry. instrumentation.server.ts runs once at server start, before any request handling.
+
+**The mental model.** The file exports init() which runs at startup. Register OpenTelemetry providers, initialize APM agents, or set up custom metrics. This runs before hooks.server.ts.
+
+**Edge cases.** The init function is async but must complete before the server accepts requests. Long-running initialization delays server startup. Keep it under 2 seconds.
+
+**Performance implications.** Telemetry collection adds per-request overhead: typically 0.1-0.5ms for span creation and attribute setting. The overhead is negligible compared to load function execution.
+
+**Connection to other modules.** Module 12's performance monitoring connects to telemetry established here. Module 8.9's hooks can create request-scoped spans.
+
 ## 2. Style it — PE7 for a trace viewer
 
 The mini-build displays a "simulated trace" panel with one parent row (the whole request) and two child rows (load function, render). We give the page a deep-purple personality (`oklch(55% 0.2 300)`) and use monospaced values. Durations are formatted in milliseconds with `.toFixed(1)`.

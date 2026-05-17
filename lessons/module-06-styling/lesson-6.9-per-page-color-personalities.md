@@ -99,6 +99,18 @@ Open the mini-build with DevTools and inspect `<section>` on each page. The only
 
 **Challenge question:** (Combines Lessons 6.9, 6.2, and 6.3) Create three side-by-side cards, each inside a `<section>` with a different `--color-brand` override. Use `oklch(from ...)` to derive hover, focus, and muted variants from each override. Verify with a contrast checker that all text-on-brand combinations pass WCAG AA.
 
+## Deep Dive
+
+**Why this matters at scale.** Per-page colors solve design monotony. 50 pages with the same visual tone feel corporate and flat. The PE7 approach uses a single OKLCH hue override to shift the entire palette, meaning one variable gives a page character while preserving contrast ratios.
+
+**The mental model.** Think of your color system as a piano. The base palette defines intervals between notes. Per-page hue is like transposing to a different key — all relationships stay the same, but the character changes. This only works because OKLCH separates lightness, chroma, and hue.
+
+**Edge cases.** Not all hues look equally vibrant at the same chroma. Yellow appears more vivid than blue at chroma 0.2. Test page personalities against both light and dark mode. Keep a fallback: undefined personalities should render with the base palette.
+
+**Performance implications.** CSS custom property overrides are resolved during style computation — effectively free. No JavaScript runtime cost. Avoid animating the hue variable with JS — use CSS transitions on the custom property instead.
+
+**Connection to other modules.** Module 8 applies personalities via layout-level variables. Module 13's Open Graph images can use the page hue. The capstone uses per-page personality to distinguish marketing, dashboard, and documentation sections.
+
 ## 2. Style it — Three cards, three personalities
 
 The mini-build renders the same card three times, each inside a `<section>` with its own `--color-brand` override. No other styles differ. Per-page colour cycles: `oklch(68% 0.2 20)`, `oklch(68% 0.2 160)`, `oklch(68% 0.2 280)`.

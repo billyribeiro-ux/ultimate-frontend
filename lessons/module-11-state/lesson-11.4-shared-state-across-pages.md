@@ -105,6 +105,18 @@ Then in the root `+layout.svelte`, call `cart.hydrate()` inside a `$effect` — 
 
 Persistence via `localStorage` is the right tool for small, non-sensitive, client-owned state (cart, draft text, theme, last-visited tab). It is the wrong tool for anything server-owned. If a logged-in user's cart must survive across devices, the cart lives in a database, and the client merely displays what the server returns from `load()`. In that case the module store is still useful — as a *cache* that mirrors the server data — but the source of truth is the server, and you write through the API, not through `localStorage`.
 
+## Deep Dive
+
+**Why this matters at scale.** State surviving navigation without URL requires explicit persistence. Reactive modules persist across client-side navigation; localStorage persists across reloads.
+
+**The mental model.** Combine reactive modules with localStorage: write to storage on change, read on initialization. Use $effect to sync state to storage.
+
+**Edge cases.** localStorage is synchronous and blocks the main thread for large values. Cap stored state at 100KB. SessionStorage scopes to the tab.
+
+**Performance implications.** localStorage read/write is O(data size). For small state objects, negligible. For large datasets, consider IndexedDB.
+
+**Connection to other modules.** Module 11.6's URL state survives sharing and reload. Module 11.3's .svelte.ts provides the reactive foundation.
+
 ## 2. Style it — A persistent cart widget
 
 The mini-build renders a compact product list and a persistent cart widget that survives navigation *and* reloads. Per-page accent: `oklch(70% 0.18 160)` (mint). The cart badge has a subtle `--shadow-md` and a `transition: transform var(--dur-fast) var(--ease-out)` that is disabled under `prefers-reduced-motion`.

@@ -93,6 +93,18 @@ You also should not split across critical-path code. If the component is require
 
 Both of these show up clearly in `vite build` output. Inspect the summary table; anything unexpectedly large is almost always one of these two mistakes.
 
+## Deep Dive
+
+**Why this matters at scale.** Code splitting reduces initial JS payload. SvelteKit auto-splits at route boundaries. Dynamic import() creates additional split points.
+
+**The mental model.** import() returns a Promise resolving to the module. Vite creates a separate chunk at each import() boundary. The chunk loads on first call.
+
+**Edge cases.** Dynamic import paths must be statically analyzable. Template literal paths with variables do not split correctly. Use explicit paths.
+
+**Performance implications.** Each code-split chunk adds one HTTP request. HTTP/2 multiplexing mitigates the cost. The tradeoff is smaller initial bundle vs more requests.
+
+**Connection to other modules.** Module 12.2's image lazy loading uses IntersectionObserver. Module 7's GSAP plugins benefit from dynamic import.
+
 ## 2. Style it — A button that reveals a heavy component
 
 The mini-build has a "Show heavy widget" button. The widget is a simple fake heavy component (a big table of computed numbers) loaded via dynamic import. Per-page accent: `oklch(68% 0.2 60)` (orange).

@@ -81,6 +81,18 @@ For each URL, produce a `{ loc, lastmod, changefreq, priority }` object, then fo
 
 A single sitemap file can contain at most **50,000 URLs** and must be under **50 MB uncompressed**. Past that, Google requires you to split into multiple sitemaps and publish a **sitemap index** at `sitemap.xml` that references the child sitemaps. For a course marketing site this is never a concern; for an e-commerce site with a million SKUs it is a hard requirement. The mini-build below produces a single sitemap — extending to an index is a one-file refactor.
 
+## Deep Dive
+
+**Why this matters at scale.** Sitemaps tell crawlers which pages exist, how often they change, and which are important. Dynamic generation ensures coverage of all routes.
+
+**The mental model.** Build as a +server.ts GET endpoint. Return XML with Content-Type: application/xml. Include all static and dynamic routes with lastmod and priority.
+
+**Edge cases.** Sitemaps have a 50,000 URL limit. For larger sites, implement a sitemap index pointing to multiple sitemap files. Cache with Cache-Control headers.
+
+**Performance implications.** Sitemap generation runs once per request. For large sites, cache aggressively. The XML serialization cost scales linearly with URL count.
+
+**Connection to other modules.** Module 10.1's endpoint pattern provides the foundation. Module 9A.10's entries() enumerates dynamic routes.
+
 ## 2. Style it — the sitemap has no UI, but the preview page does
 
 This lesson's route renders a human-readable preview of the sitemap URLs the endpoint produces, plus a link to the raw XML. PE7 tokens handle the preview styling.

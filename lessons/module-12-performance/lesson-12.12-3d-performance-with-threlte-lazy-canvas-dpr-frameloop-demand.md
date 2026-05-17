@@ -145,6 +145,18 @@ The poster image is a still frame captured from the scene at build time. It has 
 
 Chrome DevTools → Performance Monitor → GPU memory shows live usage of the video card. Open it, reload your page, and watch the number. A 3D hero should consume a few megabytes of VRAM; if it consumes hundreds, something is wrong — usually textures that are far larger than the output size, or a failure to dispose of materials and geometries on unmount. Threlte cleans up most of this automatically if you unmount the `<Canvas>`, which the lazy-load pattern above does naturally. If you see memory climb on repeated navigation, confirm that the canvas actually unmounts (it should, because `{#if visible}` controls its existence).
 
+## Deep Dive
+
+**Why this matters at scale.** 3D is the most expensive browser rendering. Lazy loading, reduced DPR, and frameloop='demand' eliminate wasted GPU cycles.
+
+**The mental model.** Lazy <Canvas> defers Three.js initialization. DPR capping reduces pixel count on retina displays. frameloop='demand' only renders when state changes.
+
+**Edge cases.** Three.js is 600KB+ gzipped. Lazy loading prevents this from blocking initial page render. The poster-image pattern provides content while 3D loads.
+
+**Performance implications.** A 60fps 3D scene consumes 16ms per frame for rendering alone. Reducing DPR from 2 to 1.5 cuts pixel count by 44%. frameloop='demand' drops GPU usage to zero when idle.
+
+**Connection to other modules.** Module 7's GSAP applies to 3D objects. Module 13's LCP optimization addresses poster-image fallback.
+
 ## 2. Style it — A hero-sized box that behaves
 
 The mini-build renders a full-width hero with the `.hero` class occupying a fixed aspect ratio, so there is no CLS regardless of whether the 3D loads or the poster appears. Per-page accent: `oklch(70% 0.2 260)` (threlte blue).

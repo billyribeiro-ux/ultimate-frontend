@@ -120,6 +120,18 @@ if (prefersReducedMotion.current) {
 
 **Challenge question:** (Combines Lessons 7.3, 7.5, and 5.1) Build a card that uses `gsap.from` for its entrance reveal (triggered by `bind:this` + `$effect`), `gsap.to` for a hover lift (triggered by `onpointerenter`/`onpointerleave`), and `gsap.set` for the reduced-motion fallback. Type all event handlers correctly.
 
+## Deep Dive
+
+**Why this matters at scale.** gsap.to is 90% of usage. from() handles entrance animations. fromTo() gives full control. Wrong method causes FOUC bugs.
+
+**The mental model.** to() animates from current to target. from() sets values then animates back to CSS state. fromTo() defines both endpoints. from() trap: element briefly shows CSS state before jumping.
+
+**Edge cases.** from() causes FOUC on first render. Run from() in $effect that fires after mount. Calling gsap.to() on unmounted element returns a tween targeting nothing.
+
+**Performance implications.** Each tween creates ~0.5KB object. For 100+ simultaneous tweens, use timelines with stagger instead of individual calls.
+
+**Connection to other modules.** Module 6 taught Svelte transitions. Module 7.4 chains tweens into timelines. Module 7.5 teaches bind:this for DOM references.
+
 ## 2. Style it — Three rows, three GSAP methods, one rose brand
 
 The mini-build uses a rose brand hue (`oklch(70% 0.2 15)`). Three rows, one per method. Each row has a coloured box and a "Run" button. Clicking the button triggers the corresponding `gsap.to`/`gsap.from`/`gsap.fromTo` on that box. Buttons are 44px tall. Mobile-first: rows stack in a single column.

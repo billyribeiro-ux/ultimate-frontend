@@ -106,6 +106,18 @@ The same rule as Lesson 6.11 applies: check `prefersReducedMotion.current` and c
 
 **Challenge question:** (Combines Lessons 6.12, 6.11, and 6.15) Build a notification system where toasts enter with `in:fly` from the right and exit with `out:fade`. Add a spring-driven progress bar inside each toast that shows time remaining. When the progress bar reaches zero, dismiss the toast.
 
+## Deep Dive
+
+**Why this matters at scale.** Asymmetric transitions communicate direction. A modal that fades in but slides down on exit says 'dismissed, not hidden.' A notification that flies in from right but fades out says 'arrived as new, acknowledged.' These cues reduce cognitive load.
+
+**The mental model.** in: and out: replace transition: when you need different animations. Think of two doorways. transition: is a convenience when both look the same. Separate directives give independent control over timing, easing, and transform per direction.
+
+**Edge cases.** Rapid toggling can cause glitches. If show/hide/show happens before exit finishes, the exit is canceled and enter starts from the current position. Consider debouncing the toggle or using a single bidirectional transition for rapid toggles.
+
+**Performance implications.** Asymmetric transitions have the same performance as symmetric ones. However, combining slide (layout property) with fly (transform) creates inconsistent performance between enter and exit directions.
+
+**Connection to other modules.** Module 7's GSAP timelines naturally support asymmetric animation. Module 8's page transitions use asymmetric patterns. Module 12's accessibility ensures both directions respect prefers-reduced-motion.
+
 ## 2. Style it — A modal dialog with asymmetric motion
 
 The mini-build is a centred modal with an orange brand hue (`oklch(72% 0.17 55)`). The modal has a scrim backdrop and a dialog card. The scrim fades in and fades out. The dialog **scales up** from 0.9 on enter (`in:scale`) and **flies down** on exit (`out:fly`), communicating clearly that the modal is "put away". Close button is 44×44px. Mobile-first: modal is full-width on narrow screens, max-width 28rem above 480px.

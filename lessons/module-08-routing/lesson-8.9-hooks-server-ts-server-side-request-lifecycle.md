@@ -132,6 +132,18 @@ Everything in `hooks.server.ts` runs in Node (or your adapter's equivalent). It 
 
 **Challenge question:** (Combines Lessons 8.9, 8.4, and 8.2) Build a handle hook that reads a `theme` cookie and injects it into `event.locals`. Use it in a layout load function to render the correct theme. Walk through the full request lifecycle from browser to response.
 
+## Deep Dive
+
+**Why this matters at scale.** hooks.server.ts is the middleware layer processing every request. It is the right place for auth, logging, rate limiting, and request enrichment.
+
+**The mental model.** The handle function wraps resolve(event) to add before/after logic. sequence() composes multiple handlers. event.locals is mutable and shared across the request lifecycle.
+
+**Edge cases.** handle must call resolve() exactly once. Forgetting resolve() hangs the request. Calling it twice sends duplicate responses. sequence() handles ordering automatically.
+
+**Performance implications.** Hooks run on every request including data API calls during navigation. Keep hook logic fast. Async operations in hooks add to every page load's TTFB.
+
+**Connection to other modules.** Module 10's form actions run after hooks. Module 9's load functions receive locals. Module 12's auth patterns are implemented as hooks.
+
 ## 2. Style it — PE7 for a request log
 
 The mini-build reads a request ID that was set in `hooks.server.ts` via `event.locals.requestId` and displays it on the page via a `+page.server.ts` load function. We give the page a slate personality (`oklch(55% 0.05 260)`) to feel like a server console. The request ID is monospaced and bordered with `var(--color-border)`.

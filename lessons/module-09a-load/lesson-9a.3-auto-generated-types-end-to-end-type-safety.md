@@ -202,6 +202,18 @@ If types still seem wrong after all three steps, check that your `tsconfig.json`
 - **Advanced pattern:** Create a utility type that extracts the `data` type from a `PageProps` for use in tests: `type PageData = PageProps extends { data: infer D } ? D : never;`. This lets you construct test fixtures with the exact shape your component expects.
 - **Challenge:** Add a `[slug]` segment to a route and inspect the generated `$types.d.ts` file in `.svelte-kit/types/`. Find where `Params` is defined. Now change the folder name to `[...path]`. Re-sync and compare. What changed in the generated file?
 
+## Deep Dive
+
+**Why this matters at scale.** End-to-end type safety eliminates bugs where page data shape diverges from load returns. Types regenerate on file changes during development.
+
+**The mental model.** SvelteKit generates types in .svelte-kit/types/. PageData is the return type of load. PageParams matches route parameters. Import from ./$types for route-specific typing.
+
+**Edge cases.** Types regenerate during dev but need a build step in CI. Circular type dependencies between load and page can cause compilation errors. Keep load return types simple.
+
+**Performance implications.** Type generation runs in the build pipeline with negligible impact. The generated types are standard TypeScript declarations with zero runtime overhead.
+
+**Connection to other modules.** Module 10's ActionData follows the same pattern. Module 8's route params are auto-typed. Module 9B's remote functions provide their own type flow.
+
 ## 2. Style it — PE7 for a type inspector
 
 The mini-build shows the actual shape of `data` as a JSON tree on the page. We give it a green personality (`oklch(70% 0.18 150)`) and use a `<pre>` block to display the serialised value.

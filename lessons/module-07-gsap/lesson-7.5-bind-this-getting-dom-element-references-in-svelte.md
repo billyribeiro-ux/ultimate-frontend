@@ -104,6 +104,18 @@ Svelte fills the array as each element mounts. The effect runs when `cards.lengt
 
 **Challenge question:** (Combines Lessons 7.5, 7.3, and 2.1) Build an `{#each}` list where each item has a `bind:this` ref stored in an array. Use the array of refs as the target for a staggered `gsap.from` call. Verify that adding/removing items updates the ref array correctly.
 
+## Deep Dive
+
+**Why this matters at scale.** GSAP needs DOM elements. bind:this provides type-safe references. The timing of availability is critical — undefined during SSR, defined after mount.
+
+**The mental model.** Declare as $state<HTMLElement>(). After mount, holds the DOM node. Before mount, undefined. GSAP code must run inside $effect or onMount.
+
+**Edge cases.** Multiple bind:this references resolve at mount time. For dynamic lists, store references in a Map<string, HTMLElement> keyed by ID.
+
+**Performance implications.** Zero runtime cost — compile-time directive. Holding many references prevents GC. Release references for off-screen items in virtual scrolling.
+
+**Connection to other modules.** Module 2 introduced $state. Module 7.6 uses references in $effect. Module 12's actions provide an alternative element-reference pattern.
+
 ## 2. Style it — A single card with a coral brand
 
 The mini-build is one card with a coral brand (`oklch(70% 0.19 30)`). The card has a headline and a paragraph. On mount, GSAP animates the card in with a `from` call — the call takes the bound element, not a selector. Mobile-first responsive.

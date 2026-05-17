@@ -81,6 +81,18 @@ Three-step smoke test:
 
 **Challenge question:** (Combines Lessons 7.2, 7.1, and 1.2) Install GSAP, import it in a page, and display `gsap.version` in the DOM. Verify in DevTools Network tab that the gsap chunk loads. Then import ScrollTrigger from `gsap/ScrollTrigger` and verify it adds a separate chunk.
 
+## Deep Dive
+
+**Why this matters at scale.** Incorrect installation causes duplicate instances, missing types, or SSR crashes. Clean install with TS types ensures type-checked calls and single-instance loading.
+
+**The mental model.** GSAP is client-side. All code runs inside $effect or onMount, never at top level. TypeScript types are bundled since v3.10.
+
+**Edge cases.** Common mistake: importing ScrollTrigger at top level triggers SSR errors. Use dynamic import inside onMount. Vite handles GSAP's ES module tree-shaking.
+
+**Performance implications.** GSAP core is always fully included. Plugins are tree-shakeable. Verify with Vite's bundle analyzer that only used plugins are included.
+
+**Connection to other modules.** Module 6 taught CSS/Svelte animation. This bridges to GSAP. Module 12 revisits bundle impact.
+
 ## 2. Style it — A status card with a turquoise brand
 
 The mini-build is a single status card with a turquoise brand (`oklch(72% 0.13 180)`). The card shows "GSAP installed: yes/no", "GSAP version", and "Console log check". The card lifts on hover (CSS transition — still the right tool). The install check runs in `onMount` equivalent (`$effect`) and logs to the browser console.

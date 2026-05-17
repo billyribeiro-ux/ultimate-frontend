@@ -107,6 +107,18 @@ A useful rule of thumb: if you find yourself writing `flex-wrap: wrap` and tryin
 
 **Challenge question:** (Combines Lessons 6.6, 6.5, and 6.3) Build a responsive product grid using `auto-fill` and `minmax()`. Use logical properties for all internal spacing. Use PE7 tokens for gap and padding. Add a `grid-template-areas` page layout that swaps at 768px. Verify in RTL mode.
 
+## Deep Dive
+
+**Why this matters at scale.** Grid eliminates media-query proliferation. A project with 40 components and 4 breakpoints generates 160 media query blocks. With auto-fill and minmax, most collapse to zero. Teams report 30-40% fewer CSS lines.
+
+**The mental model.** Grid is a spreadsheet: define rows and columns, place items in cells. Flexbox is a clothesline: hang items and they flow. The key question is whether you need control in both dimensions.
+
+**Edge cases.** auto-fill vs auto-fit matters only when items are fewer than available tracks. auto-fill leaves empty tracks; auto-fit collapses them. Subgrid lets children inherit parent track definitions, solving aligned-labels in forms.
+
+**Performance implications.** CSS Grid layout is GPU-accelerated. Layout runs once per frame, typically under 1ms even for hundreds of items. Avoid grid-auto-rows: masonry in production — it triggers multiple layout passes.
+
+**Connection to other modules.** Module 8 uses Grid for dashboard layouts. Module 11's TanStack Table renders into Grid. Module 12's image gallery uses auto-fill for responsive thumbnails.
+
 ## 2. Style it — A card grid + a page layout
 
 The mini-build has two parts. Part 1: a card grid using `repeat(auto-fill, minmax(16rem, 1fr))` with 12 sample cards. Part 2: a named-area page layout that swaps at 768 px. Per-page colour: `oklch(68% 0.2 20)` (coral).

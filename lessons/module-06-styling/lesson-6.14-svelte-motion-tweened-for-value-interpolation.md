@@ -138,6 +138,18 @@ Since `duration` can also be a function, an even cleaner version is `duration: (
 
 **Challenge question:** (Combines Lessons 6.14, 6.2, and 6.3) Build a progress ring that uses `Tween` for smooth fill animation. Derive the ring colour from `var(--color-brand)` using OKLCH relative syntax. Use PE7 motion tokens for the tween duration. Add reduced-motion support that collapses the tween to instant.
 
+## Deep Dive
+
+**Why this matters at scale.** Tweened values bridge reactive state and smooth visual output. In dashboards, numbers that snap instantly feel jarring. With tweened, displayed values interpolate smoothly, making the UI feel alive and continuous.
+
+**The mental model.** A tweened value has inertia. Set a new target and it moves toward it over time following an easing curve. Under the hood, it runs a requestAnimationFrame loop interpolating between current and target.
+
+**Edge cases.** For non-numeric values, you must provide a custom interpolate function. Rapidly setting new targets cancels previous tweens. Setting duration: 0 makes values snap instantly — useful for initial state or accessibility mode.
+
+**Performance implications.** Each tweened value runs its own rAF callback. For 20 values, negligible. For 500+, batch updates or switch to Canvas rendering. Avoid expensive computations in custom interpolate functions.
+
+**Connection to other modules.** Module 6.15 contrasts tweened with spring. Module 7's GSAP provides more powerful tweening with timeline coordination. Module 12 addresses when to replace multiple tweened values with a single animation loop.
+
 ## 2. Style it — An animated progress ring with a purple brand
 
 The mini-build is a circular progress ring with a purple brand hue (`oklch(65% 0.22 295)`). Advance and reset buttons (44px tall) modify the target; the ring fills smoothly via an SVG stroke-dasharray bound to `progress.current`. The ring is 200px wide on mobile and scales up to 280px at `min-width: 480px`.

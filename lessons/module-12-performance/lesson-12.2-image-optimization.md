@@ -117,6 +117,18 @@ Done. Those four checks produce fast, CLS-safe, LCP-friendly images every time.
 
 SvelteKit ships an official plugin that automates all of this at build time. If your project uses it, you write a single `<enhanced:img src="./hero.jpg" alt="..." />` and the plugin generates every format and size for you. This lesson sticks to plain HTML because the concepts are easier to see when nothing is generated, but in a production project you should turn the plugin on and get the benefits for free. The manual knowledge is still required for any image you cannot control (for example CMS-hosted photos).
 
+## Deep Dive
+
+**Why this matters at scale.** Images drive LCP. width/height prevent CLS. srcset provides resolution switching. loading=lazy defers off-screen images. This is the highest-impact performance work.
+
+**The mental model.** Six attributes work together: src, width, height, alt, loading, fetchpriority. The hero image needs fetchpriority='high'. Below-fold images need loading='lazy'.
+
+**Edge cases.** WebP/AVIF save 25-50% over JPEG/PNG. Not all browsers support AVIF. Use <picture> with fallbacks. Oversized images waste bandwidth — serve images at display size.
+
+**Performance implications.** Image optimization reduces transfer size by 40-60% on typical pages. Each KB saved improves LCP linearly. fetchpriority=high can improve LCP by 200-400ms.
+
+**Connection to other modules.** Module 13's LCP optimization builds on this. Module 6's responsive layout affects needed sizes.
+
 ## 2. Style it — A hero that does not jump
 
 The mini-build shows a hero image with both the "unoptimised" and "optimised" versions side by side, so the student can see the CLS fix live. Per-page accent: `oklch(70% 0.18 210)` (image blue).

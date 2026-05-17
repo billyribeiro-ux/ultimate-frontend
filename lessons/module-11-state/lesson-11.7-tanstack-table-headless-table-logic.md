@@ -132,6 +132,18 @@ The table you build in this lesson does exactly one thing: renders its data. No 
 
 It is a fair question. For a five-row table, you absolutely should. A handful of `{#each}` blocks and a `items.sort()` call will do the job. You reach for TanStack Table the moment the *combination* of features starts to multiply: sort *and* filter *and* paginate *and* select *and* expand *and* group. Writing those five features by hand, composed correctly so that sorting a filtered page does not lose the selection, is surprisingly hard. TanStack has done the hard work, type-checked the result, and tested it on thousands of consumer codebases. This is exactly what a library is for.
 
+## Deep Dive
+
+**Why this matters at scale.** Headless UI separates logic from presentation. You control all markup and styling while TanStack handles sorting, filtering, pagination.
+
+**The mental model.** createSvelteTable takes column definitions and row models. getHeaderGroups() and getRowModel() provide data for rendering. State lives outside the table.
+
+**Edge cases.** Column accessors must match data properties. The table re-renders when state changes. flexRender bridges TanStack's render output to Svelte components.
+
+**Performance implications.** TanStack processes the full dataset through its row model pipeline on every state change. For 10,000+ rows, consider server-side processing.
+
+**Connection to other modules.** Module 11.8 adds features. Module 11.9 adds typing. Module 6's PE7 tokens style the output.
+
 ## 2. Style it — PE7 tokens on a raw `<table>`
 
 The mini-build uses a plain HTML `<table>` with PE7 tokens applied directly. Per-page accent: `oklch(72% 0.2 300)` (table purple). Key rules:

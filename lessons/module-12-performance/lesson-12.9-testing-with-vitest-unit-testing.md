@@ -158,6 +158,18 @@ Bad test targets:
 
 A good rule: **if you can describe what the test is proving in one sentence without using the name of a function inside the code, the test is aimed at behaviour. If you cannot, it is aimed at implementation and will break the next time you refactor.**
 
+## Deep Dive
+
+**Why this matters at scale.** Unit tests catch bugs at the smallest scope with the fastest feedback. Test reactive modules separately from components.
+
+**The mental model.** Import and test .svelte.ts modules directly. For components, use @testing-library/svelte to render and query DOM. Test behavior, not implementation.
+
+**Edge cases.** Reactive state in tests needs Svelte's runtime. Use flushSync() or tick() to process reactive updates before assertions.
+
+**Performance implications.** Unit tests run in milliseconds. A suite of 200 tests completes in under 5 seconds. The fast feedback loop makes them the most cost-effective quality investment.
+
+**Connection to other modules.** Module 12.10's Playwright covers E2E. Module 11's reactive classes are ideal test targets.
+
 ## 2. Style it — Nothing to style
 
 Unit tests live in `.test.ts` files with no visible output. The "style it" slot for this lesson is a short note: tests do not render styles; tests verify behaviour.

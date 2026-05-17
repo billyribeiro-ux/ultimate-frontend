@@ -121,6 +121,18 @@ The dependency-tracking difference is the biggest win: you cannot forget to list
 
 **Challenge question:** (Combines Lessons 7.6, 7.5, and 2.4) Build a component where a `$state` number drives GSAP via `$effect`. Add a `$derived` value that transforms the state. Use both in the effect to animate two elements. Verify that changing unrelated state does not trigger the effect.
 
+## Deep Dive
+
+**Why this matters at scale.** $effect connects Svelte reactivity to GSAP's imperative world. Getting cleanup right is essential — every tween in an effect must be killed on rerun or unmount.
+
+**The mental model.** $effect is a watcher with cleanup. Read state, create tween, return cleanup that kills tween. Without cleanup, rapid state changes create competing tweens.
+
+**Edge cases.** Common bug: forgetting cleanup causes tween pile-up. Guard with if-checks for data and element availability.
+
+**Performance implications.** Properly cleaned up tweens have no memory cost. For high-frequency updates (mouse move), use gsap.quickTo() instead of new tweens.
+
+**Connection to other modules.** Module 2 taught $effect lifecycle. Module 7.8 extends to stagger. Module 12 addresses quickTo optimization.
+
 ## 2. Style it — A multi-step carousel with a violet brand
 
 The mini-build is a three-slide carousel with a violet brand (`oklch(64% 0.22 310)`). Two buttons (Prev, Next) update a `step` state. The effect reads `step`, clamps it, and runs `gsap.to` on the slide track. Buttons are 44×44px. Dots indicate current slide.

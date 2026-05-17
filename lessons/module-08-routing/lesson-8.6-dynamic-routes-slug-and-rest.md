@@ -111,6 +111,18 @@ Before SvelteKit 2.55, you had to import `PageProps` from the generated `./$type
 
 **Challenge question:** (Combines Lessons 8.6, 8.4, and 8.5) Build a documentation site with a `[...path]` catch-all route that renders different content based on path depth. Add a `[[lang]]` optional prefix for i18n. Create a param matcher that restricts `lang` to a set of 2-letter codes.
 
+## Deep Dive
+
+**Why this matters at scale.** Dynamic routes map infinite URL patterns to finite code. Understanding matchers, rest params, and resolution precedence is essential for clean URL design.
+
+**The mental model.** [slug] captures one segment, [...rest] captures the remaining path, [[optional]] is optional. Param matchers validate the URL before the route resolves.
+
+**Edge cases.** When multiple dynamic routes could match, SvelteKit prefers: specific routes over dynamic, dynamic over rest, matched over unmatched. Test edge cases with overlapping routes.
+
+**Performance implications.** Dynamic route resolution runs at build time for prerendered routes and at request time for SSR. The resolution cost is O(routes) but routes are sorted, so matching is fast.
+
+**Connection to other modules.** Module 9 loads data based on these params. Module 13 uses dynamic routes for SEO-friendly URLs. Module 10's API routes also support dynamic segments.
+
 ## 2. Style it — PE7 for a URL sandbox
 
 The mini-build renders the current route's parameters live. We give it an orange personality (`oklch(72% 0.18 55)`) and use a monospace font for the parameter values to make them look like machine output. Spacing and type come from PE7 tokens.

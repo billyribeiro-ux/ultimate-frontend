@@ -145,6 +145,18 @@ Two things do not belong:
 
 Everything else you might be tempted to reach for a store for — active tab, filter, sort, search query, page number — belongs in the URL.
 
+## Deep Dive
+
+**Why this matters at scale.** The URL is the most robust state container: survives navigation, reload, sharing, and bookmarking. Zero client-side persistence code.
+
+**The mental model.** Read from page.url.searchParams. Write via goto('?key=value', { replaceState: true }). Every URL change triggers reactive updates.
+
+**Edge cases.** replaceState: true prevents history pollution from filter changes. Not all state belongs in the URL — passwords, sensitive data, and transient UI state should use $state.
+
+**Performance implications.** goto() with replaceState is near-instant: no network request, no load function rerun (unless the URL change triggers invalidation).
+
+**Connection to other modules.** Module 8's goto() API drives URL updates. Module 9A's invalidation responds to URL changes.
+
 ## 2. Style it — A URL-driven filter bar
 
 The mini-build renders a filter bar above a list of members. Every control — a role `<select>`, a search `<input>`, and a sort `<select>` — writes to the URL on change. Per-page accent: `oklch(72% 0.18 240)` (URL blue). Inputs have minimum 44px touch targets.

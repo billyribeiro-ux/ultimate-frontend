@@ -67,6 +67,18 @@ SvelteKit calls `entries()` at build time, generates one HTML file per slug, and
 
 Setting `prerender = 'auto'` at the root layout tells SvelteKit to prerender any route it *can* — any route whose load function is deterministic and has no dynamic params it cannot discover. This is convenient for simple sites but opaque for complex ones; in production code prefer explicit per-route declarations.
 
+## Deep Dive
+
+**Why this matters at scale.** Prerendered pages have zero TTFB from CDN edge. Best possible LCP. No server runtime means infinite scalability.
+
+**The mental model.** Set prerender = true per page or globally. entries() enumerates dynamic params. The build generates static HTML files.
+
+**Edge cases.** Prerendered pages cannot personalize per-request. No cookies, no user-specific data. Combine with client-side hydration for personalization.
+
+**Performance implications.** Build time scales with page count. 1000 pages might take 2-5 minutes. Each page is a static file with sub-10ms serving time.
+
+**Connection to other modules.** Module 9A.10 teaches prerendering in depth. Module 12.11's static adapter generates output.
+
 ## 2. Style it — the prerendered page looks no different
 
 Prerendering affects how the page reaches the user, not how it looks. PE7 tokens all work identically. The mini-build is a standard marketing-style page with a single flag at the top of the load file.

@@ -140,6 +140,18 @@ Close your mouse. Tab through your page. Can you reach every interactive element
 
 Open VoiceOver (macOS ⌘F5) or NVDA (Windows, free) and read your page linearly. Does every element announce a useful name? Are headings in order? Are live regions announcing updates? This is the final acceptance test; nothing substitutes for actually hearing the page read aloud.
 
+## Deep Dive
+
+**Why this matters at scale.** Accessibility shapes component architecture from the beginning. Five patterns: semantic HTML, ARIA roles, keyboard navigation, focus management, screen reader announcements.
+
+**The mental model.** Use <button> not <div onclick>. Add role, aria-label, aria-describedby. Handle Tab, Enter, Escape, Arrow keys. Manage focus on open/close. Announce changes with aria-live.
+
+**Edge cases.** Focus traps must wrap at both ends. Escape should close modals. ARIA attributes must reference existing IDs. Test with VoiceOver/NVDA, not just visual inspection.
+
+**Performance implications.** Semantic HTML has zero overhead. ARIA attributes are parsed once. Keyboard listeners are standard DOM events. Accessibility does not cost performance.
+
+**Connection to other modules.** Module 6.18 handles reduced motion. Module 10's forms generate accessible error patterns.
+
 ## 2. Style it — Accessibility as design, not afterthought
 
 The mini-build renders a small form with three fields, a modal, a live region, and a skip link. Per-page accent: `oklch(68% 0.18 180)` (accessible teal).

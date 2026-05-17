@@ -129,6 +129,18 @@ Reduced motion is the big-ticket accessibility item for animation, but it is not
 
 **Challenge question:** (Combines Lessons 6.18, 6.11, and 6.14) Build a dashboard page with 3 animated widgets: a CSS-transitioned hover card, a Svelte-transitioned modal, and a Tweened progress counter. Add the reduced-motion two-layer defence. Verify with DevTools emulation that all three collapse to instant under reduced motion.
 
+## Deep Dive
+
+**Why this matters at scale.** Accessible animation is legally required in many jurisdictions. 5% of the population experiences motion sensitivity, rising to 35% among people with vestibular disorders. Ignoring prefers-reduced-motion excludes these users.
+
+**The mental model.** Animation serves decoration or function. Decorative animation should be fully disabled under reduced motion. Functional animation should be simplified, not removed. PE7 defines two tiers: reduced (instant) and full (default).
+
+**Edge cases.** The media query is binary: reduce or no-preference. The best approach disables large vestibular-triggering animations while keeping small micro-interactions. Wrap large animations in a reactive check.
+
+**Performance implications.** Disabling animations is a performance optimization. Setting animation: none eliminates compositor work, improving battery life. The check is a CSS media query resolved once during style computation.
+
+**Connection to other modules.** Module 7's GSAP uses gsap.matchMedia() for motion preferences. Module 12's Lighthouse checks motion handling. Module 6.1's PE7 layer places reduced-motion overrides in the animations layer with !important.
+
 ## 2. Style it — A toggle that demonstrates both tiers
 
 The mini-build has a red brand (`oklch(62% 0.22 25)`) and a single interactive card that demonstrates three things: a CSS transition on hover (handled by the global reset), a Svelte transition on a show/hide toggle (handled by `prefersReducedMotion.current`), and a visible banner that updates live to display the current preference state. Toggle targets are 44px.

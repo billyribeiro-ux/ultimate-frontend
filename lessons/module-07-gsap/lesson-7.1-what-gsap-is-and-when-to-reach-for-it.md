@@ -74,6 +74,18 @@ GSAP *is* a runtime framework — it ships 50KB of JavaScript that lives alongsi
 
 **Challenge question:** (Combines Lessons 7.1, 6.10, and 6.11) Build a demo page with 4 animated elements, each using a different layer: a CSS-transitioned hover card, a Svelte-transitioned modal, a Tweened counter, and a GSAP-animated hero headline. Label each with the tool used and the bundle cost.
 
+## Deep Dive
+
+**Why this matters at scale.** Choosing wrong animation tools creates debt. CSS handles states, Svelte handles lifecycle, GSAP handles everything else: timelines, scroll, physics.
+
+**The mental model.** Four-layer stack: CSS transitions, CSS keyframes, Svelte transitions, GSAP. Each more powerful but more expensive. Use the lowest layer that meets your needs.
+
+**Edge cases.** If you need 3+ coordinated elements, GSAP timeline is right. Single element fade on mount? Svelte transition. Scroll-driven? Always GSAP ScrollTrigger.
+
+**Performance implications.** GSAP core is ~25KB gzipped. 50 active tweens cost under 1ms per frame. 200+ simultaneous tweens is the danger zone — consider Canvas.
+
+**Connection to other modules.** Module 6 provides CSS/Svelte baseline. Module 12 measures GSAP cost. Module 8 uses GSAP for page transitions.
+
 ## 2. Style it — A comparison table with a gold brand
 
 The mini-build is a four-row comparison table with a gold brand hue (`oklch(78% 0.17 85)`). Each row describes one of the four layers and shows when to use it. The table animates into view with a stagger using Svelte's built-in `transition:fly` — a tiny object lesson in "pick the right tool". Mobile-first: table becomes a stack of cards on narrow screens.

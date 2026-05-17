@@ -151,6 +151,18 @@ Open Chrome DevTools → Performance. Record a short interaction (click a button
 
 A useful trick: temporarily add `console.log('effect fired', Date.now())` inside the effect. Count the logs per interaction. Before your fix: 47. After adding `untrack` around the accidental reader: 1.
 
+## Deep Dive
+
+**Why this matters at scale.** Effects that read too many values rerun unnecessarily. Minimize the reactive surface: read only needed values, extract computation to $derived.
+
+**The mental model.** Each $state read inside $effect adds a dependency. Reading an object reads all its properties. Destructure to read only specific fields.
+
+**Edge cases.** Logging inside effects for debugging adds dependencies on the logged values. Use untrack() to read values without adding dependencies.
+
+**Performance implications.** An effect with N dependencies reruns when any one changes. Reducing dependencies from 10 to 3 eliminates 70% of potential reruns.
+
+**Connection to other modules.** Module 2 explains the dependency graph. Module 12.5's $derived provides the primary optimization.
+
 ## 2. Style it — A dashboard with visible effect counts
 
 The mini-build renders three numeric counters and three toggle switches. A log next to the counters records how many times each effect fired. Per-page accent: `oklch(68% 0.2 100)` (warning green).

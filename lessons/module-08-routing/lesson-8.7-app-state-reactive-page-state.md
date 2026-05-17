@@ -104,6 +104,18 @@ Before SvelteKit 2.12, reactive router state was exported as Svelte stores from 
 
 **Challenge question:** (Combines Lessons 8.7, 8.6, and 6.9) Build a breadcrumb component that reads `page.url.pathname`, splits it into segments, and renders each as a link. Use `page.params` to display the current route parameter. Override `--color-brand` based on the route module.
 
+## Deep Dive
+
+**Why this matters at scale.** The page object is the canonical source of truth for URL, params, status, and error state. Reading it reactively drives UI updates on every navigation.
+
+**The mental model.** page.url, page.params, page.status, page.error, page.data are all reactive. Derive computed values from them. page.url.searchParams updates on every param change.
+
+**Edge cases.** page.url updates on hash changes and search param modifications, not just path changes. Subscribing to page.url in a $derived expression captures all URL mutations.
+
+**Performance implications.** Reading page state has zero overhead — it is a reactive reference that updates when navigation occurs. Deriving from it adds standard Svelte 5 reactivity cost.
+
+**Connection to other modules.** Module 11 uses page.url.searchParams as state. Module 13 reads page data for SEO meta tags. Module 9's load function return becomes page.data.
+
 ## 2. Style it — PE7 for a router introspector
 
 The mini-build is a dashboard that shows every relevant field from `page` updating live. We give the page a brand-blue personality (`oklch(68% 0.18 250)`) and use PE7's monospace convention for values. The dashboard updates as you navigate, edit the URL or add query parameters.

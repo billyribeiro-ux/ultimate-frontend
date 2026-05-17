@@ -167,6 +167,18 @@ Pagination needs a previous button, a next button, and a page indicator. The tab
 
 Combine this lesson with Lesson 11.6 and the sort/filter/pagination state can live in the URL instead of component-local `$state`. The structure is the same — you read from `page.url.searchParams` in a `$derived`, and you write via `goto()` in the `on*Change` callbacks. The mini-build for this lesson keeps the state in `$state` for simplicity; the module project at the end of the module puts it in the URL.
 
+## Deep Dive
+
+**Why this matters at scale.** Sorting, filtering, and pagination are composable row model processors. Each transforms data in sequence, creating a pipeline.
+
+**The mental model.** State for each feature lives in $state variables connected via state/onChange. getSortedRowModel, getFilteredRowModel, getPaginationRowModel compose in order.
+
+**Edge cases.** The pipeline order matters: filter first reduces the dataset, then sort, then paginate. Reversing the order produces different results.
+
+**Performance implications.** Each row model processor runs O(n) or O(n log n) on the data. For filtered+sorted+paginated, total cost is dominated by the sort step.
+
+**Connection to other modules.** Module 11.7 provides the foundation. Module 11.9 adds TypeScript. Module 12 addresses large datasets.
+
 ## 2. Style it — Real dashboard ergonomics
 
 The mini-build puts a search input above the table, clickable sort headers inside the table, and pagination controls below. Per-page accent: `oklch(68% 0.18 260)` (indigo).

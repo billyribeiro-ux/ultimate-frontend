@@ -108,6 +108,18 @@ Ask this question: *if I render this component twice on the same page, should bo
 
 Context is per-subtree by design. Module stores are per-app by design. Picking the wrong one is the single most common architectural mistake new Svelte developers make.
 
+## Deep Dive
+
+**Why this matters at scale.** Context is scoped to the component tree. Different subtrees can have different values, unlike global stores.
+
+**The mental model.** setContext during initialization provides data to all descendants. getContext retrieves it. The context value can be a reactive $state object for updates.
+
+**Edge cases.** Context is set once during initialization. To update, the context value itself must be reactive ($state). Static context values cannot be changed after creation.
+
+**Performance implications.** Context lookup is O(1) — it walks the component tree once during initialization. No ongoing cost for reads.
+
+**Connection to other modules.** Module 11.3 provides module-level state for global data. Module 11.1 explains the decision framework.
+
 ## 2. Style it — Per-card accents proven by scoped context
 
 The mini-build renders three dashboard cards, each wrapped in its own provider that sets a different accent OKLCH hue. Every descendant inside a card reads the accent via `getTheme()` and applies it as a CSS custom property on its root element, proving the per-subtree scope visually.

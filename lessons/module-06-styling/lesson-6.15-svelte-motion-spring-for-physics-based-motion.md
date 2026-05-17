@@ -123,6 +123,18 @@ async function move(x: number, y: number): Promise<void> {
 
 **Challenge question:** (Combines Lessons 6.15, 6.14, and 5.9) Build a "drag and spring" component: the user drags a card with pointer events (Lesson 5.9), and on release the card springs back to its origin. Use `Spring` for the return animation and `Tween` for a progress bar showing drag distance. Type the pointer event handlers correctly.
 
+## Deep Dive
+
+**Why this matters at scale.** Springs feel natural because they model real physical behavior — overshoot, settle, bounce. Duration-based animations feel mechanical. Springs adapt: small changes settle quickly, large changes take longer. Ideal for drag, cursor followers, pull-to-refresh.
+
+**The mental model.** A spring solves a differential equation per frame with stiffness and damping. High stiffness + high damping = fast and crisp. Low stiffness + low damping = slow and bouncy. No explicit duration — the spring runs until velocity drops below threshold.
+
+**Edge cases.** Very low damping causes indefinite oscillation. precision: 0.01 means the spring stops within 1% of target. Rapidly changing the target creates smooth redirection — the spring curves toward the new target using current velocity.
+
+**Performance implications.** Springs are slightly more expensive than tweens (differential equation vs linear interpolation). For 100+ simultaneous springs, consider Canvas rendering or GSAP's physics plugins which batch calculations.
+
+**Connection to other modules.** Module 7's GSAP has InertiaPlugin for complex physics. Module 6.14's tweened is the duration-based alternative. Module 5 uses springs for drag feedback. Module 12 addresses the many-springs performance problem.
+
 ## 2. Style it — A cursor follower with a pink brand
 
 The mini-build is a pink brand page (`oklch(72% 0.2 350)`) with a soft circular cursor follower. The dot chases the mouse with a spring tuned to feel alive but critically damped. On touch devices (no hover capable), a draggable card demonstrates the spring following touch position. Hit targets are 44px.

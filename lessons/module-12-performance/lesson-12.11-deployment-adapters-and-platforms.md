@@ -118,6 +118,18 @@ Before pushing a real deploy button, go through this short list:
 
 Once all ten are green, ship it.
 
+## Deep Dive
+
+**Why this matters at scale.** The adapter choice determines runtime: cold start, distribution, cost, and feature support. adapter-node, adapter-static, adapter-auto serve different needs.
+
+**The mental model.** adapter-node runs a long-lived server with fastest cold starts. adapter-static generates files with no runtime. adapter-auto detects the platform.
+
+**Edge cases.** adapter-static requires all pages to be prerenderable — no server-side rendering, no form actions, no API routes with request-time logic.
+
+**Performance implications.** adapter-node cold start is ~50ms. adapter-static is 0ms (CDN). Serverless adapters cold start 100-300ms. Runtime cost per request is lowest for adapter-node.
+
+**Connection to other modules.** Module 8's SSR options interact with adapter capabilities. Module 13's prerendering requires adapter support.
+
 ## 2. Style it — Nothing to style
 
 Deployment produces no user-visible styling; the style rules do not apply to this lesson.

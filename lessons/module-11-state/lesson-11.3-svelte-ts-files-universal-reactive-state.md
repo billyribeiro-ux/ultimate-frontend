@@ -120,6 +120,18 @@ Context, module stores, and reactive classes are not three alternatives to the s
 
 You will often combine them: a `.svelte.ts` file exports a reactive class, and a `+layout.svelte` optionally wraps it in a context so tests can substitute a mock. The lessons that follow walk through exactly that composition.
 
+## Deep Dive
+
+**Why this matters at scale.** Reactive modules create singleton state shared across all components. Classes with $state fields combine encapsulation with reactivity.
+
+**The mental model.** Export a class instance from .svelte.ts. All importers share the same instance. $state fields are reactive. $derived getters compute from state. Methods mutate state.
+
+**Edge cases.** Singleton state persists across navigations but resets on full reload. For persistence, combine with localStorage. Beware SSR: singletons on the server are shared across requests.
+
+**Performance implications.** Reactive modules have the same overhead as component $state: per-field reactivity tracking. No additional runtime cost beyond standard Svelte reactivity.
+
+**Connection to other modules.** Module 11.4 extends to persistence. Module 11.2's context provides tree-scoped alternative.
+
 ## 2. Style it — A cart that looks real
 
 The mini-build renders a three-product shop card on the left and a persistent cart summary on the right (stacked on mobile). Styling is PE7 throughout, with a per-page accent of `oklch(70% 0.2 145)` — grocery green.

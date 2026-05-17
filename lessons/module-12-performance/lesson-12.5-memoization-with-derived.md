@@ -93,6 +93,18 @@ Hover over the result, click a button that changes an unrelated reactive value, 
 
 TanStack Table already memoises its row models internally. The Svelte adapter re-reads its inputs via getters (Lesson 11.7), and each row model is a memoised computation. If you put a `$derived.by` over the data *before* it enters the table, you get two layers of memoisation — the outer one for data transformations you care about, the inner one for the table pipeline. Both are correct; they compose without conflict.
 
+## Deep Dive
+
+**Why this matters at scale.** $derived values compute lazily and cache results. Expensive computations only rerun when specific dependencies change.
+
+**The mental model.** $derived is lazy: it computes on first read and caches until dependencies change. $effect is eager: it runs on every dependency change. Extract computation from effects into derived.
+
+**Edge cases.** $derived.by() handles multi-statement computations. The function runs lazily. Multiple $derived values can chain without intermediate computation.
+
+**Performance implications.** $derived eliminates redundant computation. Filtering a 1000-item list in $derived runs once per state change, not once per frame.
+
+**Connection to other modules.** Module 12.4's effect optimization depends on extracting into $derived. Module 11's state uses $derived for computed views.
+
 ## 2. Style it — A large list with a clear memoisation counter
 
 The mini-build renders a 500-member list with search, role filter, and pagination — and prints the live recompute count next to the result. Per-page accent: `oklch(70% 0.2 190)` (teal).

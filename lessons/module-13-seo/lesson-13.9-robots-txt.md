@@ -70,6 +70,18 @@ Since 2023, major AI crawlers — OpenAI's GPTBot, Google-Extended (for Gemini t
 
 Just like the sitemap, robots.txt is best served from a `+server.ts` endpoint. The advantages: environment-aware content (staging servers can Disallow everything while production only blocks admin routes), and automatic sitemap URL generation from the request origin.
 
+## Deep Dive
+
+**Why this matters at scale.** robots.txt is the first file crawlers request. Incorrect configuration can block your entire site from indexing.
+
+**The mental model.** User-agent and Disallow control access. Allow overrides Disallow for specific paths. Include a Sitemap directive pointing to your sitemap URL.
+
+**Edge cases.** robots.txt is advisory — malicious crawlers ignore it. Do not use it for security. Use it for crawl budget optimization: block admin pages, API routes, and duplicates.
+
+**Performance implications.** robots.txt is a static text file with zero processing cost. Serve it as a prerendered +server.ts endpoint.
+
+**Connection to other modules.** Module 13.8's sitemap URL is referenced here. Module 10.1's endpoint pattern generates the file.
+
 ## 2. Style it — robots.txt has no UI
 
 This lesson's route is purely a reference page that links to the live robots.txt. Standard PE7 styling.

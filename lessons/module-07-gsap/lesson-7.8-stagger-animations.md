@@ -131,6 +131,18 @@ gsap.from(cards, {
 
 **Challenge question:** (Combines Lessons 7.8, 7.7, and 7.5) Build a staggered card grid using `bind:this` refs. Wrap in `gsap.context` for cleanup. Add a "Replay" button that uses `gsap.set` to reset all cards, then re-runs the stagger.
 
+## Deep Dive
+
+**Why this matters at scale.** Stagger choreographs identical animations into sequences: cascade, center-outward, edge-inward. Communicates spatial relationships in navigation, grids, loading sequences.
+
+**The mental model.** Stagger property on tween methods: gsap.to('.card', { stagger: 0.1 }). from: 'center' creates radial reveals. Grid-based stagger needs matching grid dimensions.
+
+**Edge cases.** Grid-based stagger breaks if items wrap differently at different viewports. Use ResizeObserver to recalculate, or use simpler linear stagger.
+
+**Performance implications.** GSAP batches staggered tweens in a single timeline — O(1) cost regardless of count. For 500+ elements, combine with IntersectionObserver.
+
+**Connection to other modules.** Module 6.17 taught CSS stagger. Module 7.9 combines stagger with ScrollTrigger. Module 12 benchmarks stagger at scale.
+
 ## 2. Style it — A 12-card image gallery with an emerald brand
 
 The mini-build is a grid of twelve illustrated cards with an emerald brand (`oklch(70% 0.15 155)`). On mount, the grid ripples in from the centre over 1 second total (`amount: 1, from: 'center', grid: 'auto'`). A "Replay" button re-runs the stagger. Mobile-first: 2 columns; 3 columns at 480px; 4 columns at 720px.

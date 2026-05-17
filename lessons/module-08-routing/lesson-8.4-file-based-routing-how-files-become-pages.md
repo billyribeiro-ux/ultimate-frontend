@@ -95,6 +95,18 @@ Names starting with `[` are dynamic parameters (Lesson 8.6). Names wrapped in pa
 
 **Challenge question:** (Combines Lessons 8.4, 8.5, and 8.6) Build a mini documentation site with a root layout, a docs layout, and 3 documentation pages. Add a `[slug]` dynamic route for individual doc pages. Create a root `+error.svelte` for 404s.
 
+## Deep Dive
+
+**Why this matters at scale.** The file system is the router. Understanding this mapping is essential when scaling beyond 20 routes, because route conflicts become non-obvious.
+
+**The mental model.** Every folder in src/routes becomes a URL segment. +page.svelte is the component, +page.ts is the data, +layout.svelte is the wrapper. The filesystem is the single source of truth.
+
+**Edge cases.** Route groups in parentheses affect layout but not URL. Rest parameters catch multiple segments. When routes conflict, SvelteKit uses specificity rules: static beats dynamic beats rest.
+
+**Performance implications.** File-based routing has zero runtime cost for route resolution — all routes are resolved at build time. Adding routes does not slow down the router.
+
+**Connection to other modules.** Module 9's load functions attach to these routes. Module 10's form actions follow the same structure. Module 13's sitemap enumerates routes.
+
 ## 2. Style it — PE7 for a route tree visualiser
 
 The mini-build renders a tree of folders and their URLs side by side. We give the page a teal personality (`oklch(72% 0.16 190)`). Folders are indented with `padding-inline-start` based on depth; URLs align to the right of each row. The tree uses a monospace font for the file paths, which makes the indentation read like a real directory listing.

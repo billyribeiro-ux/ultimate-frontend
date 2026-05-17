@@ -129,6 +129,18 @@ Each system has its own reduced-motion handling (CSS reset for Svelte transition
 
 **Challenge question:** (Combines Lessons 7.13, 7.7, and 6.12) Build a modal that uses `in:scale` + `out:fly` (asymmetric Svelte transitions) with a GSAP timeline for inner content reveals. Use `onintroend` to play the timeline after the modal is fully open. Clean up the timeline on `outrostart`.
 
+## Deep Dive
+
+**Why this matters at scale.** Using GSAP and Svelte transitions on the same element is the #1 animation bug. Both write inline styles for the same properties. The last writer wins, causing flicker.
+
+**The mental model.** The conflict is property ownership. Solution: Svelte transitions own enter/exit. GSAP owns everything else. Never apply both to the same property on the same element.
+
+**Edge cases.** Practical separation: transition:fade for notifications entering DOM, GSAP for internal animations. For complex enter/exit, skip Svelte transitions and manage lifecycle with {#if} and GSAP.
+
+**Performance implications.** When both systems write to the same element, style mutations double per frame. Separation has no penalty — each system owns different elements or properties.
+
+**Connection to other modules.** Module 6.11-12 taught Svelte transitions. Module 7.3-4 taught GSAP tweens. Module 8.11's page transitions must choose one system per element.
+
 ## 2. Style it — A modal with a pulsing badge inside
 
 The mini-build is a modal with an amber brand (`oklch(75% 0.16 65)`). The modal opens with a Svelte `transition:scale`. Inside the modal is a badge element that pulses continuously with GSAP (`scale` yoyo). The badge lives on a child element so no conflict. Close button 44×44px.

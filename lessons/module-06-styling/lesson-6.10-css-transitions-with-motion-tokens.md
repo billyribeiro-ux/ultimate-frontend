@@ -95,6 +95,18 @@ That safety net means you are allowed to write expressive animations in your com
 
 **Challenge question:** (Combines Lessons 6.10, 6.3, and 6.4) Build an interactive card that uses CSS transitions for hover/focus states, with all durations and easings from PE7 tokens. Nest the hover, focus-visible, and active states inside a single CSS rule. Verify with DevTools Paint Flashing that hover triggers no paint (only composite).
 
+## Deep Dive
+
+**Why this matters at scale.** CSS transitions are the cheapest animation — no JavaScript, no library, no runtime cost. In a design system with 50 interactive components, replacing JS hover effects with CSS transitions eliminates hundreds of event listeners.
+
+**The mental model.** A CSS transition declares intent: when this property changes, interpolate it over time. The browser handles interpolation on the compositor thread. You declare what to animate, duration, timing function, and delay. The trigger is any state change.
+
+**Edge cases.** Not all properties are animatable. display cannot transition. transition: all is dangerous — it animates unintended properties, causing jank on layout properties. Always list specific properties.
+
+**Performance implications.** Transitions on transform and opacity run on the GPU and never trigger layout. Transitions on width, height, or margin trigger reflow every frame. Use transform: scale() instead of width/height for size animations.
+
+**Connection to other modules.** Module 6.3's motion tokens are consumed here. Module 7 adds GSAP for cases CSS cannot handle. Module 12 verifies transitions do not cause layout thrashing. Module 6.18 teaches prefers-reduced-motion overrides.
+
 ## 2. Style it — PE7 tokens driving every transition
 
 The mini-build is a row of three interactive cards. Every hover, focus, and press uses only `--dur-*` and `--ease-*` tokens. We assign each card a different easing so you can feel the difference side by side. A per-page brand hue (`oklch(70% 0.2 40)` — a warm amber) is pushed via a single `--color-brand` override in the scoped `<style>`.

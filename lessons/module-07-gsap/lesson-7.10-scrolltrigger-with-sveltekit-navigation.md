@@ -150,6 +150,18 @@ This shows every active ScrollTrigger with its trigger element and cached start/
 
 **Challenge question:** (Combines Lessons 7.10, 7.9, and 7.7) Build a 3-page SvelteKit app where each page has ScrollTrigger animations. Implement the full navigation-safe pattern. Add a "trigger count" display that reads `ScrollTrigger.getAll().length` to prove no triggers leak.
 
+## Deep Dive
+
+**Why this matters at scale.** Orphaned ScrollTrigger instances are the #1 GSAP bug in SvelteKit. Navigation unmounts components but ScrollTriggers persist, causing leaks and stale animations.
+
+**The mental model.** SvelteKit navigation mounts/unmounts components without page reload. ScrollTrigger has no lifecycle awareness. Clean up in $effect cleanup or layout beforeNavigate.
+
+**Edge cases.** Kill ScrollTrigger in $effect cleanup (before DOM removal) not in onDestroy (too late). gsap.context().revert() kills all instances created within the context.
+
+**Performance implications.** Orphaned triggers calculate getBoundingClientRect() on removed elements every frame. After 10 navigations with 5 triggers each, 50 ghost triggers burn CPU.
+
+**Connection to other modules.** Module 7.9 taught basics. Module 8 teaches navigation lifecycle with beforeNavigate/afterNavigate. Module 12 addresses leaked animation performance.
+
 ## 2. Style it — A two-page demo with a lavender brand
 
 The mini-build is actually *two* routes: the main route and a sub-route. The main route has four reveal sections; the sub-route has three pin-and-scrub blocks. A nav at the top links between them. Both use the lavender brand (`oklch(75% 0.11 295)`). The point is to navigate back and forth and see that both pages work correctly.

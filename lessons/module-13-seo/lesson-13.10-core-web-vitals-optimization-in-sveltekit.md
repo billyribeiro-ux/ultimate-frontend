@@ -70,6 +70,18 @@ Three measurement surfaces matter:
 2. **PageSpeed Insights** — runs Lighthouse plus Chrome UX Report (CrUX) field data. The field data is what Google uses for rankings.
 3. **Web Vitals JS library** — ship it in production to collect INP from real users and send to your analytics. This is the only way to see INP regressions before they hurt your ranking.
 
+## Deep Dive
+
+**Why this matters at scale.** LCP, CLS, and INP are Google's ranking signal metrics. They are the measurable target for all performance work.
+
+**The mental model.** LCP: image optimization and SSR. CLS: explicit dimensions and font loading. INP: minimal main-thread blocking and efficient event handlers.
+
+**Edge cases.** Mobile metrics differ from desktop. Google uses mobile-first indexing. Test on throttled mobile connections and mid-range devices.
+
+**Performance implications.** Each CWV improvement is cumulative. Fixing LCP from 4s to 2s can improve rankings measurably. Fix the worst metric first for maximum impact.
+
+**Connection to other modules.** Module 12's performance techniques impact these metrics. Module 6's CSS prevents CLS.
+
 ## 2. Style it — the hero that never shifts
 
 The mini-build renders a hero image with explicit dimensions, preload link, and fetchpriority. All existing PE7 tokens. The fluid typography scales the headline without triggering layout shift because line-height and font-size are both set in the same rule.
