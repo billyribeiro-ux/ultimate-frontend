@@ -181,6 +181,44 @@ The single returned function cleans up all three. If the cleanup gets complex, y
 
 **Connection to other modules.** Cleanup is the backbone of Module 7 (GSAP), where `gsap.context().revert()` in cleanup is the only correct way to manage animations in Svelte. Module 8 (routing) relies on cleanup to tear down per-page subscriptions on navigation. Module 11 (state management) uses cleanup for WebSocket connections in real-time stores. Module 12 (performance) audits leaked subscriptions as a primary source of memory growth. If you master cleanup now, every lesson that involves a third-party library or a browser API becomes straightforward — the pattern is always the same: set up in the effect body, tear down in the returned function.
 
+### 1.10 Common interview question
+
+**Q: "What happens if you forget to return a cleanup function from an `$effect` that starts a `setInterval`?"**
+
+**Model answer:** Every time the effect re-runs (because a dependency changed), a new interval is created on top of the old one. The old interval is never cleared because no cleanup function was returned. After N re-runs, you have N intervals all ticking simultaneously. The callback runs N times per tick instead of once. This is a classic memory leak in single-page applications — it compounds over time as the user navigates. When the component unmounts, none of the intervals are cleaned up because Svelte only calls the cleanup function that was returned, and none was. The intervals continue firing, calling handlers that reference stale DOM nodes, potentially causing errors or degraded performance until the user closes the tab.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$effect](https://svelte.dev/docs/svelte/$effect) — cleanup function documentation.
+- [svelte.dev/docs/svelte/lifecycle-hooks](https://svelte.dev/docs/svelte/lifecycle-hooks) — component lifecycle and cleanup timing.
+- [developer.mozilla.org/en-US/docs/Web/API/AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) — the AbortController API for cancelling fetch requests.
+
+**Advanced pattern: composable cleanup with a helper.** For components with many subscriptions, create a cleanup helper that collects disposers:
+
+```ts
+function createDisposers() {
+    const fns: (() => void)[] = [];
+    return {
+        add(fn: () => void) { fns.push(fn); },
+        disposeAll() { fns.forEach(fn => fn()); fns.length = 0; }
+    };
+}
+
+$effect(() => {
+    const d = createDisposers();
+    d.add(subscribe(eventSource1, handler1));
+    d.add(subscribe(eventSource2, handler2));
+    d.add(subscribe(eventSource3, handler3));
+    return () => d.disposeAll();
+});
+```
+
+This pattern keeps the cleanup logic close to the setup logic and makes it easy to add or remove subscriptions without forgetting a cleanup call.
+
+**Challenge question (combines Lesson 2.11 + Lesson 2.9 + Lesson 2.2):** A component fetches data from an API every time a `query` state variable changes. Write an `$effect` that: (1) creates an `AbortController`, (2) calls `fetch` with the controller's signal, (3) handles the response, and (4) returns cleanup that aborts the controller. Explain what happens when the user types quickly — how does cleanup prevent race conditions between overlapping requests?
+
 ## 2. Style it — A self-destructing timer
 
 The mini-build is a stopwatch powered by `setInterval`. The effect starts the interval and returns a cleanup. A button lets you pause and resume. A note explains that navigating away cleans up the timer automatically. PE7 tokens for styling; `prefers-reduced-motion` respected on the number transition.

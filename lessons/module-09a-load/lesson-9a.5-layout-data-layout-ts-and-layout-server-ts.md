@@ -99,6 +99,110 @@ Bad candidates:
 - **Data specific to one page** — it belongs in that page's own load.
 - **Data that changes frequently** — layout data is cached for the whole navigation, so stale layout data becomes a correctness bug.
 
+### 1.7 What SvelteKit does under the hood
+
+The layout data system is elegant but has non-obvious mechanics. Here is the full request lifecycle when a user visits `/dashboard/analytics` and the route tree has three load functions:
+
+```
+src/routes/+layout.server.ts          -> returns { user }
+src/routes/dashboard/+layout.ts       -> returns { sidebar }
+src/routes/dashboard/analytics/+page.server.ts -> returns { metrics }
+```
+
+**Full page load:**
+
+1. SvelteKit identifies all load functions in the route's layout chain: root layout, dashboard layout, analytics page.
+2. **Root layout load** runs first (it is the outermost). It returns `{ user }`.
+3. **Dashboard layout load** runs next. If it calls `await parent()`, it waits for the root layout to finish first. If it does not call `parent()`, SvelteKit can run it **in parallel** with the root layout load. This is a critical optimization: never call `parent()` unless you actually need the parent's data inside your load logic.
+4. **Analytics page load** runs. Same rule: if it calls `parent()`, it waits; if not, it can overlap with other loads.
+5. All results are merged into a single data object. The merge is shallow: `{ ...rootLayoutData, ...dashboardLayoutData, ...pageData }`. Later values overwrite earlier values with the same key, so be careful not to use the same field name in a layout and a child page.
+6. The merged data is serialised with `devalue` and embedded in the HTML.
+7. Each layout and page component receives its slice: `+layout.svelte` at each level gets the data from its own load plus all ancestor layout loads. `+page.svelte` gets everything.
+
+**Client-side navigation from `/dashboard/analytics` to `/dashboard/settings`:**
+
+1. SvelteKit compares the old and new routes. The root layout and dashboard layout are the same; only the page changed.
+2. **Layout loads do NOT re-run** unless they have been invalidated. This is the caching behavior that makes layout data so efficient.
+3. Only the new page's load runs. It receives the cached layout data via `parent()` or `data`.
+4. The root `+layout.svelte` and dashboard `+layout.svelte` stay mounted. Only `+page.svelte` swaps.
+
+This is why layout data is perfect for the current user, navigation menus, and theme preferences: the data loads once and persists across all navigations within the layout boundary.
+
+### 1.8 The TypeScript angle
+
+Layout types work like page types but cascade differently:
+
+```ts
+// src/routes/+layout.server.ts
+import type { LayoutServerLoad } from './$types';
+
+export const load: LayoutServerLoad = async ({ locals }) => {
+    return { user: locals.user }; // { user: User | null }
+};
+```
+
+```ts
+// src/routes/dashboard/+layout.ts
+import type { LayoutLoad } from './$types';
+
+export const load: LayoutLoad = async ({ data }) => {
+    // data.user is typed from the parent layout's return
+    return {
+        ...data,
+        sidebar: { collapsed: false, items: ['Overview', 'Settings'] }
+    };
+};
+```
+
+```svelte
+<!-- src/routes/dashboard/analytics/+page.svelte -->
+<script lang="ts">
+    import type { PageProps } from './$types';
+    let { data }: PageProps = $props();
+    // data.user    -> User | null (from root layout)
+    // data.sidebar -> { collapsed: boolean, items: string[] } (from dashboard layout)
+    // data.metrics -> Metric[] (from this page's own load)
+</script>
+```
+
+The `PageProps` type at any depth is the recursive merge of all ancestor `LayoutLoad` return types plus the page's own load return type. This is entirely automatic. If you add a field to the root layout, every `PageProps` in the entire app updates.
+
+One important typing subtlety: when a layout load and a page load both return a field with the same name, the page's field wins in the merge. TypeScript reflects this: `PageProps.data` uses the page's type for that field, not the layout's. This is rarely what you want, so use distinct field names across the hierarchy.
+
+### 1.9 Comparison: layout data vs context vs module stores
+
+| Aspect | Layout data | Svelte context | `.svelte.ts` module store |
+| --- | --- | --- | --- |
+| Scope | Current layout + all descendants | Current component + all descendants | Global (all pages, all components) |
+| Survives navigation | Within the layout boundary | No (destroyed on unmount) | Yes (module-level singleton) |
+| Reactive | Via `page.data` (read-only) | Via `$state` in context value | Via `$state` |
+| Mutable from children | No | Yes (if value is reactive) | Yes |
+| Server-side | Yes (loads run on server) | No (component-only) | No (component-only) |
+| TypeScript | Auto-generated from load return | Manual (key + type) | Manual (exported type) |
+| Best for | Read-only data from the server | Component tree communication | Cross-page mutable state |
+
+> **In production sidebar.** Our SaaS app has a root layout load that fetches the current user, their subscription plan, and feature flags. This single load serves 42 descendant pages. Early on, we made the mistake of also including the user's notification count in the root layout data. The problem: the count needed to update in real time, but layout data is cached for the navigation session. We ended up calling `invalidateAll()` every 30 seconds, which re-ran all 42 pages' loads. The fix was moving the notification count to a module store (`.svelte.ts` file) that polls independently, leaving the layout data for truly stable values like the user identity and plan. Rule of thumb: if the data changes more often than the user navigates, it does not belong in layout data.
+
+### 1.10 Common interview question
+
+**Q: "A junior developer put the shopping cart total in a root layout load. Why is this a problem, and what should they use instead?"**
+
+**Model answer:** Layout data is cached for the duration of the layout's mount. While the user navigates between pages inside that layout, the layout load does not re-run unless explicitly invalidated. A shopping cart total changes whenever the user adds or removes an item, which is far more frequent than page navigations. If the total is in layout data, the displayed total goes stale after every cart mutation until the user navigates to a page outside the layout (forcing a re-mount) or until someone calls `invalidateAll()`. The correct solution is a `.svelte.ts` module store (Lesson 11.3-11.4) for the cart, with a reactive `$derived` total that updates instantly on every mutation. Layout data should be reserved for values that change infrequently and are loaded from the server, like the current user, theme preferences, or feature flags.
+
+## Deep Dive
+
+**The `parent()` waterfall trap.** Calling `parent()` in a child load forces that child to wait for all ancestor loads to complete. In a deep layout tree (root -> section -> subsection -> page), calling `parent()` at every level creates a waterfall: root finishes, then section starts, then subsection starts, then page starts. If each takes 100 ms, the total is 400 ms. If none of them call `parent()`, SvelteKit runs all four in parallel — total 100 ms. The rule: only call `parent()` when you genuinely need a value from the parent load inside your own load logic. If you just need the parent's data in the component template, it is already merged into `data` automatically.
+
+**Layout groups.** SvelteKit supports layout groups with parenthesized folder names: `(marketing)`, `(app)`. Routes inside `(marketing)` share a layout that routes inside `(app)` do not see. Layout loads follow the same grouping. A load in `src/routes/(marketing)/+layout.ts` runs only for marketing pages. This lets you avoid loading dashboard data (sidebar config, permissions) for public marketing pages, and vice versa. Layout groups are an architecture tool that directly reduces unnecessary data fetching.
+
+**Reading layout data from any component.** You do not need the `data` prop to access layout data. Any component in the tree can read it via `page.data` from `$app/state`. This is especially useful for deeply nested components that need the user object but are not direct children of the layout. `page.data.user` works from anywhere, without prop drilling.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Layout data](https://svelte.dev/docs/kit/load#Layout-data) covers the merge behavior and `parent()` in detail.
+- **Advanced pattern:** Create a typed utility function `getLayoutData<T extends keyof LayoutData>(key: T): LayoutData[T]` that wraps `page.data[key]` with type narrowing. This avoids the `page.data` being typed as the union of all possible page data shapes.
+- **Challenge:** Create a route with three levels of nested layouts. In each layout load, log `performance.now()` before and after. Run with `parent()` in every child, then remove all `parent()` calls. Compare the total load time. The parallel version should be roughly 3x faster.
+
 ## 2. Style it — PE7 for a "preferences" shell
 
 The mini-build adds a layout to this lesson that loads a "user preference" (a chosen accent color) and passes it to the page. The page displays the layout-supplied value. We use a rose personality (`oklch(70% 0.2 15)`) with an accent color override from the layout data.

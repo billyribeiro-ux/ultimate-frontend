@@ -82,6 +82,73 @@ If in doubt, prefer classes — they keep the CSS cohesive in the `<style>` bloc
 
 **Cross-module connections.** These directives are the bridge between every module that produces state and every module that produces visual output. Module 6 uses `class:` extensively for transition states. Module 7 pairs `style:--` with GSAP to pass animation progress from the JavaScript runtime into CSS for hybrid animations. Module 9 uses `class:` for loading/error/success states driven by load function results. Module 13 uses `style:--` for per-page colour personalities that enhance SEO through visual distinctiveness. Mastering the three directives here means you will never fight CSS-in-JS again.
 
+### 1.6 What the compiler does with `class:` and `style:` directives
+
+The compiler transforms directives into direct DOM API calls:
+
+```svelte
+<div class:active={isActive} style:--hue={hue}>
+```
+
+Compiles to roughly:
+
+```js
+// class: directive → classList.toggle
+$.effect(() => {
+    element.classList.toggle('active', $.get(isActive));
+});
+
+// style:--hue directive → style.setProperty
+$.effect(() => {
+    element.style.setProperty('--hue', $.get(hue));
+});
+```
+
+Each directive creates one micro-effect that targets one DOM API call. When `isActive` changes, only `classList.toggle` is called. When `hue` changes, only `setProperty` is called. There is no style diffing, no class string concatenation, no attribute re-serialisation. This direct-call approach is why Svelte can drive 60fps animations from reactive state without jank.
+
+### 1.7 "In production" — a dashboard where every widget has its own colour
+
+At a 50-developer analytics company, the dashboard displayed 12 metric widgets. Each widget needed a different accent colour based on the metric's health: green for good, yellow for warning, red for critical. The initial implementation used a `variant` prop with three CSS classes per widget. Adding a fourth state ("unknown" — grey) required editing 12 widget components.
+
+After refactoring to use `style:--accent`, each widget received its accent colour from a single computed custom property. The health → colour mapping lived in one shared `$derived` function. Adding the "unknown" state was one line in the mapping function. No widget files changed. The `style:--accent` pattern made the colour system data-driven instead of class-driven.
+
+### 1.8 Common interview question
+
+**Q: "In Svelte, when should you use `class:name` vs `style:property` vs `style:--variable` for dynamic styling?"**
+
+**Model answer:** Use `class:name` for discrete states — on/off toggles, two or three visual variants — because it keeps the CSS rules in the `<style>` block where they belong. Use `style:property` for continuous values driven by numbers — rotation angles, opacity levels, translate offsets — where a CSS class for every possible value would be impractical. Use `style:--variable` when multiple CSS rules need to read the same dynamic value — gradients, filters, complex `calc()` expressions — because the custom property acts as a broadcast channel that any number of CSS rules can tune into via `var()`. The guiding principle: keep styling in CSS as much as possible. Only bring values into inline styles when the value is computed at runtime and cannot be pre-declared as a class.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/class](https://svelte.dev/docs/svelte/class) — the `class:` directive reference.
+- [svelte.dev/docs/svelte/style](https://svelte.dev/docs/svelte/style) — the `style:` and `style:--` directive reference.
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — the full styling guide.
+
+**Advanced pattern: driving CSS animations from reactive state.** Combine `style:--` with `@property` registration for animatable custom properties:
+
+```css
+@property --progress {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+}
+
+.bar {
+    background: linear-gradient(to right, var(--color-brand) calc(var(--progress) * 1%), transparent calc(var(--progress) * 1%));
+    transition: --progress 300ms var(--ease-out);
+}
+```
+
+```svelte
+<div class="bar" style:--progress={percentComplete}></div>
+```
+
+The `@property` registration lets the browser interpolate the custom property during transitions, creating a smooth fill animation driven entirely from a `$state` number.
+
+**Challenge question (combines Lesson 2.12 + Lesson 2.7 + Lesson 1.5):** Build a progress bar component that accepts a `value` (0-100) prop. Use `$derived` to compute the OKLCH hue (green at 100, red at 0). Set the hue via `style:--hue` and the width via `style:--fill`. Write the CSS using `var()` references. Explain why this approach is more maintainable than 100 `class:` directives.
+
 ## 2. Style it — A thermometer
 
 The mini-build is a thermometer. The user drags a slider from 0 to 40 °C. Three visual effects follow the value:

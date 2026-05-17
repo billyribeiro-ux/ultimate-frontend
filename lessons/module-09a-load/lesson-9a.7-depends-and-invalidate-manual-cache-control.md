@@ -89,6 +89,96 @@ Custom dependencies are for cases where nothing in the URL changed but the under
 
 Remote functions (Module 9B) add a different model for mutations that integrates more tightly with `depends`/`invalidate`. In particular, a remote `command` can attach an invalidation key so calling the command automatically invalidates the right queries. That is beyond the scope of this module — we mention it so students know there is a tighter integration waiting for them in the next module.
 
+### 1.8 What SvelteKit does under the hood
+
+The dependency and invalidation system is a graph-based cache manager. Here is the internal lifecycle:
+
+**Registration phase (during load execution):**
+
+1. Every load function starts with an empty dependency set.
+2. When you call `depends('app:orders')`, SvelteKit adds that string key to the load's dependency set.
+3. When the enhanced `fetch` fetches a URL (e.g., `fetch('/api/orders')`), SvelteKit automatically adds that URL to the dependency set. You do not need to call `depends()` for URL-based dependencies.
+4. The dependency set is stored alongside the cached load result.
+
+**Invalidation phase (when `invalidate()` is called):**
+
+1. You call `invalidate('app:orders')` from a component.
+2. SvelteKit walks every cached load function on the current page (page loads and every layout load in the tree).
+3. For each cached load, SvelteKit checks: does this load's dependency set contain `'app:orders'`? If yes, mark it as stale.
+4. All stale loads are re-run **in parallel**. Non-stale loads keep their cached values.
+5. For server loads, the re-run happens via the `__data.json` internal endpoint. For universal loads, the re-run happens in the browser.
+6. The component receives the new data via the `data` prop. Svelte's reactivity handles the re-render.
+
+**URL-based invalidation works the same way.** `invalidate('/api/orders')` matches any load that fetched that URL via the enhanced fetch. The URL is compared as a string — exact match, including query parameters.
+
+**`invalidateAll()` skips the matching step** and marks every load on the current page as stale. All of them re-run in parallel. This is a sledgehammer but guarantees freshness.
+
+### 1.9 The TypeScript angle
+
+The `depends` and `invalidate` functions are typed but loosely. `depends()` accepts any string, and `invalidate()` accepts any string or a `URL` object. There is no compile-time guarantee that the key you pass to `invalidate` matches a key registered with `depends`. This is a deliberate design choice — dependency keys are dynamic values (they might include an entity ID like `app:order:${id}`), and TypeScript cannot track runtime string values.
+
+To prevent typos, use constants:
+
+```ts
+// src/lib/cache-keys.ts
+export const CACHE_KEYS = {
+    orders: 'app:orders',
+    orderById: (id: string) => `app:order:${id}`,
+    cart: 'app:cart',
+    user: 'app:user'
+} as const;
+```
+
+```ts
+// In a load function
+import { CACHE_KEYS } from '$lib/cache-keys';
+depends(CACHE_KEYS.orders);
+```
+
+```svelte
+<!-- In a component -->
+<script lang="ts">
+    import { invalidate } from '$app/navigation';
+    import { CACHE_KEYS } from '$lib/cache-keys';
+    const refresh = () => invalidate(CACHE_KEYS.orders);
+</script>
+```
+
+Now renaming a key is a single-file change, and your IDE can find all references.
+
+### 1.10 Comparison: invalidation strategies
+
+| Strategy | Scope | When to use | Cost |
+| --- | --- | --- | --- |
+| `invalidate('app:orders')` | Only loads that depend on this key | After a mutation that affects orders | Minimal — one or two loads re-run |
+| `invalidate('/api/orders')` | Only loads that fetched this URL | After you know the API data changed | Minimal — same as above |
+| `invalidateAll()` | Every load on the current page | After logout, after unknown side effects | Moderate — all loads re-run |
+| `goto(url, { invalidateAll: true })` | Navigate + invalidate everything | After a major state change | Full page data refresh |
+| Page navigation (same URL) | Nothing re-runs (cached) | Never intentional | Zero |
+| `location.reload()` | Full page reload | Avoid this | Maximum — destroys all client state |
+
+> **In production sidebar.** Our team built a project management app where creating a task should update three views: the task list, the project summary, and the team member's workload. Initially we used `invalidateAll()` after every mutation. This worked but re-ran 7 load functions per task creation, including the navigation menu and user preferences — loads that had nothing to do with tasks. We switched to fine-grained keys: `app:tasks:${projectId}`, `app:project:${projectId}`, `app:workload:${memberId}`. After a task creation, we invalidate exactly those three keys. The result: 3 loads re-run instead of 7, and the perceived latency dropped by 40% because the cache-hit loads (nav, preferences) return instantly.
+
+### 1.11 Common interview question
+
+**Q: "You have a SvelteKit page that shows a list of orders. The user deletes an order in a modal. The modal closes, but the deleted order is still visible. What happened, and how do you fix it?"**
+
+**Model answer:** The load function that fetches the order list is cached. Closing the modal did not change the URL, so SvelteKit sees no reason to re-run the load. The fix: call `invalidate('app:orders')` after the delete mutation completes, and make sure the load function has `depends('app:orders')` registered. Alternatively, if the delete is done via a form action, `use:enhance` with `update()` calls `invalidateAll()` automatically, which would re-run the load. For a remote function mutation (`command`), call `.refresh()` on the related query or use `invalidate()` manually. The key principle: mutations do not automatically invalidate reads. You must explicitly connect the two via dependency keys.
+
+## Deep Dive
+
+**Combining `depends` with streaming.** A streamed promise (Lesson 9A.9) can also have dependencies. If you return a bare promise from a server load and the load also calls `depends('app:analytics')`, invalidating that key will re-run the entire load — including the streamed part. The streamed promise is not cached independently; it is part of the load's return value. This means invalidation replaces everything the load returned, both fast and slow parts.
+
+**Fine-grained vs coarse-grained keys.** There is no right answer to how granular your keys should be. A single `app:data` key that covers everything is equivalent to `invalidateAll()` — useless granularity. A key per database row (`app:order:abc123`) gives you surgical precision but means you need to know every affected row when invalidating. The sweet spot for most apps is **one key per resource type** (`app:orders`, `app:users`, `app:products`) with optional per-entity keys for detail pages (`app:order:${id}`). Start coarse and refine as profiling reveals unnecessary re-runs.
+
+**`invalidate` with a predicate.** `invalidate()` also accepts a function: `invalidate((url) => url.pathname.startsWith('/api/'))`. This re-runs every load that fetched any URL matching the predicate. It is powerful but hard to reason about — prefer string keys for readability.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Rerunning load functions](https://svelte.dev/docs/kit/load#Rerunning-load-functions) covers every invalidation trigger.
+- **Advanced pattern:** Build a `createInvalidator(key: string)` utility that returns both the `depends` call (for use in loads) and the `invalidate` call (for use in components), ensuring the key is always consistent.
+- **Challenge:** Create two pages under the same layout. Give them different dependency keys. Navigate between them and call `invalidate` with each key. Observe which loads re-run and which are cached. What happens if you invalidate a key that no load depends on? (Answer: nothing — `invalidate` resolves immediately.)
+
 ## 2. Style it — PE7 for a refreshable counter
 
 The mini-build shows a server-generated random number and a refresh button. Clicking refresh calls `invalidate('app:lesson-9a-7')` and the load re-runs, producing a new number. We use a warm amber personality (`oklch(72% 0.18 65)`).

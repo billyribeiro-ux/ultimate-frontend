@@ -109,6 +109,89 @@ JSON has no idea what a `Date` is. It does not know about `Map`, `Set`, `BigInt`
 
 A remote function is an HTTP endpoint. Anyone with your URL can call it. "Running on the server" does not mean "unreachable"; it means "runs in a trusted environment where you can reach private resources". If the data should be restricted, check the session inside the handler just as you would in a `+server.ts` route. We will practise this in Lesson 9B.5.
 
+### 1.6 What SvelteKit does under the hood — the RPC mechanism
+
+When you import `getPosts` from `./posts.remote` in a component, you are not importing the server function. You are importing an auto-generated **client stub**. Here is what happens at each stage:
+
+**Build time:**
+
+1. SvelteKit's Vite plugin scans for `.remote.ts` files.
+2. For each exported function, it generates a unique endpoint URL (a hash-based path like `/_remote/getPosts-a1b2c3`).
+3. The original file is kept in the server bundle unchanged.
+4. A stub module is generated for the client bundle. The stub exports a function with the same name and TypeScript signature, but its implementation is a thin `fetch` wrapper.
+
+**Runtime — SSR (first page load):**
+
+1. The component imports `getPosts` from the stub.
+2. During SSR, SvelteKit detects that the call is happening on the server. Instead of making an HTTP request, it calls the real server function directly (in-process), similar to the enhanced fetch's behavior.
+3. The result is serialised with `devalue` and embedded in the HTML, just like load function data.
+4. On hydration, the client sees the embedded result and does not re-fetch.
+
+**Runtime — Client-side (after hydration):**
+
+1. The component calls `getPosts()`.
+2. The client stub serialises the arguments (none in this case) with `devalue`.
+3. It sends a `POST` request to the generated endpoint URL.
+4. The server receives the request, calls the real `getPosts` handler, serialises the result with `devalue`, and responds.
+5. The client stub deserialises the response and returns the typed value.
+
+To see this in action, open the Network tab and filter by "Fetch/XHR". You will see requests to URLs like `/_remote/getPosts-a1b2c3`. The request body is the serialised arguments. The response body is the serialised result in `devalue` format (not plain JSON — that is why `Date` objects survive the trip).
+
+### 1.7 The TypeScript angle
+
+The client stub has the **exact same TypeScript signature** as the server function. This is the core of the type safety guarantee. When you write:
+
+```ts
+// Server (posts.remote.ts)
+export const getPosts = query(async (): Promise<Post[]> => { ... });
+```
+
+The generated client stub is effectively:
+
+```ts
+// Client stub (auto-generated, you never see this)
+export const getPosts: () => QueryResult<Post[]> = ...;
+```
+
+`QueryResult<Post[]>` is both a `Promise<Post[]>` (so you can `await` it) and a reactive object with `loading`, `error`, and `current` properties. The type `Post[]` flows from the server function's return type to the client call site with zero manual intervention.
+
+If you change the server function to return `Promise<Article[]>`, every component using `getPosts()` immediately sees the type change. If you add a required argument, every call site gets a compile error. This is the "end-to-end" guarantee in practice.
+
+### 1.8 Comparison: query vs load vs onMount fetch
+
+| Aspect | `query()` remote function | `load()` function | `onMount` + `fetch` |
+| --- | --- | --- | --- |
+| Type safety | Automatic (inferred) | Automatic (via `$types`) | Manual (hand-written) |
+| Runs during SSR | Yes (if `await`ed) | Always | Never |
+| Caching | Per-argument, automatic | Per-navigation, automatic | Manual |
+| Refresh mechanism | `.refresh()` | `invalidate()` | Manual re-fetch |
+| Network protocol | RPC (devalue) | `__data.json` (devalue) | Standard HTTP (JSON) |
+| Can use in event handlers | Yes | No (load runs before render) | Yes |
+| Reactive state | Built-in (`loading`, `error`, `current`) | Via `data` prop | Manual `$state` |
+| Progressive enhancement | No (JS required) | Yes (SSR renders HTML) | No (JS required) |
+
+> **In production sidebar.** We migrated a 15-endpoint `+server.ts` API layer to remote queries. The migration took two days. We deleted 15 `+server.ts` files, 15 client-side `fetch` wrapper functions, and 15 hand-written response type interfaces. We replaced them with 15 `.remote.ts` files totaling about 40% less code. The type errors we found during migration — three places where the client type had drifted from the server response — had been silently causing bugs in production for weeks. The type safety of remote functions is not a theoretical benefit; it catches real bugs that hand-written types miss.
+
+### 1.9 Common interview question
+
+**Q: "What is the difference between a SvelteKit remote `query` and a traditional REST API endpoint? When would you choose each?"**
+
+**Model answer:** A remote query is a typed RPC function. The client imports and calls it like a regular function; the compiler generates the HTTP plumbing. The return type flows from server to client automatically. A REST endpoint (`+server.ts`) is a traditional HTTP handler with a stable URL, manual type interfaces, and manual validation. Choose a remote query for any data read that is consumed only by your own SvelteKit components — the type safety and reduced boilerplate are compelling. Choose a REST endpoint when external clients need a stable URL (webhooks, mobile apps, third-party integrations) or when you need fine-grained control over HTTP headers, status codes, and caching directives.
+
+## Deep Dive
+
+**The cache identity.** Query results are cached by the combination of function identity and argument. `getPosts()` called from component A and `getPosts()` called from component B on the same page return the same cached value. This is true because the cache is keyed on the function reference (the exported binding) plus the serialised argument. Two different exports with the same logic are separate cache entries. This matters when you refactor: if you rename `getPosts` to `fetchAllPosts`, the cache key changes and existing cached values are orphaned.
+
+**SSR and the `{#await}` block.** When you use `{#await getPosts()}` during SSR, SvelteKit waits for the query to resolve before sending any HTML for that block. This means the post list is in the initial HTML, making it SEO-friendly. If you use the reactive form (`q.current`) without an `{#await}` wrapper, SvelteKit does not wait — the server sends `null` for `q.current` and the fetch starts on hydration. For SEO-critical data, always use `{#await}`.
+
+**Error propagation.** If the server handler throws (via `error()` from `@sveltejs/kit` or an unhandled exception), the error is serialised and rethrown on the client. In an `{#await}` block, it lands in the `{:catch error}` branch. The error object has a `message` property and, for expected errors, a `status` property. Unexpected errors are sanitised by SvelteKit's error handling pipeline — the client never sees internal stack traces.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Remote functions](https://svelte.dev/docs/kit/remote-functions) covers the full API for `query`, `form`, and `command`.
+- **Advanced pattern:** Create a typed wrapper that adds error toasts automatically: `function queryWithToast<T>(q: () => QueryResult<T>): QueryResult<T>`. This wrapper catches errors from the query and displays a toast notification, so individual components do not need error handling boilerplate.
+- **Challenge:** Export two queries from the same `.remote.ts` file: `getPosts()` and `getPostCount()`. Call both from the same component. Open the Network tab. Do they fire as separate requests or are they batched? (Answer: separate requests — batching only happens with `query.batch()`. Each query is an independent endpoint.)
+
 ## 2. Style it — A list of posts with skeleton loading
 
 PE7 rules apply unchanged. The per-page brand colour for this lesson is a cool teal. We use `--color-brand` to tint both the active list item and the skeleton loader pulse. The skeleton is a single `animation` keyframed with respect for `prefers-reduced-motion`.

@@ -87,6 +87,24 @@ A second, simpler pattern is a pure *layout* wrapper: a component whose only job
 
 **Cross-module connections.** Composition patterns are the foundation for the component architecture in every subsequent module. Module 6 composes transition wrappers. Module 7 composes GSAP animation wrappers. Module 8 uses layout components that compose page content. Module 11 builds hierarchical component systems (Tabs/TabList/Tab) using composition plus context. Module 12 optimises wrapper components for performance. The skill of deciding "should I wrap, compose, or leave it flat?" is a daily decision in professional frontend development.
 
+### 1.7 Common interview question
+
+**Q: "What is the rest-props pattern in Svelte, and why is extending `HTMLButtonAttributes` better than using `[key: string]: unknown`?"**
+
+**Model answer:** The rest-props pattern collects all props a wrapper component does not explicitly handle into a single object (`...rest`) and spreads them onto the inner component or element (`{...rest}`). Extending `HTMLButtonAttributes` from `svelte/elements` gives the component the full typed surface of a native button — `disabled`, `type`, `onclick`, `aria-label`, etc. Using `[key: string]: unknown` instead turns off type checking for the rest: typos like `disbled` compile without error, non-existent attributes are silently accepted, and editor autocomplete shows nothing useful. Extending the element attribute type gives you compiler-checked attributes, full autocomplete, and documentation-by-hovering — for zero extra work.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$props](https://svelte.dev/docs/svelte/$props) — the rest-props syntax.
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — typing component wrappers.
+- [svelte.dev/docs/svelte/svelte-elements](https://svelte.dev/docs/svelte/svelte-elements) — the `HTMLButtonAttributes` and related types.
+
+**Advanced pattern: compound components with forwarded context.** When building a `Tabs` / `TabList` / `Tab` / `TabPanel` compound component, the outer `Tabs` provides context (the selected index) and each inner `Tab` consumes it. The composition pattern here is hierarchical: `Tabs` wraps `TabList` and `TabPanel`, and they communicate through Svelte's context API rather than props. This is covered in Module 11, but the architectural pattern — "outer component provides, inner components consume" — starts here.
+
+**Challenge question (combines Lesson 3.8 + Lesson 3.3 + Lesson 3.9):** Create a `DangerButton` wrapper around `Button` that hardcodes `variant="solid"` and sets `--btn-bg` to `var(--color-error)`. The wrapper should forward all other props to `Button`. Write the Props interface using `extends`. Explain the correct spread order (`{...rest}` before or after `variant="solid"`) and why it matters.
+
 ## 2. Style it — The wrapper borrows, it never duplicates
 
 `PrimaryButton` adds no CSS of its own; it borrows `Button`'s. `Toolbar` adds only *layout* CSS — gap, padding, alignment — and leaves colours and typography to its children. When you write a wrapper and find yourself copy-pasting styles, that is a signal you should be passing a CSS custom property instead (Lesson 3.9).

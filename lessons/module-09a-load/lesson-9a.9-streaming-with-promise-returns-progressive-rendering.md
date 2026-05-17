@@ -109,6 +109,91 @@ return {
 
 They are complementary. Parallelism (Lesson 9A.6) ensures independent requests run at the same time, so the wall-clock time is the duration of the slowest one. Streaming means the browser does not wait even for the slowest one before painting the fast parts. A page can use both: three independent fetches in `Promise.all` (parallelism), plus one very slow optional call returned as a bare promise (streaming).
 
+### 1.8 What SvelteKit does under the hood — a timeline diagram description
+
+Understanding the HTTP-level mechanics makes streaming predictable. Here is a detailed timeline for a page with one awaited value and one streamed promise:
+
+```
+Load function executes:
+  t=0ms    Start load
+  t=5ms    fetchUser() starts
+  t=50ms   fetchUser() resolves -> user object ready
+  t=50ms   fetchAnalytics() starts (but NOT awaited)
+  t=50ms   Load function returns { user: awaited, analytics: promise }
+
+Server response begins:
+  t=51ms   HTTP response starts (Transfer-Encoding: chunked)
+  t=51ms   CHUNK 1: HTML head + body with user data rendered
+           The {#await data.analytics} block renders its PENDING branch
+           (the skeleton/loading state)
+  t=51ms   Browser starts receiving and painting CHUNK 1
+  t=100ms  Browser has rendered the page with user name + skeleton
+
+Analytics resolves on the server:
+  t=950ms  fetchAnalytics() resolves -> analytics data ready
+  t=951ms  CHUNK 2: A <script> tag containing the serialised analytics data
+           + instructions for Svelte to swap the pending branch for the
+           resolved branch
+
+Browser processes CHUNK 2:
+  t=1000ms Browser executes the inline script
+  t=1001ms Svelte's runtime replaces the skeleton with the real analytics chart
+  t=1001ms Page is complete
+```
+
+The key insight is the **gap between t=100ms and t=1000ms**. Without streaming, the user sees nothing until t=1000ms (the server waits for analytics before sending any HTML). With streaming, the user sees real content at t=100ms and the slow data appears 900ms later. The Time to First Byte (TTFB) improves from ~950ms to ~50ms. LCP improves from ~1000ms to ~100ms (if the user content is above the fold).
+
+The HTTP mechanism is **chunked transfer encoding**. The server sends the response in multiple chunks over the same TCP connection. The browser renders each chunk as it arrives. The second chunk contains a `<script>` that Svelte's runtime evaluates to update the DOM — replacing the `{#await}` pending branch with the resolved branch.
+
+### 1.9 The TypeScript angle
+
+When you return a bare promise from a server load, TypeScript knows the difference:
+
+```ts
+export const load: PageServerLoad = async () => {
+    const user = await fetchUser();           // user: User (resolved)
+    const analytics = fetchAnalytics();       // analytics: Promise<Analytics> (unresolved)
+    return { user, analytics };
+};
+```
+
+In the component, `data.user` is typed as `User` (immediately available), and `data.analytics` is typed as `Promise<Analytics>` (must be awaited). The `PageProps` type reflects this distinction. If you accidentally `await` the analytics call and then try to use `{#await data.analytics}`, TypeScript will warn you that `data.analytics` is `Analytics`, not `Promise<Analytics>` — you are awaiting a non-promise.
+
+Conversely, if you forget the `await` on the user call, `data.user` becomes `Promise<User>` and you cannot read `data.user.name` directly. TypeScript catches both mistakes at compile time.
+
+### 1.10 Comparison: streaming vs other loading patterns
+
+| Pattern | TTFB | LCP | Data freshness | Complexity | SEO |
+| --- | --- | --- | --- | --- | --- |
+| Await everything | Slow (waits for slowest) | Slow | All data in initial HTML | Low | Good (all content in HTML) |
+| Stream slow data | Fast (sends fast data first) | Fast (if fast data is above fold) | Fast data in HTML, slow data streams | Medium | Partial (skeleton for slow data) |
+| Client-side fetch | Fast (empty HTML) | Slow (waits for fetch) | No data in HTML | Low | Bad (no content for crawlers) |
+| Parallel + stream | Fast | Fast | Mixed | Medium-high | Partial |
+
+> **In production sidebar.** Our e-commerce product page has three data sources: the product (fast, 30ms from cache), reviews (medium, 150ms from database), and "customers also bought" recommendations (slow, 800ms from ML service). We `await` the product, `await` the reviews (they are above the fold on mobile), and stream the recommendations. The result: TTFB is 35ms, LCP is 180ms (product image + reviews are painted), and the recommendation carousel slides in at ~900ms. Before streaming, TTFB was 850ms. The key decision: stream only data that is below the fold or truly optional. If the slow data is above the fold on any viewport, streaming just shows a skeleton where the user is looking, which is not better than waiting.
+
+### 1.11 Common interview question
+
+**Q: "Explain SvelteKit's streaming feature. When is it beneficial and when should you avoid it?"**
+
+**Model answer:** SvelteKit streaming lets a server load return unresolved promises alongside resolved values. SvelteKit sends the HTML for resolved values immediately via chunked transfer encoding, renders `{#await}` pending branches for the promises, and streams the resolved values in later as additional chunks. It is beneficial when part of the page data is fast and part is slow, and the slow part is below the fold or optional. The user sees meaningful content immediately instead of waiting for everything. It should be avoided when the slow data is essential for SEO (crawlers may not wait for the stream), when the slow data is above the fold on small screens (the user just sees a skeleton), or when every piece of data is required for the page to make sense. Streaming only works from `+page.server.ts` and `+layout.server.ts` — universal loads cannot stream because they do not own the HTTP response.
+
+## Deep Dive
+
+**The `{:catch}` branch is your safety net.** A streamed promise can reject. If the analytics service is down, the promise rejects and the `{:catch error}` block renders in place of the skeleton. Without a `{:catch}` block, the skeleton stays forever — there is no automatic timeout. Always include a `{:catch}` branch in `{#await}` blocks for streamed data.
+
+**Streaming and SEO.** Google's crawler (Googlebot) does execute JavaScript and can follow streamed content in many cases. However, the behavior is not guaranteed for all crawlers. Social media scrapers (Twitter, Facebook) typically do not wait for streamed content at all — they see the initial HTML only. If a piece of data must appear in social previews or in Google's snippet, await it rather than streaming it.
+
+**Streaming multiple values.** You can stream several promises independently. Each resolves on its own timeline and each has its own `{#await}` block. The server sends a separate chunk for each resolution. This is perfect for dashboards with multiple widgets that load at different speeds.
+
+**Nested streaming.** You can return an object whose nested fields are promises: `return { user, widgets: { chart: fetchChart(), table: fetchTable() } }`. Each nested promise streams independently. In the component, `data.widgets.chart` and `data.widgets.table` are each a `Promise` that you `{#await}` separately.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Streaming with promises](https://svelte.dev/docs/kit/load#Streaming-with-promises) covers the API and edge cases.
+- **Advanced pattern:** Combine streaming with `Promise.all` for partially parallel loads: `const [user, flags] = await Promise.all([fetchUser(), fetchFlags()]); const recs = fetchRecommendations(user.id); return { user, flags, recs };`. The fast data is parallel and awaited; the slow data is streamed.
+- **Challenge:** Create a page that streams three promises with artificial delays (500ms, 1000ms, 2000ms). Open the browser's DevTools Network tab and look at the response as it arrives. Can you see the chunks arriving separately? (Hint: in Chrome DevTools, look at the "Timing" tab for the request — the "Content Download" will show the chunked arrival.)
+
 ## 2. Style it — PE7 for skeleton placeholders
 
 The mini-build shows a fast greeting and a slow analytics value. While the slow value is streaming, we render a subtle shimmer skeleton. We use a cool teal personality (`oklch(70% 0.16 180)`). The skeleton animation respects `prefers-reduced-motion` via PE7's global override.

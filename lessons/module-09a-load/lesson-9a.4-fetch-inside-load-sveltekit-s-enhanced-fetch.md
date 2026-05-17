@@ -94,6 +94,79 @@ if (!response.ok) {
 
 If you call a fetch inside a component (inside `onMount` or a `$effect`), you get the plain global fetch. The enhanced fetch lives on the load event only. Data-fetching logic that needs inlining and deduplication belongs in load, not in the component.
 
+### 1.7 What SvelteKit does under the hood
+
+The enhanced fetch is not magic — it is a carefully engineered wrapper around the standard `fetch` API. Here is the internal lifecycle for a fetch call inside a server load during SSR:
+
+**Step 1 — URL resolution.** Your load calls `fetch('/api/posts')`. The enhanced fetch detects a relative URL. Instead of making a network request to itself (which would require knowing its own origin, port, and protocol), SvelteKit calls the `+server.ts` handler for `/api/posts` *directly in-process*. The request never touches the network stack. This is why relative URLs "just work" on the server — they are function calls, not HTTP requests.
+
+**Step 2 — Cookie forwarding.** SvelteKit reads the `cookie` header from the original incoming request and attaches it to the internal fetch. Your `/api/posts` handler sees `event.cookies` with the real user's session — even though the call came from a load function, not a browser. Without this forwarding, the API handler would think the request is unauthenticated.
+
+**Step 3 — Deduplication.** SvelteKit maintains a per-request cache keyed by URL and request options. If another load function on the same render pass also calls `fetch('/api/posts')` with the same options, SvelteKit returns the same `Response` clone. One handler invocation, two consumers.
+
+**Step 4 — Response recording.** The response body and headers are recorded. SvelteKit serialises them and embeds them into the HTML payload inside a `<script type="application/json" sveltekit:data-type="data">` tag (the exact attribute name may change between versions, but the concept is stable).
+
+**Step 5 — Client-side replay.** During hydration, the client's enhanced fetch intercepts calls to the same URLs. Instead of making a real network request, it reads the embedded response from the DOM and returns it as a `Response` object. The component sees the same data it saw on the server, with zero network cost.
+
+**During client-side navigation**, the enhanced fetch behaves differently:
+- Relative URLs to your own endpoints are fetched over the network (the browser is now the caller).
+- External URLs are fetched normally.
+- There is no deduplication across navigations (each navigation is a fresh context).
+- Responses are not embedded in HTML (there is no HTML to embed into during a client navigation).
+
+### 1.8 The TypeScript angle
+
+The enhanced fetch has the same signature as the global `fetch`, but TypeScript knows it is the enhanced version because the `PageLoad` or `PageServerLoad` type includes it as a specific property on the event:
+
+```ts
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = async ({ fetch }) => {
+    // fetch is typed as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    // Identical signature to globalThis.fetch, but different runtime behavior.
+    const res = await fetch('/api/posts');
+    return { posts: await res.json() as Post[] };
+};
+```
+
+The typing is intentionally identical to `globalThis.fetch` so that any existing fetch wrapper or utility function works without changes. The only difference is runtime behavior, not types. This means you can write a utility like `fetchJSON<T>(url: string): Promise<T>` that accepts either the enhanced or global fetch, and it will work correctly in both environments.
+
+However, one TypeScript subtlety: `response.json()` always returns `Promise<any>`. You must assert or validate the type yourself. This is a limitation of the Fetch API spec, not SvelteKit. Remote functions (Module 9B) solve this by making the return type part of the function signature.
+
+### 1.9 Comparison: enhanced fetch vs global fetch vs remote query
+
+| Aspect | Enhanced `fetch` (in load) | Global `fetch` (in component) | Remote `query` |
+| --- | --- | --- | --- |
+| Relative URL resolution on server | In-process call | Needs absolute URL | Not applicable (RPC) |
+| Cookie forwarding | Automatic | Manual | Automatic |
+| Response deduplication | Yes (per request) | No | Yes (per argument) |
+| Response inlining in HTML | Yes | No | Yes (during SSR) |
+| Return type safety | Manual (`as` cast) | Manual (`as` cast) | Automatic (inferred) |
+| Works in `onMount` | No (load only) | Yes | Yes |
+| Works with external APIs | Yes | Yes | No (server functions only) |
+
+> **In production sidebar.** We once debugged a production issue where a dashboard page loaded slowly despite fast API endpoints. The culprit: the developer had used `globalThis.fetch` instead of the event's `fetch` inside a `+page.server.ts` load. The load was making a network request to `http://localhost:3000/api/stats` — a full HTTP round trip to itself. On the server, this meant the request went out through the network stack, hit the OS's loopback interface, came back to the same Node process, ran the handler, and returned. Total cost: 15 ms instead of < 1 ms. Multiply by 5 such calls per page, and the load was 75 ms slower than it needed to be. Switching to `event.fetch('/api/stats')` eliminated 70 ms. The enhanced fetch's in-process call for relative URLs is not a convenience feature — it is a performance feature.
+
+### 1.10 Common interview question
+
+**Q: "What are the four advantages of SvelteKit's enhanced fetch over the global fetch, and when would you still use the global fetch?"**
+
+**Model answer:** The enhanced fetch provides: (1) correct relative URL resolution on the server via in-process handler invocation, (2) automatic cookie forwarding from the incoming request, (3) request deduplication across loads in the same render pass, and (4) response inlining into the HTML so the client does not re-fetch during hydration. You would still use the global fetch when you need to make a request outside a load function — for example, in an `onMount` callback or a `$effect` that fetches data in response to a user action. The enhanced fetch only exists on the load event object and cannot be used elsewhere.
+
+## Deep Dive
+
+**Why response inlining changes the performance model.** Without inlining, SSR is slower than CSR for data-heavy pages. The server renders the HTML, the browser downloads it, then the browser re-fetches the same data to hydrate. With inlining, hydration is free — the data is already in the HTML. This is why SvelteKit pages feel "instant" on the first load: the browser is not making any fetch calls during hydration. The only cost is the slightly larger HTML payload (the embedded data), which is almost always worth the trade because a single TCP connection delivering a larger response is faster than two sequential requests (HTML then data).
+
+**The `depends` integration.** Every URL fetched with the enhanced fetch is automatically registered as a dependency. If you later call `invalidate('/api/posts')`, SvelteKit knows which loads fetched that URL and re-runs them. You do not need to call `depends()` manually for URL-based invalidation — the enhanced fetch does it for you. Manual `depends()` is only needed for non-URL dependencies like custom string keys.
+
+**Edge case: POST requests.** The enhanced fetch can make POST requests too, but they are not deduplicated (because POST is not idempotent). Cookie forwarding still applies. In-process resolution still applies. But the deduplication and inlining are skipped for any non-GET request.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Loading data — Making fetch requests](https://svelte.dev/docs/kit/load#Making-fetch-requests) details every behavior of the enhanced fetch.
+- **Advanced pattern:** Write a typed fetch wrapper that accepts the enhanced fetch as a parameter: `async function api<T>(fetch: typeof globalThis.fetch, path: string): Promise<T>`. This lets you unit-test the wrapper with a mock fetch and use the enhanced fetch in production.
+- **Challenge:** In a load function, make two identical `fetch('/api/posts')` calls and log the response bodies. Are they the same object? (Hint: yes — the second call returns a clone of the first response. But `response.json()` can only be called once per `Response` object, so you need to clone before consuming.)
+
 ## 2. Style it — PE7 for a weather card
 
 The mini-build shows the current temperature for Berlin from Open-Meteo. We give the card a cool blue personality (`oklch(70% 0.16 210)`) and format the temperature with one decimal place. The card has a 44px minimum tap target on mobile.

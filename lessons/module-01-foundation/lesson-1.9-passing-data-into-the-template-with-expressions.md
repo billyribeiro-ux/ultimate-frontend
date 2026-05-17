@@ -124,6 +124,92 @@ Svelte 3 and 4 used the same `{ }` syntax, but reactive assignments inside a com
 
 **Cross-module connections.** Template expressions are the bridge you will use in every module. Module 2 connects them to reactive state (`$state` values inside `{}`). Module 4 extends them with control flow blocks that handle conditions and loops. Module 6 uses `style:--` extensively for dynamic theming. Module 7 uses `bind:this` (a special expression form) to get DOM references for GSAP animations. The skill of reading a template and tracing each `{}` back to its source declaration is foundational — it is how you debug rendering issues, reason about reactivity, and review pull requests effectively.
 
+### 1.7 What the compiler does with template expressions
+
+Consider the template `<p>Hello, {name}!</p>` where `name` is a constant. The compiler generates:
+
+```js
+const p = template('<p> </p>');
+const textNode = p.firstChild;
+textNode.data = `Hello, ${name}!`;
+```
+
+But when `name` is reactive (`$state`), the compiler generates additional code:
+
+```js
+// Simplified — actual output uses Svelte's internal scheduling
+$.effect(() => {
+    textNode.data = `Hello, ${$.get(name)}!`;
+});
+```
+
+The expression is wrapped in an effect that re-runs whenever `name` changes, updating only that specific text node. No diffing, no virtual DOM, no reconciliation. This is why Svelte's template expressions are so fast — each one compiles to a targeted DOM update.
+
+### 1.8 "In production" — template expressions as a debugging trail
+
+At a 50-developer SaaS company, a new developer was debugging why a price displayed as `$NaN` on a product card. In a React codebase, the bug could hide inside a chain of component re-renders and virtual DOM diffs. In the Svelte codebase, the developer opened `ProductCard.svelte`, saw `<p>{price.toFixed(2)}</p>`, and immediately traced `price` back to the `$props()` destructure. The value was `undefined` because the parent was passing `product.cost` instead of `product.price`. Fix: one prop name. The directness of Svelte's template expressions — no JSX transform, no render function indirection — made the data flow visible in one glance.
+
+### 1.9 The TypeScript angle — expressions are type-checked
+
+Svelte 5 with `lang="ts"` type-checks template expressions. This catches bugs that would be invisible in plain JavaScript:
+
+```svelte
+<script lang="ts">
+    interface User { name: string; email: string; }
+    const user: User = { name: 'Ada', email: 'ada@example.org' };
+</script>
+
+<p>{user.nme}</p>  <!-- Error: Property 'nme' does not exist on type 'User' -->
+<p>{user.email.toFixed(2)}</p>  <!-- Error: 'toFixed' does not exist on type 'string' -->
+```
+
+Both errors appear as red squiggles in the editor and as compile errors in the terminal. The type checker sees through the `{}` boundary between script and markup, verifying that every expression produces the type the template position expects. This cross-block type checking is unique to frameworks with a compile step — runtime frameworks cannot catch these errors until the code executes.
+
+### 1.10 Comparison: template expression syntax across frameworks
+
+| Framework | Text interpolation | Attribute binding | Conditional in template | Custom property |
+|---|---|---|---|---|
+| Svelte 5 | `{expr}` | `attr={expr}` | `{condition ? a : b}` | `style:--name={expr}` |
+| React | `{expr}` | `attr={expr}` | `{condition ? a : b}` | `style={{'--name': expr}}` |
+| Vue 3 | `{{ expr }}` | `:attr="expr"` | `v-if` / `{{ ternary }}` | `:style="{'--name': expr}"` |
+| Angular | `{{ expr }}` | `[attr]="expr"` | `@if (condition)` | `[style.--name]="expr"` |
+
+Svelte's syntax is the most compact. Single curly braces for everything, no special attribute prefix (`:`, `[]`), and the `style:--` directive is shorter than any other framework's custom property syntax.
+
+### 1.11 Common interview question
+
+**Q: "Why can you not use an `if` statement inside `{}`  in Svelte's markup, and what are the alternatives?"**
+
+**Model answer:** The `{}` syntax evaluates a JavaScript *expression*, not a *statement*. An expression produces a value — `count + 1`, `name.toUpperCase()`, `isActive ? 'yes' : 'no'`. A statement performs an action without producing a value — `if (x) { ... }`, `let x = 5`, `for (...)`. Since Svelte needs a value to insert into the DOM, statements are not allowed. The alternatives are: (1) use a ternary expression for simple two-way decisions: `{condition ? a : b}`; (2) use `{#if}` / `{:else}` blocks for more complex branching (Module 4); (3) use `{#each}` for iteration; (4) compute the value in the script block using `$derived` and reference the result in the template.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/basic-markup](https://svelte.dev/docs/svelte/basic-markup) — the full template expression syntax reference.
+- [svelte.dev/docs/svelte/class](https://svelte.dev/docs/svelte/class) — the `class:` directive reference.
+- [svelte.dev/docs/svelte/style](https://svelte.dev/docs/svelte/style) — the `style:` and `style:--` directive reference.
+
+**Advanced pattern: computed class strings with `$derived`.** For components with many conditional classes, compute the full class string in the script block:
+
+```svelte
+<script lang="ts">
+    let { size = 'md', variant = 'solid', disabled = false } = $props();
+    
+    const classes: string = $derived(
+        `btn btn--${size} btn--${variant}${disabled ? ' btn--disabled' : ''}`
+    );
+</script>
+
+<button class={classes} {disabled}>
+    {@render children()}
+</button>
+```
+
+This keeps the markup clean when the class logic becomes complex. The `$derived` expression is re-evaluated only when `size`, `variant`, or `disabled` change.
+
+**Challenge question (combines Lesson 1.9 + Lesson 1.5 + Lesson 1.7):** Build a small `StatusBadge` component that accepts a `status` prop typed as `'online' | 'away' | 'offline'`. Use a `class:` directive to apply different scoped classes for each status, and use `style:--badge-color` to pass a PE7 colour token into a gradient. Explain what happens if a parent passes `status="onlien"` (typo).
+
 ## 2. Style it — A user card with dynamic class, style, and style:--
 
 The mini-build renders a user profile card whose content comes from a typed constant and whose appearance changes based on a `tier` value. The tier drives three different directive forms: a `class:` toggle for a "pro" badge, a `style:` directive for the border colour, and a `style:--accent` custom property for a nested gradient.

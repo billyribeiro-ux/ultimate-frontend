@@ -116,6 +116,40 @@ By the end of Module 2 you will have built an interactive dashboard that counts 
 
 **Connection to other modules.** State is the seed crystal from which the entire course grows. Module 3 (components) is about passing state between components via props. Module 5 (events) is about changing state in response to user actions. Module 7 (GSAP) bridges reactive state to animation libraries. Modules 9A and 9B bring server state into the reactive graph. Module 11 scales state management to cross-component patterns. Module 12 optimises the performance of state changes. If you truly understand what state is — an observable, mutable value whose changes drive UI updates — every subsequent module is a variation on that theme, not a new concept.
 
+### 1.9 Common interview question
+
+**Q: "What is the difference between a plain variable and reactive state in Svelte 5, and why does the distinction matter?"**
+
+**Model answer:** A plain variable (`let count = 0`) exists only in JavaScript memory. Changing it updates the value in memory but nothing else — the DOM has no way to know the value changed. Reactive state (`let count = $state(0)`) wraps the value in a signal. The compiler generates code so that every read of `count` in the template registers a subscription, and every write to `count` notifies those subscribers, triggering targeted DOM updates. The distinction matters because it determines whether the UI stays in sync with the data. Without reactive state, you get the "frozen UI" bug demonstrated in this lesson — the value changes in memory but the page never updates. The `$state` rune is how you opt into the reactivity contract.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — the official `$state` rune reference.
+- [svelte.dev/docs/svelte/what-are-runes](https://svelte.dev/docs/svelte/what-are-runes) — the rune system overview, explaining why runes exist and how they replaced Svelte 3/4 reactivity.
+- [svelte.dev/docs/svelte/reactivity-fundamentals](https://svelte.dev/docs/svelte/reactivity-fundamentals) — the fundamentals of Svelte 5's signal-based reactivity.
+
+**Advanced pattern: the reactive class pattern.** You can encapsulate related state and derived values in a class declared in a `.svelte.ts` file:
+
+```ts
+// src/lib/timer.svelte.ts
+export class Timer {
+    seconds = $state(0);
+    readonly formatted = $derived(
+        `${Math.floor(this.seconds / 60)}:${(this.seconds % 60).toString().padStart(2, '0')}`
+    );
+
+    start() { /* ... */ }
+    stop() { /* ... */ }
+    reset() { this.seconds = 0; }
+}
+```
+
+This pattern bundles state, derived values, and methods into a single cohesive unit. You will see it in Module 11 as the primary pattern for shared reactive state.
+
+**Challenge question (combines Lesson 2.1 + Lesson 1.3 + Lesson 1.9):** Explain why `console.log(clock.seconds)` inside a `setInterval` callback shows the updated value in the console, but `{clock.seconds}` in the markup stays at 0. Trace the data flow from the interval callback through JavaScript memory to the DOM, and identify the exact point where the flow breaks without `$state`.
+
 ## 2. Style it — A frozen-looking card that isn't
 
 The mini-build shows a single card that looks like the static cards from Module 1 but contains a count of how long the page has been open. We use the clock to introduce the *idea* of state one lesson before the mechanism. The count is shown as a plain number — no interactivity, no button, no rune — so the student sees the *need* for state before the *syntax* of state arrives in 2.2.

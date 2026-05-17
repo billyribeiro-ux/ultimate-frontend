@@ -134,6 +134,71 @@ Naming consistency has a real payoff. When you see `var(--space-lg)` in a style 
 
 **Connection to other modules.** PE7's architecture appears in every single module of this course. Module 3 (components) uses CSS custom properties as the "knob" pattern for variant styling. Module 6 dives deep into each layer. Module 7 uses tokens to drive GSAP animation values. Module 8 shows how tokens survive the SSR/hydration boundary unchanged. Module 12 shows how the token system aids performance by preventing cascade fights that force browser repaints. Module 13 uses the same token-based color system to maintain contrast ratios for accessibility-related SEO signals. Understanding PE7 deeply here is an investment that pays dividends in every subsequent module.
 
+### 1.9 "In production" — one variable, one rebrand
+
+At a 50-developer e-commerce company, the marketing team requested a brand colour change from violet (hue 270) to teal (hue 180). In the old codebase, the brand colour appeared as hex values (`#7c3aed`, `#6d28d9`, `#8b5cf6`) scattered across 94 CSS files. A search-and-replace was risky because some hex values were close but not identical — hover states, disabled states, and transparency variants were all different hex strings. The rebrand took three sprints and introduced four visual regressions.
+
+After adopting PE7, the same rebrand was a one-line change: `--color-brand: oklch(65% 0.22 180)` instead of `oklch(65% 0.22 270)`. Every surface, hover state, and transparency variant derived from that single token updated automatically. The rebrand took 10 minutes and introduced zero regressions. Dark mode — which derived its accent colour from the same token — also updated without any additional work.
+
+### 1.10 The TypeScript angle — typing token lookups
+
+While CSS tokens live in stylesheets, you sometimes need to reference token *names* in TypeScript — for example, when building a component API that accepts a `tone` prop:
+
+```ts
+type Tone = 'brand' | 'success' | 'warning' | 'error' | 'neutral';
+
+interface Props {
+    tone?: Tone;
+}
+```
+
+TypeScript ensures that a caller cannot write `tone="sucess"` (typo). The Tone type acts as a bridge between your token naming convention and your component API. If you add a new token `--color-info`, you add `'info'` to the Tone union, and every component that handles tones gets a type error until it handles the new case. This is the TypeScript equivalent of PE7's single-source-of-truth principle applied to component APIs.
+
+### 1.11 Comparison: PE7 vs other CSS methodologies
+
+| Feature | PE7 | BEM | Tailwind | CSS Modules |
+|---|---|---|---|---|
+| Naming convention | `--category-name` tokens | `.block__element--modifier` | Utility classes | Auto-generated hashes |
+| Specificity management | `@layer` (native cascade) | Convention only | `@layer` (v4) | Module scope |
+| Colour system | OKLCH (perceptually uniform) | No opinion | oklch (v4) | No opinion |
+| Responsive approach | `min-width` + `clamp()` fluid | No opinion | Responsive prefixes | No opinion |
+| Runtime cost | Zero (native CSS) | Zero (native CSS) | Zero (native CSS) | Zero (build-time) |
+| Svelte compatibility | Excellent (scoped + tokens) | Works but verbose | Works but fights scoping | Redundant (Svelte scopes natively) |
+
+### 1.12 Common interview question
+
+**Q: "What is a CSS cascade layer (`@layer`), and how does it solve the specificity problem in large applications?"**
+
+**Model answer:** `@layer` lets you declare a fixed ordering of style groups. Rules in a later layer always beat rules in an earlier layer, regardless of selector specificity. For example, if you declare `@layer reset, tokens, base, components`, a `.card { color: red }` rule in the `components` layer beats a `#main .section .card { color: blue }` rule in the `base` layer — even though the `base` rule has higher specificity — because `components` comes after `base` in the layer order. This eliminates the most common source of CSS bugs in large apps: developers writing increasingly specific selectors to override rules they did not write, eventually resorting to `!important`. With layers, you structure the cascade intentionally and specificity within each layer only matters for rules within that same layer.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — how Svelte handles `<style>` blocks and integrates with CSS features.
+- [developer.mozilla.org/en-US/docs/Web/CSS/@layer](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer) — the MDN reference for cascade layers.
+- [developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch) — the OKLCH colour function reference.
+
+**Advanced pattern: dark mode with token overrides.** PE7's token system makes dark mode a small set of overrides rather than a rewrite. Inside `app.css`, add a media query that reassigns surface and text tokens:
+
+```css
+@layer tokens {
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --color-surface: oklch(15% 0.01 270);
+            --color-surface-2: oklch(20% 0.015 270);
+            --color-text: oklch(92% 0.01 270);
+            --color-text-muted: oklch(65% 0.01 270);
+            --color-border: oklch(30% 0.02 270);
+        }
+    }
+}
+```
+
+Every component that reads these tokens adapts automatically. You never write a single line of dark-mode CSS inside a component.
+
+**Challenge question (combines Lesson 1.5 + Lesson 1.7 + Lesson 1.9):** A component uses `background: oklch(60% 0.2 200)` directly in its style block instead of `var(--color-brand)`. Explain three concrete problems this causes when the project grows: one related to rebranding, one related to dark mode, and one related to accessibility contrast requirements.
+
 ## 2. Style it — The tokens in action
 
 The mini-build is a token inspector that reads three PE7 tokens — `--color-brand`, `--space-lg`, `--radius-lg` — and demonstrates a scoped override. The top-level `section` overrides `--color-brand` so every descendant inside this lesson's card sees a custom hue without any other file changing. Mobile baseline is single-column; `@media (min-width: 480px)` introduces a two-column layout.

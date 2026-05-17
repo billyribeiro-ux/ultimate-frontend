@@ -90,6 +90,89 @@ This is the same "no runtime" philosophy you met in Lesson 1.1, applied to style
 
 **Cross-module connections.** Scoped styles are the foundation for the component-driven CSS architecture you build throughout this course. Module 3 shows how to bridge scopes using CSS custom properties as props. Module 6 builds the full `@layer` system that works *with* scoping (layers control specificity; scoping controls scope — they are orthogonal). Module 12 revisits scoping in the performance context, showing that unused-selector warnings from the Svelte compiler are actually a free tree-shaking pass for your CSS — dead rules never reach the bundle.
 
+### 1.7 What the compiler does with scoped styles — step by step
+
+Let us trace the exact compilation of a scoped style. Input:
+
+```svelte
+<p class="label">Name</p>
+
+<style>
+    .label { font-size: var(--text-sm); color: var(--color-text-muted); }
+</style>
+```
+
+Step 1: The compiler hashes the file contents and produces a unique suffix, say `svelte-x7k9p2`.
+
+Step 2: Every selector in the `<style>` block is rewritten. `.label` becomes `.label.svelte-x7k9p2`. If you had a descendant selector like `.card .label`, it becomes `.card.svelte-x7k9p2 .label.svelte-x7k9p2` — both parts get the hash.
+
+Step 3: Every element in the markup whose class matches a selector gets the hash appended to its class attribute. `<p class="label">` becomes `<p class="label svelte-x7k9p2">`.
+
+Step 4: The rewritten CSS is extracted into a separate `.css` file (or inlined, depending on the bundler configuration). The browser loads it as a normal stylesheet.
+
+The net effect: `.label.svelte-x7k9p2` only matches `<p class="label svelte-x7k9p2">`. Another component with its own `.label` class will have a different hash (say `svelte-m3n4o5`), so the selectors never collide.
+
+### 1.8 "In production" — scoped styles saved a component library migration
+
+At a 50-developer company with a shared component library, the team noticed that every time they upgraded the library, some product styles broke. The cause: product code used class names like `.button`, `.card`, and `.modal` — the same names the library used. When the library's CSS loaded after the product's CSS (source order depends on import order), the library's rules won sometimes. Other times the product's rules won. The result was a visual lottery.
+
+After migrating the library to Svelte, every library component's styles were automatically scoped. The library could name its internal classes `.button` without any risk of collision. Product code could also use `.button` for its own purposes. The two never met because they had different hashes. The team stopped prefixing every class with `uf-` (their "ultimate frontend" prefix), making the codebase cleaner and the code reviews faster. Scoping solved a naming-convention problem that BEM had only *managed*, not eliminated.
+
+### 1.9 The TypeScript angle — unused selectors as type errors for CSS
+
+Svelte's compiler warns you about unused selectors — CSS rules that do not match any element in the component's markup. This is the CSS equivalent of TypeScript's unused variable warnings. Together, they give you two layers of dead-code detection:
+
+```svelte
+<script lang="ts">
+    const title: string = 'Hello'; // TS warns if title is never read
+</script>
+
+<h1>{title}</h1>
+
+<style>
+    .subtitle { color: gray; } /* Svelte warns: unused selector ".subtitle" */
+</style>
+```
+
+TypeScript catches dead JavaScript. Svelte catches dead CSS. The combination means your component accumulates almost no dead code over time.
+
+### 1.10 Comparison: CSS scoping mechanisms
+
+| Mechanism | Runtime cost | Scoping strength | CSS features supported | Tooling required |
+|---|---|---|---|---|
+| Svelte scoped styles | Zero (compile-time) | Per-component | All native CSS | Svelte compiler |
+| CSS Modules | Zero (build-time) | Per-file | All native CSS | Webpack/Vite plugin |
+| Shadow DOM | Small (runtime) | Complete isolation | All native CSS | Native browser |
+| styled-components | 10-30 KB runtime | Per-component | CSS subset | Runtime library |
+| Tailwind | Zero (build-time) | Global (utility classes) | Utility subset | PostCSS plugin |
+
+### 1.11 Common interview question
+
+**Q: "How does Svelte's CSS scoping differ from CSS Modules, and what advantage does it have?"**
+
+**Model answer:** Both achieve file-level CSS scoping through compile-time class name transformation. The key difference is integration. CSS Modules require importing a styles object and referencing class names through it (`styles.label`), which means class names are strings that can drift from the CSS file. Svelte's scoping is automatic — you write class names in your markup and your style block, and the compiler matches them. It also provides a crucial bonus: unused-selector warnings. If a CSS rule in your style block cannot match any element in your markup, Svelte warns you. CSS Modules cannot do this because they operate on CSS files in isolation, without knowledge of the HTML structure. Svelte's cross-block analysis (seeing both markup and styles together) enables optimisations that file-separated approaches cannot match.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — the full styling reference including `:global()`, hash behaviour, and unused selector warnings.
+- [svelte.dev/docs/svelte/svelte-options](https://svelte.dev/docs/svelte/svelte-options) — component options that can influence CSS output, such as `css: 'injected'` vs `css: 'external'`.
+- [developer.mozilla.org/en-US/docs/Web/CSS/:global](https://developer.mozilla.org/en-US/docs/Web/CSS/:global) — MDN reference for the `:global()` pseudo-class syntax.
+
+**Advanced pattern: hybrid scoping with `:global()`.** The most useful form of `:global()` is hybrid scoping, where the *parent* selector is scoped but the *child* selector is global. This lets you style content from child components or `{@html}` output:
+
+```css
+.card :global(a) {
+    color: var(--color-brand);
+    text-decoration: underline;
+}
+```
+
+This rule affects only `<a>` elements inside `.card` elements owned by *this* component — but the `<a>` elements themselves can come from anywhere (child components, `{@html}` output, injected content). The scoped parent ensures you do not accidentally style links outside your component's visual boundary.
+
+**Challenge question (combines Lesson 1.7 + Lesson 1.3 + Lesson 1.5):** You have two components, `Card.svelte` and `Badge.svelte`. Both define a `.label` class in their `<style>` blocks. A page renders both components side by side. Explain why the styles never conflict, what happens in DevTools' Elements panel, and how PE7 tokens (`var(--color-text-muted)`) work across both components despite the scoping.
+
 ## 2. Style it — Two components, two `.card` classes, zero conflict
 
 The mini-build has a single page component, but it defines a `.card` class *and* simulates what would happen if another component on the page also had a `.card` class. The simulation uses a deliberately global `:global(.card)` rule for comparison — so you can visually see what scoped vs global feels like.

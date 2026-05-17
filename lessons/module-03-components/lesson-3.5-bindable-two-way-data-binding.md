@@ -102,6 +102,38 @@ When the child sets `open = false` internally, `isOpen` in the parent updates. N
 
 **Cross-module connections.** Bindable props are central to Module 5 (form events and input handling), Module 10 (form actions where inputs need to report their values), and Module 11 (where shared state sometimes flows through bindable props on wrapper components). The decision of "bindable prop vs callback prop" is one you will make on every interactive component. The rule of thumb: use `$bindable` for *continuous state* (the current value of an input) and callback props for *discrete events* (form submission, button clicks, navigation actions).
 
+### 1.7 Common interview question
+
+**Q: "In Svelte 5, what is `$bindable()` and when should you use it instead of a callback prop?"**
+
+**Model answer:** `$bindable()` marks a prop for two-way binding. When a parent uses `bind:value={name}` on the child, changes to the child's `value` propagate back to the parent's `name`. Use it for *continuous state synchronisation* — form inputs, toggles, open/close states — where the parent owns the data and the child owns the edit UI. Use a callback prop (`onSubmit: (data: FormData) => void`) for *discrete events* — form submissions, button clicks, page changes — where the parent needs to know something happened but does not need continuous state sync. The distinction: `$bindable` answers "what is the current value?", while a callback answers "what did the user just do?"
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$bindable](https://svelte.dev/docs/svelte/$bindable) — the `$bindable` rune reference.
+- [svelte.dev/docs/svelte/bind](https://svelte.dev/docs/svelte/bind) — the `bind:` directive on native elements and components.
+- [svelte.dev/docs/svelte/$props](https://svelte.dev/docs/svelte/$props) — how `$bindable` interacts with `$props()`.
+
+**Advanced pattern: controlled vs uncontrolled components.** A well-designed input component works in both modes:
+
+```svelte
+<script lang="ts">
+    interface Props {
+        value?: string;
+        defaultValue?: string;
+    }
+    let { value = $bindable(undefined), defaultValue = '' }: Props = $props();
+    let internal = $state(defaultValue);
+    const current = $derived(value ?? internal);
+</script>
+```
+
+If the parent uses `bind:value`, the component is *controlled* — the parent owns the state. If the parent omits `value`, the component is *uncontrolled* — it manages its own internal state. This dual-mode pattern is common in production input libraries.
+
+**Challenge question (combines Lesson 3.5 + Lesson 2.2 + Lesson 3.3):** Build a `Toggle` component with a `$bindable` `checked` prop. The parent has a `$state` boolean `isDarkMode`. Use `bind:checked={isDarkMode}` from the parent. Trace the data flow: user clicks the toggle → child updates `checked` → parent's `isDarkMode` updates → a `$derived` value in the parent updates → a `style:--` directive on the page changes the colour scheme. How many DOM updates occur?
+
 ## 2. Style it — Focus rings that actually work
 
 The `Input` respects `:focus-visible`, so the outline appears only when the user focuses with the keyboard, not when clicking. This matches WCAG 2.2 guidance. The outline colour comes from `--color-brand`, so per-page personality still applies.

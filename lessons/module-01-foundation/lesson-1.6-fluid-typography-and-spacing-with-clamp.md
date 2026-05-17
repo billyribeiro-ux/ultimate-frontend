@@ -103,6 +103,64 @@ The difference is that you no longer need media queries for `font-size` and `pad
 
 **Cross-module connections.** Fluid tokens reappear throughout the course. Module 6 extends them with motion tokens (fluid durations based on viewport). Module 7 uses fluid spacing to ensure GSAP-animated elements do not overflow on mobile. Module 12 specifically audits fluid tokens during the Core Web Vitals lesson, because improperly clamped hero text can cause CLS (Cumulative Layout Shift) when the computed size differs between SSR and the hydrated client. Understanding `clamp()` deeply now prevents performance regressions later.
 
+### 1.7 "In production" — a fluid scale that eliminated 200 lines of media queries
+
+At a 50-developer news platform, the old stylesheet had 47 media queries for heading sizes alone. Each breakpoint tweaked `font-size` for `h1` through `h4` across phone, tablet, small desktop, and large desktop. When a new "foldable phone" breakpoint was added (the 600px-800px range), the designers had to hand-pick six new font sizes. The total heading-related CSS was over 200 lines.
+
+After switching to `clamp()`-based fluid tokens, the entire heading system shrank to 7 lines — one per heading level. The foldable phone rendered perfectly without any additional work because `clamp()` produces the right value at *every* width, not just pre-selected breakpoints. The team also discovered that their "dead zone" problem — headings looking weirdly small at 900px — had existed for years. Nobody had noticed because nobody had tested at exactly 900px. Fluid tokens eliminated an entire class of viewport-dependent bugs without anyone having to find them first.
+
+### 1.8 The TypeScript angle — typing a fluid clamp helper
+
+The `fluidClamp()` helper shown in Section 3 is a pure function with a typed signature:
+
+```ts
+function fluidClamp(
+    minPx: number,
+    maxPx: number,
+    minViewportPx: number,
+    maxViewportPx: number
+): string
+```
+
+TypeScript prevents two common errors: passing pixel values as strings (`fluidClamp('16', '32', ...)` is rejected) and forgetting an argument (a call with three args is rejected). If you add a fifth optional parameter for a custom unit, TypeScript forces you to handle the default case. Every configuration function benefits from this level of safety — you catch spec-to-code translation errors at compile time instead of in the browser's computed styles.
+
+### 1.9 Comparison: stepwise scaling vs fluid scaling
+
+| Characteristic | Stepwise (media queries) | Fluid (`clamp()`) |
+|---|---|---|
+| Lines of CSS per size | 3-5 per breakpoint | 1 total |
+| Behaviour between breakpoints | Snaps (sudden jumps) | Smooth (linear interpolation) |
+| In-between viewports (e.g. 900px) | Often under-designed | Automatically correct |
+| Browser zoom behaviour | May hit wrong breakpoint | Scales with user preference |
+| Layout shifts during resize | Yes (at each breakpoint) | No |
+| Media queries needed | Yes, per breakpoint | No (for sizing) |
+
+### 1.10 Common interview question
+
+**Q: "Explain what `clamp(1rem, 3vw, 2rem)` does and why `rem` is used for the min/max but `vw` for the preferred value."**
+
+**Model answer:** `clamp(1rem, 3vw, 2rem)` returns a value that is 3% of the viewport width, but never less than 1rem and never more than 2rem. The `vw` unit for the preferred value creates the fluid behaviour — it changes as the viewport width changes, producing smooth scaling. The `rem` units for the min and max ensure the boundaries respect the user's root font-size preference. If a user increases their browser's base font size for accessibility, `rem`-based boundaries scale up with their preference, while `px`-based boundaries would not. This combination — `rem` at the edges, `vw` in the middle — gives you fluid scaling that is also accessible.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [developer.mozilla.org/en-US/docs/Web/CSS/clamp](https://developer.mozilla.org/en-US/docs/Web/CSS/clamp) — the MDN reference for `clamp()` with examples.
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — how custom properties in Svelte's `<style>` blocks interact with `clamp()`.
+- [utopia.fyi](https://utopia.fyi/) — a visual calculator for fluid type and spacing scales based on `clamp()`.
+
+**Advanced pattern: fluid spacing with `clamp()` for layout gaps.** Apply the same fluid approach to `gap`, `padding`, and `margin`:
+
+```css
+--space-sm: clamp(0.5rem, 1.5vw, 0.75rem);
+--space-md: clamp(1rem, 3vw, 1.5rem);
+--space-lg: clamp(1.5rem, 4vw, 2.5rem);
+```
+
+A card with `padding: var(--space-md)` breathes with the viewport. On a 360px phone, it is comfortable but compact. On a 1440px desktop, it is generous. No media queries needed for spacing.
+
+**Challenge question (combines Lesson 1.6 + Lesson 1.5 + Lesson 1.9):** A designer gives you two endpoints for a heading: 24px at 360px viewport and 56px at 1440px viewport. Calculate the exact `clamp()` value using the linear interpolation formula from this lesson. Then show how to apply this computed value via a `style:` directive in a Svelte template.
+
 ## 2. Style it — Fluid type in practice
 
 The mini-build renders three heading sizes — `--text-lg`, `--text-2xl`, `--text-hero` — so you can resize the browser and watch them breathe. Below them, a card uses `--space-lg` for padding and a border-radius from `--radius-lg`, both of which are fluid. Mobile baseline is stacked; `min-width: 480px` switches to a two-column side-by-side demo.

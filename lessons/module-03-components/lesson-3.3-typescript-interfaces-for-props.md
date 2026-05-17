@@ -128,6 +128,44 @@ You wrote interfaces in Lesson 1.8 for plain objects (`interface User { id: numb
 
 **Cross-module connections.** Props interfaces reappear every time you build a component from here forward. Module 5 adds callback props (typed as function signatures in the interface). Module 9 types load-function return values that become page props. Module 11 types context values that flow through the component tree. The skill of reading an interface and knowing exactly what a component expects is the single most transferable TypeScript skill in frontend development — it applies equally to React, Vue, and any typed component system.
 
+### 1.8 Common interview question
+
+**Q: "Why should you always type your component props with an explicit interface rather than relying on inference?"**
+
+**Model answer:** Inference from default values gives you types, but they can be too wide or too loose. `let { label = '' } = $props()` infers `label: string`, which accepts any string including ones the component cannot handle. An explicit interface like `interface Props { label: string; tone: 'brand' | 'success' | 'error' }` constrains `tone` to exactly three values, catching typos at compile time. More importantly, the interface becomes the component's public API documentation. Any developer hovering the component tag in their editor sees the full interface — required fields, optional fields, types — without opening the component file. At scale, explicit interfaces enable safe refactoring: renaming a prop lights up every call site. Implicit inference does not provide that guarantee.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — typing props with interfaces in Svelte 5.
+- [svelte.dev/docs/svelte/$props](https://svelte.dev/docs/svelte/$props) — the `$props()` rune and how to attach a type annotation.
+- [typescriptlang.org/docs/handbook/2/objects.html](https://www.typescriptlang.org/docs/handbook/2/objects.html) — object types, interfaces, and excess property checking.
+
+**Advanced pattern: extending a base interface for component variants.** When multiple components share common props:
+
+```ts
+interface BaseCardProps {
+    children: Snippet;
+    class?: string;
+}
+
+interface MetricCardProps extends BaseCardProps {
+    label: string;
+    value: string;
+    tone: 'brand' | 'success' | 'warning' | 'error';
+}
+
+interface UserCardProps extends BaseCardProps {
+    user: User;
+    showAvatar?: boolean;
+}
+```
+
+Both card types inherit `children` and `class` from the base. Adding a new common prop to `BaseCardProps` propagates to all variants automatically.
+
+**Challenge question (combines Lesson 3.3 + Lesson 1.8 + Lesson 3.2):** A component accepts `variant: 'solid' | 'outline' | 'ghost'` as a prop. A parent passes `variant={dynamicValue}` where `dynamicValue` is typed as `string`. Explain why TypeScript rejects this, what the error message says, and two ways to fix it (one at the parent, one at the component).
+
 ## 2. Style it — Tone-variant cards
 
 The mini-build shows four cards, each with a different `tone` prop driving a different-coloured accent strip. The `tone` string selects a CSS class (`.metric-card--success`, `.metric-card--warning`, etc.) and each class remaps a single custom property (`--accent`) on the card, not the whole palette. One interface field, four visually distinct cards.

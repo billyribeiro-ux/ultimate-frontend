@@ -117,6 +117,30 @@ One subtle gotcha: when you pass an item out of reactive array state — for exa
 
 **Cross-module connections.** Array state reappears in every module that handles collections. Module 4 teaches keyed iteration with `{#each}`. Module 9 loads arrays from APIs. Module 10 handles arrays in form actions (multi-select, tag inputs). Module 11 shares arrays across pages via stores. Module 12 optimizes list rendering with memoization and virtualization. The mutating-array pattern (`todos.push(...)`) versus the derived-array pattern (`$derived(todos.filter(...))`) is a distinction you will use hundreds of times across the course.
 
+### 1.7 Common interview question
+
+**Q: "In Svelte 5, if you push an item onto a `$state` array, does the entire list re-render?"**
+
+**Model answer:** No. Svelte's reactive proxy intercepts the `push` call and emits a targeted update. Only the new item's DOM is created. Existing items' DOM nodes are untouched. This is because Svelte tracks array mutations at the operation level — it knows `push` adds one item at the end, so it only needs to create one new DOM node and append it. For operations like `splice` that affect positions, Svelte reconciles the affected range. For `sort` and `reverse` that potentially move every item, Svelte uses keyed reconciliation (if keys are provided in `{#each}`) to move existing DOM nodes rather than recreating them. This per-operation granularity is why Svelte performs well on list updates without a virtual DOM.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — the deep proxy behaviour for arrays.
+- [svelte.dev/docs/svelte/each](https://svelte.dev/docs/svelte/each) — how `{#each}` blocks interact with reactive arrays.
+- [developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) — the full JavaScript array methods reference.
+
+**Advanced pattern: batch array operations.** When you need to perform multiple mutations in a single update cycle (for example, adding five items at once), use `push` with multiple arguments:
+
+```ts
+todos.push(item1, item2, item3, item4, item5);
+```
+
+This triggers one reactivity update, not five. Svelte batches the notification from the single `push` call. If you called `push` five times in a loop, Svelte's microtask batching would still coalesce them into one DOM update — but the single multi-argument `push` is cleaner and produces fewer proxy trap invocations.
+
+**Challenge question (combines Lesson 2.4 + Lesson 2.3 + Lesson 2.7):** You have `const todos: Todo[] = $state([])`. Write a `$derived` value that computes the number of completed todos. Then write a function that toggles a todo's `done` field by its `id`. Explain why `todos.find(t => t.id === id)!.done = !found.done` works but `const found = todos[index]; found.done = !found.done` also works — and why destructuring the result would break reactivity.
+
 ## 2. Style it — A todo list that breathes
 
 The mini-build is a todo list with add, toggle, delete, and clear-completed actions. It uses PE7 tokens for everything and a subtle `all 200ms var(--ease-out)` transition on list items that respects `prefers-reduced-motion`. Mobile-first layout: stacked vertical list, with the new-item input fixed at the top.

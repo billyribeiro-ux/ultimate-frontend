@@ -134,6 +134,54 @@ Stick to the four rules above and you will always be writing current Svelte.
 
 **Cross-module connections.** Primitive `$state` is the atom from which everything else is built. Module 3 uses it inside components for local interaction state. Module 5 uses it for tracking event-derived values (mouse position, scroll offset). Module 7 uses it as the bridge between GSAP animations and the reactive graph. Module 11 extracts it into `.svelte.ts` files for shared state across pages. Every time you see a reactive number, string, or boolean in this course, you are looking at the same mechanism introduced here.
 
+### 1.8 What the compiler does with `$state` — a closer look
+
+When you write `let count: number = $state(0)`, the compiler transforms it into something like:
+
+```js
+// Simplified compiled output
+import { source, get, set } from 'svelte/internal/client';
+
+const count = source(0);  // Creates a signal with initial value 0
+
+// Every read of count in markup becomes:
+get(count);  // Registers a subscription
+
+// Every write (count = count + 1) becomes:
+set(count, get(count) + 1);  // Notifies subscribers
+```
+
+The `source()` function creates a signal node in the reactive graph. `get()` reads the current value and registers the caller as a dependent. `set()` writes a new value and triggers re-evaluation of all dependents. Your authored code (`count`, `count = count + 1`) looks like plain JavaScript. The compiled code is signal operations. This is the compile-time magic that makes Svelte 5 feel minimal while being fully reactive.
+
+### 1.9 "In production" — why explicit runes prevented a refactor bug
+
+At a 50-developer product team, a developer moved a counter from a component's top-level script into a helper function. In Svelte 4, the counter was a plain `let count = 0` that was "magically reactive" at the top level. Inside the helper function, the magic stopped — the counter updated in memory but the UI froze. The team spent two hours debugging before discovering that Svelte 4's implicit reactivity did not work inside nested functions. In Svelte 5, `$state(0)` is explicit. Moving it into a helper function (in a `.svelte.ts` file) works identically because `$state` is a compiler intrinsic, not a positional magic. The rune system made refactoring safe because reactivity travels with the declaration, not with its position in the file.
+
+### 1.10 Common interview question
+
+**Q: "In Svelte 5, what happens internally when you write `count++` on a `$state` variable? Walk through the update cycle."**
+
+**Model answer:** The compiler rewrites `count++` into a signal `set()` call. This notifies the reactive scheduler that the signal has a new value. The scheduler batches this notification with any other signal changes in the same microtask. After the current synchronous code finishes, the scheduler walks the dependency graph: every `$derived` that reads `count` recomputes, every template expression that references `count` emits a targeted DOM update (like `textNode.data = newValue`), and every `$effect` that reads `count` is scheduled to run after the DOM update. The key insight is granularity: only the specific DOM nodes and computations that depend on `count` are touched. Other parts of the component are untouched. There is no virtual DOM diff, no whole-component re-render.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — the `$state` rune reference with all variants.
+- [svelte.dev/docs/svelte/what-are-runes](https://svelte.dev/docs/svelte/what-are-runes) — the conceptual overview of the rune system.
+- [svelte.dev/docs/svelte/old-vs-new](https://svelte.dev/docs/svelte/old-vs-new) — a migration guide comparing Svelte 4 and Svelte 5 reactivity.
+
+**Advanced pattern: state with union types for mode toggles.** Instead of a boolean `isPlaying`, use a union type that carries more information:
+
+```ts
+type PlayerState = 'idle' | 'playing' | 'paused' | 'buffering';
+let playerState: PlayerState = $state('idle');
+```
+
+This prevents impossible states (you cannot be both "playing" and "paused") and gives you exhaustive branching in `{#if}` chains. The type system becomes your state machine validator.
+
+**Challenge question (combines Lesson 2.2 + Lesson 2.1 + Lesson 1.4):** A developer writes `const count = $state(0)` with `const` instead of `let`. Explain why this compiles but makes the state useless. Then explain what happens if they write `const count: string = $state(0)` — which error fires first, and why?
+
 ## 2. Style it — The counter we couldn't build in Module 1
 
 The mini-build is the classic counter: a big number, a plus button, a minus button, a reset. PE7 tokens for colour and spacing. Buttons have a minimum 44×44 touch target. A small transition on the count number respects `prefers-reduced-motion`.

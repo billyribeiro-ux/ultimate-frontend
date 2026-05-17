@@ -75,6 +75,40 @@ const plain: Profile = $state.snapshot(profile); // type still Profile
 
 **Cross-module connections.** Snapshots appear throughout the course at serialization boundaries. Module 9 uses them when sending state to form actions. Module 10 uses them in API route handlers that receive reactive objects from shared state. Module 11 uses them for comparing previous and current state in optimistic UI patterns. Module 12 uses them in testing contexts where you need to assert on state values without proxy interference. The pattern "snapshot at the boundary, proxy inside the boundary" is a recurring architectural principle that keeps your reactive internals clean while your external interfaces remain plain.
 
+### 1.6 Common interview question
+
+**Q: "When should you use `$state.snapshot` and when should you pass the reactive state directly?"**
+
+**Model answer:** Use `$state.snapshot` when handing data to code outside Svelte's reactive system — `JSON.stringify`, `localStorage`, `postMessage`, web workers, third-party libraries, or any API that expects plain objects. Pass the reactive state directly when the consumer needs live updates — child components, `$derived` expressions, `$effect` bodies. The rule is: reactive within the Svelte boundary, snapshot at the boundary with the outside world. Snapshotting inside the reactive boundary (for example, snapshotting before passing to a child component) is almost always wrong because it severs the reactive connection.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state#$state.snapshot](https://svelte.dev/docs/svelte/$state#$state.snapshot) — the official `$state.snapshot` reference.
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — the full `$state` rune family.
+- [developer.mozilla.org/en-US/docs/Web/API/Window/postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) — a common consumer of snapshotted data.
+
+**Advanced pattern: snapshot-based undo/redo.** Store snapshots of your state at key moments to build an undo stack:
+
+```ts
+const history: Profile[] = [];
+let profile: Profile = $state({ name: 'Ada', email: 'a@b.c' });
+
+function saveCheckpoint(): void {
+    history.push($state.snapshot(profile));
+}
+
+function undo(): void {
+    const prev = history.pop();
+    if (prev) Object.assign(profile, prev);
+}
+```
+
+Each checkpoint is a frozen plain copy. Restoring a checkpoint writes the plain values back into the reactive proxy. This pattern gives you undo/redo without any state management library.
+
+**Challenge question (combines Lesson 2.6 + Lesson 2.3 + Lesson 2.5):** You have a reactive profile `$state({ name: 'Ada', settings: { theme: 'dark' } })`. A web worker needs the current profile for processing. Write the code to send it. Then explain what would go wrong if you sent the reactive proxy directly, and what the difference is between `$state.snapshot(profile)` and `JSON.parse(JSON.stringify(profile))`.
+
 ## 2. Style it — Export and import panel
 
 The mini-build shows a profile form (same idea as Lesson 2.3) plus two new buttons: **Export JSON** and **Import JSON**. Export uses `$state.snapshot` to turn the live profile into a plain value, then `JSON.stringify` it into a textarea. Import reads the textarea, `JSON.parse`s it, and assigns to the state. PE7 styling throughout.

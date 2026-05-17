@@ -95,6 +95,131 @@ JSON.stringify(new Map())  // "{}" — empty object
 
 Query results are cached by argument. `getPost('welcome')` and `getPost('goodbye')` are two different cache entries. Calling `getPost('welcome')` twice on the same page returns the same promise — no duplicate network request. Valibot normalises object arguments (sorts keys), so `getPosts({ limit: 10, offset: 0 })` and `getPosts({ offset: 0, limit: 10 })` hit the same slot.
 
+### 1.5 What SvelteKit does under the hood — the network tab for a parameterized query
+
+When you call `getPost('welcome')` from a component, the client stub does the following:
+
+1. **Serialise the argument.** The string `'welcome'` is passed through `devalue.stringify()`. For a simple string this is trivial, but for objects, `devalue` normalises key order so `{ limit: 10, offset: 0 }` and `{ offset: 0, limit: 10 }` produce identical serialised forms. This is why cache hits work regardless of property order.
+
+2. **Check the cache.** The cache key is `[functionId, serialisedArgument]`. If a cached entry exists and is not stale, the cached promise is returned. No network request.
+
+3. **Send the request.** If no cache entry exists, the stub sends a `POST` to the function's endpoint (e.g., `/_remote/getPost-x7y8z9`). The request body is the serialised argument. The `Content-Type` is `application/x-devalue`.
+
+4. **Server validates.** SvelteKit's runtime receives the request, deserialises the argument with `devalue.parse()`, and passes it through the Valibot schema. If validation fails, a 400 response is returned with the validation issues. The handler never runs.
+
+5. **Handler executes.** If validation passes, the handler receives the typed, validated argument. It runs your logic and returns a value.
+
+6. **Response serialised.** The return value goes through `devalue.stringify()`. `Date`, `Map`, `Set`, `BigInt`, and cyclic references are all preserved. The response is sent back.
+
+7. **Client deserialises.** The stub parses the response with `devalue.parse()`. The result is a fully typed value with all special types preserved.
+
+In the Network tab, you will see the request as a POST to a hashed URL. The request payload is the devalue-serialised argument. The response payload contains type markers (like `[-1,"Date","2026-04-01T00:00:00.000Z"]`) that the parser uses to reconstruct the original types.
+
+### 1.6 Comparison: Valibot vs Zod for remote function schemas
+
+| Aspect | Valibot | Zod |
+| --- | --- | --- |
+| Bundle size | ~1 KB per schema (tree-shakable) | ~13 KB minimum (not tree-shakable) |
+| TypeScript inference | Excellent (`v.InferInput`, `v.InferOutput`) | Excellent (`z.infer`) |
+| Standard Schema compliant | Yes | Yes (v3.24+) |
+| Pipe syntax | `v.pipe(v.string(), v.minLength(1))` | `z.string().min(1)` |
+| Error messages | `v.minLength(1, 'Custom message')` | `.min(1, 'Custom message')` |
+| Async validation | Supported | Supported |
+| File validation | `v.file()`, `v.mimeType()`, `v.maxSize()` | Via `.refine()` |
+| Learning curve | Slightly steeper (functional style) | Slightly easier (method chaining) |
+| Used in this course | Yes | No (but works as a drop-in) |
+
+Both Valibot and Zod implement the Standard Schema interface, which means SvelteKit's remote functions accept either. The course uses Valibot because its tree-shakable architecture means you only pay for the validators you import — a 50-field form schema might add 2 KB with Valibot and 13+ KB with Zod.
+
+### 1.7 The TypeScript angle
+
+The schema-first approach means your handler's parameter type is **derived from the schema**, not hand-written:
+
+```ts
+const postIdSchema = v.pipe(
+    v.string(),
+    v.minLength(1, 'ID cannot be empty'),
+    v.maxLength(64, 'ID too long'),
+    v.regex(/^[a-z0-9-]+$/, 'ID must be lowercase alphanumeric with hyphens')
+);
+
+// The type is inferred from the schema:
+type PostId = v.InferInput<typeof postIdSchema>; // string
+
+export const getPost = query(postIdSchema, async (id) => {
+    // id is typed as string — inferred from the schema
+    // At runtime, id is guaranteed to be a non-empty string of 1-64 chars
+    // matching the regex. No additional validation needed.
+    const post = store.get(id);
+    if (!post) error(404, `No post with id "${id}"`);
+    return post;
+});
+```
+
+On the client side, TypeScript enforces the same type:
+
+```svelte
+<script lang="ts">
+    import { getPost } from './post-by-id.remote';
+    // getPost expects a string argument
+    // getPost(123)  <-- TypeScript error: number is not string
+    // getPost()     <-- TypeScript error: expected 1 argument
+</script>
+```
+
+For object arguments, the inference is richer:
+
+```ts
+const searchSchema = v.object({
+    query: v.string(),
+    limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)), 20),
+    offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 0)
+});
+
+export const searchPosts = query(searchSchema, async (params) => {
+    // params is typed as { query: string; limit: number; offset: number }
+    // Default values from v.optional are applied by Valibot
+});
+```
+
+> **In production sidebar.** We use parameterized queries for every data read in our app. The Valibot schemas caught 12 invalid argument patterns during development that would have become runtime errors in production — things like passing `undefined` instead of a string, sending a negative page number, and submitting a slug with spaces. Each would have been a silent bug in a hand-written `fetch` call. The schema validation turns runtime mysteries into build-time errors and 400 responses with clear messages.
+
+### 1.8 Common interview question
+
+**Q: "Why must you validate arguments to remote functions even though TypeScript already checks the types at compile time?"**
+
+**Model answer:** TypeScript types are erased at runtime. They protect you during development but provide zero guarantee about the actual data that arrives over the network. A remote function is an HTTP endpoint — anyone can call it with `curl`, a browser extension, or a crafted fetch request. The arguments in the request body can be anything: wrong types, missing fields, SQL injection strings, excessively large payloads. A Valibot schema validates the runtime data before your handler touches it, rejecting malformed requests with a 400 status. TypeScript and Valibot are complementary: TypeScript catches your own mistakes at compile time; Valibot catches the outside world's mistakes at runtime.
+
+## Deep Dive
+
+**Argument-based cache keys in detail.** The cache is a `Map<string, Promise<T>>` where the key is the `devalue`-serialised argument. This means:
+- `getPost('welcome')` and `getPost('welcome')` hit the same cache entry (same serialised string).
+- `getPost('welcome')` and `getPost('goodbye')` are different entries.
+- For object arguments, `devalue` normalises key order, so `{ a: 1, b: 2 }` and `{ b: 2, a: 1 }` produce the same key.
+- `undefined` and missing properties are distinct from `null`. Be consistent.
+
+**Schema composition.** Valibot schemas are composable. You can build complex argument validators from simple pieces:
+
+```ts
+const dateRange = v.object({
+    from: v.pipe(v.string(), v.isoDate()),
+    to: v.pipe(v.string(), v.isoDate())
+});
+
+const paginatedDateRange = v.intersect([
+    dateRange,
+    v.object({ limit: v.optional(v.number(), 20), offset: v.optional(v.number(), 0) })
+]);
+```
+
+This is the "schema-first" design philosophy: define the data shape once, use it for validation, type inference, and documentation.
+
+## Going Deeper
+
+- **Valibot docs:** [Getting started](https://valibot.dev/guides/introduction/) covers the full API.
+- **Advanced pattern:** Create a shared schemas module (`src/lib/schemas/`) that exports reusable validators. Import them in both `.remote.ts` files (for server validation) and components (for preflight validation). One schema, two uses, zero drift.
+- **Challenge:** Write a query with an object argument that includes a `Date` field: `v.object({ since: v.date() })`. Call it from a component with `getPostsSince({ since: new Date('2026-01-01') })`. Inspect the network request body. Can you see the `Date` serialised in `devalue` format? On the server, is `since` a real `Date` object? (Answer: yes to both — `devalue` preserves `Date` across the wire.)
+
 ## 2. Style it — A post detail card with tag chips
 
 Per-page brand this lesson is a deep indigo. The tag chips use `color-mix()` to fade the brand colour by tag frequency — a tiny use of data-driven CSS that proves the `Map<string, number>` survived the trip.

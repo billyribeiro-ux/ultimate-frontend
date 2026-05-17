@@ -79,6 +79,34 @@ In this lesson's mini-build we will not pass any props yet — that is Lesson 3.
 
 **Cross-module connections.** Components are the organising principle of the entire course. Module 3 teaches how to build them. Module 4 teaches how to render them conditionally and in loops. Module 7 uses them to encapsulate GSAP animations. Module 8 uses them as route pages and layouts. Module 11 uses them with context for hierarchical state. Module 12 optimises their rendering. Every module from here forward assumes you understand what a component is, why it exists, and how to identify when markup should become one.
 
+### 1.6 Common interview question
+
+**Q: "How do you decide when to extract markup into a component vs keeping it inline?"**
+
+**Model answer:** Extract into a component when the markup satisfies at least one of these criteria: (1) it is duplicated in two or more places, and keeping it inline means maintaining copies; (2) it encapsulates a *decision* — its own styling, behaviour, or accessibility logic — that is worth isolating; (3) it has its own state or lifecycle that should not leak into the parent. Do *not* extract when the markup is used once, has no independent logic, and is only a thin wrapper around a native element. A `<Text>` component that wraps `<p>` without adding any value is noise. The threshold question: "does extracting this piece reduce the total complexity of the codebase, or does it just move it?"
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/svelte-files](https://svelte.dev/docs/svelte/svelte-files) — how `.svelte` files work as components.
+- [svelte.dev/docs/svelte/overview](https://svelte.dev/docs/svelte/overview) — the component model overview.
+- [svelte.dev/docs/kit/routing](https://svelte.dev/docs/kit/routing) — how route pages (`+page.svelte`) differ from regular components.
+
+**Advanced pattern: barrel exports for component libraries.** When your `src/lib/components/` folder grows to 20+ components, create an `index.ts` barrel file:
+
+```ts
+// src/lib/components/index.ts
+export { default as Button } from './Button.svelte';
+export { default as Card } from './Card.svelte';
+export { default as Avatar } from './Avatar.svelte';
+export { default as InfoCard } from './InfoCard.svelte';
+```
+
+Consumers can then import multiple components in one line: `import { Button, Card, Avatar } from '$lib/components'`. This pattern keeps imports clean and provides a single entry point for the component library.
+
+**Challenge question (combines Lesson 3.1 + Lesson 1.7 + Lesson 1.3):** You have a page with three product cards, each with the same HTML structure but different data. Currently the markup is copy-pasted three times. Extract it into a `ProductCard.svelte` component (without props — just hardcode one product for now). Explain what happens to the scoped styles, how the CSS hash proves all three rendered cards come from one source, and what you would do differently in the next lesson (3.2) to make the cards show different products.
+
 ## 2. Style it — PE7 applied to the mini-build
 
 The mini-build shows two info cards that share the same structure. Both cards read from the same PE7 tokens (`--color-surface-2`, `--color-border`, `--radius-lg`, `--space-lg`, `--shadow-md`). Because the style lives inside `InfoCard.svelte`, both rendered cards are guaranteed identical down to the hash on every class name. If you later decide the card needs larger padding, you edit *one* line in one file and both cards change. The per-page personality trick is applied at the *consumer* level: the route sets its own `--color-brand` override and both cards pick it up through the cascade, without the component knowing anything about it.

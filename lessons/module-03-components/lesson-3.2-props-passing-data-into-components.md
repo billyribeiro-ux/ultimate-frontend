@@ -138,6 +138,65 @@ Now `localCount` is independent state. Changes to the parent's `initialCount` af
 
 **Connection to other modules.** Props are the glue of the component tree. Module 4 (control flow) passes loop variables as props to child components. Module 5 (events) passes callback functions as props for child-to-parent communication. Module 6 (styling) uses CSS custom properties as a parallel "styling props" channel. Module 8 (routing) passes `data` from load functions as a prop to page components. Module 11 (state management) compares prop drilling to context and stores. Understanding props deeply here makes every subsequent pattern — callback props, render props via snippets, data props from load functions — immediately comprehensible.
 
+### 1.10 What the compiler does with props
+
+When a parent renders `<InfoCard label="Users" value="12,384" />`, the compiler generates a function call:
+
+```js
+InfoCard(target, { label: 'Users', value: '12,384' });
+```
+
+Inside `InfoCard`, `$props()` compiles to reading from that argument object. The compiler sets up signal subscriptions so that if the parent's props come from reactive state, changes flow into the child automatically:
+
+```js
+// Compiled child (simplified)
+export default function InfoCard($$anchor, $$props) {
+    const label = () => $$props.label;  // reactive getter
+    const value = () => $$props.value;  // reactive getter
+    // Template uses label() and value() to create subscriptions
+}
+```
+
+Each prop becomes a reactive getter. When the parent updates a prop, the getter returns the new value, and only the specific DOM nodes that reference that prop update. This is why Svelte does not re-render the entire child component when one prop changes — it updates only the affected DOM nodes.
+
+### 1.11 Common interview question
+
+**Q: "In Svelte 5, what is the `$props()` rune and how does it differ from Svelte 4's `export let` pattern?"**
+
+**Model answer:** `$props()` is a compiler intrinsic that returns the component's incoming props as a single reactive object. You destructure it once: `let { label, value } = $props()`. It replaces Svelte 4's `export let label; export let value;` pattern. Three improvements: (1) `$props()` is a single call with one destructure, making it obvious which variables are props; (2) it integrates with TypeScript naturally — you annotate the destructure with an interface (`let { label, value }: Props = $props()`); (3) `export` no longer has a dual meaning — in JavaScript, `export` means "make available to importers", but in Svelte 4 it meant "this is a prop." The semantic overloading confused many learners. `$props()` eliminates the confusion.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$props](https://svelte.dev/docs/svelte/$props) — the official `$props` rune reference.
+- [svelte.dev/docs/svelte/old-vs-new](https://svelte.dev/docs/svelte/old-vs-new) — comparing `$props()` to `export let`.
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — typing props with interfaces.
+
+**Advanced pattern: rest-props for HTML attribute forwarding.** Many components need to accept arbitrary HTML attributes and pass them to the root element:
+
+```svelte
+<script lang="ts">
+    import type { HTMLAttributes } from 'svelte/elements';
+    
+    interface Props extends HTMLAttributes<HTMLElement> {
+        label: string;
+        value: string;
+    }
+    
+    let { label, value, ...rest }: Props = $props();
+</script>
+
+<article {...rest} class="info-card">
+    <p>{label}</p>
+    <p>{value}</p>
+</article>
+```
+
+The `...rest` pattern collects all props not explicitly listed and spreads them onto the element. This enables callers to pass `class`, `id`, `data-testid`, ARIA attributes, and event handlers without the component author listing each one.
+
+**Challenge question (combines Lesson 3.2 + Lesson 2.2 + Lesson 1.9):** A parent component has a `$state` variable `count` that changes on button clicks. It passes `count` as a prop to a child `Counter` component. Inside the child, the count is displayed with `{count}`. Explain the full reactive chain: from the button click in the parent, through the state update, through the prop flow, to the specific DOM text node that updates in the child. At which point does the virtual DOM get diffed? (Trick question — it does not.)
+
 ## 2. Style it — Brand personality moves with the component
 
 `InfoCard` already carries its own styles from Lesson 3.1. In this lesson the consumer route overrides the per-page `--color-brand` to teal, and every instance picks it up through the cascade — even though the component itself never mentions teal. This is your first taste of the pattern used for the entire UI library later: the parent sets tokens, the child reads them.

@@ -98,6 +98,79 @@ Your app can have prerendered home and about pages, prerendered blog posts, and 
 
 Some adapters (Vercel, Netlify) now support incremental static regeneration (ISR) on top of prerender — the static HTML is served immediately, then regenerated in the background on a schedule. That gives you SSG speed with near-SSR freshness. This is adapter-specific; check your adapter's docs.
 
+### 1.8 What SvelteKit does under the hood
+
+The prerendering pipeline is a build-time simulation of SSR. Here is the exact sequence during `pnpm build`:
+
+1. **Build phase 1: Compile.** SvelteKit compiles all components, loads, and server code into the output directory. This produces the server-side rendering code and the client-side hydration code, just like a normal SSR build.
+
+2. **Build phase 2: Prerender.** SvelteKit starts an in-process HTTP server using the compiled code. For every route marked with `prerender = true`:
+   a. If the route is static (`/about`), SvelteKit navigates to it internally.
+   b. If the route is dynamic (`/blog/[slug]`), SvelteKit calls `entries()` to get the list of parameter objects, then navigates to each one.
+   c. For each navigation, the full SSR pipeline runs: layout loads, page loads, component rendering. The result is a complete HTML page.
+   d. The HTML is written to the output directory as a static file: `build/about/index.html`, `build/blog/hello/index.html`, etc.
+   e. Any data fetched during the load (via the enhanced fetch) is also embedded, so hydration works on the static file.
+
+3. **Build phase 3: Crawl (for `prerender = 'auto'`).** After rendering explicitly prerendered pages, SvelteKit's crawler scans the generated HTML for `<a href>` links. Any link that points to a route with `prerender = 'auto'` is added to the prerender queue. The crawler repeats until no new pages are found. This is how `prerender = 'auto'` discovers pages without you listing them in `entries()`.
+
+4. **Output.** The build directory contains two kinds of files:
+   - Static HTML files for prerendered routes (served directly by the CDN or static file server).
+   - Server code for dynamic routes (requires a Node/edge runtime).
+
+The adapter (Vercel, Netlify, Cloudflare, Node) decides how to deploy each kind.
+
+### 1.9 The TypeScript angle
+
+The `entries()` function is typed via `EntryGenerator` from `./$types`:
+
+```ts
+import type { EntryGenerator } from './$types';
+
+export const entries: EntryGenerator = async () => {
+    const posts = await db.posts.findMany({ select: { slug: true } });
+    return posts.map(p => ({ slug: p.slug }));
+};
+```
+
+`EntryGenerator` constrains the return type to `Array<RouteParams>`, where `RouteParams` is derived from the folder name. If your folder is `[slug]`, the return must be `Array<{ slug: string }>`. If your folder is `[category]/[id]`, the return must be `Array<{ category: string; id: string }>`. TypeScript catches missing or misnamed parameters at compile time.
+
+The `prerender` export itself is typed as `boolean | 'auto'`. There is no string union beyond those two — TypeScript prevents typos like `'true'` or `'yes'`.
+
+### 1.10 Comparison: SSG vs SSR vs CSR vs ISR
+
+| Aspect | SSG (prerender) | SSR | CSR (csr only) | ISR (adapter-specific) |
+| --- | --- | --- | --- | --- |
+| When HTML is generated | Build time | Request time | Never (JS renders) | Build + background regen |
+| Server needed at runtime | No | Yes | No (static host) | Yes (for regen) |
+| TTFB | Fastest (CDN edge) | Medium (server compute) | Fast (empty HTML) | Fast (cached) |
+| Data freshness | Stale until rebuild | Always fresh | Always fresh | Configurable staleness |
+| Works with cookies | No | Yes | Yes (client-side) | Depends on setup |
+| Works with form actions | No | Yes | No | Limited |
+| SEO | Excellent | Excellent | Poor (JS-dependent) | Excellent |
+| Build time scales with | Number of pages | N/A | N/A | Number of pages (initial) |
+
+> **In production sidebar.** Our documentation site has 340 pages of technical content. Each page takes ~200ms to render during build. With SSG, the full build takes about 70 seconds. We deploy to Cloudflare Pages, where each page is served from the edge in under 10ms — faster than any SSR setup. The trade-off: when we fix a typo, we have to rebuild and redeploy the entire site. For a docs site that changes a few times a week, this is acceptable. For a product catalog that changes hourly, we would use ISR or SSR instead. The decision framework: if the data changes less often than you deploy, prerender. If it changes between deployments, use SSR or ISR.
+
+### 1.11 Common interview question
+
+**Q: "When should you prerender a SvelteKit route, and what are the limitations?"**
+
+**Model answer:** Prerender a route when its content is the same for every visitor and changes infrequently — blog posts, documentation, marketing pages, about pages. The route's load function must not use per-request information: no cookies, no request headers, no `event.locals`, no URL search params. It can only use `params` (provided by `entries()`) and the results of deterministic fetch calls. Prerendered pages cannot host form actions that mutate server state. The limitation is staleness: prerendered content is frozen at build time and only updates on the next build+deploy. For dynamic routes, you must provide an `entries()` function that lists every parameter combination. If the list is unknown at build time (user-generated content with arbitrary slugs), prerendering is not practical — use SSR or ISR instead.
+
+## Deep Dive
+
+**`prerender = 'auto'` and the crawler.** The crawler follows `<a href>` links in rendered HTML. It does not follow links generated by JavaScript after hydration, links inside `{#if}` blocks that are false during SSR, or links built from user input. For dynamic routes, the crawler is a best-effort discovery tool — it may miss pages that are only linked from dynamically rendered content. Always use explicit `entries()` for routes that must be prerendered reliably.
+
+**Combining `prerender = true` with `csr = false`.** Setting both produces a fully static page with zero client-side JavaScript. The page cannot hydrate — no event handlers, no reactivity, no `$state`. This is ideal for pure content pages (privacy policy, terms of service) where interactivity is unnecessary. The page loads faster because there is no JS to download, parse, or execute.
+
+**Prerendering and trailing slashes.** The `trailingSlash` config affects how prerendered files are named. With `trailingSlash: 'always'`, `/about/` renders to `about/index.html`. With `trailingSlash: 'never'`, `/about` renders to `about.html`. The default (`trailingSlash: 'ignore'`) renders to `about/index.html`. This matters for deployment because some static hosts (GitHub Pages) require trailing slashes, while others (Netlify) handle both.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Page options — prerender](https://svelte.dev/docs/kit/page-options#prerender) covers every option including `entries()` and the crawler.
+- **Advanced pattern:** Use `entries()` to query a CMS at build time, fetching all published slugs. Combine with a GitHub Actions workflow that triggers a rebuild whenever the CMS publishes new content (via a webhook).
+- **Challenge:** Create a dynamic route with `prerender = true` and `entries()`. Build the project. Find the generated HTML files in the output directory. Now add a new entry to `entries()`, rebuild, and verify the new file appears. What happens if `entries()` returns a slug that the load function cannot find? (Answer: the build fails with an error from the load function.)
+
 ## 2. Style it — PE7 for a build-time stamp
 
 The mini-build shows a prerendered page with a build-time timestamp. Every time you reload the page in `pnpm dev` the timestamp changes (because `dev` does not actually prerender); after `pnpm build && pnpm preview` the timestamp is frozen. We use a cool teal (`oklch(70% 0.15 170)`).

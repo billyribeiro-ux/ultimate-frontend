@@ -121,6 +121,63 @@ TypeScript will enforce the shape both on the initial value and on every assignm
 
 **Cross-module connections.** Object state is the foundation for component props (Module 3 — `$props()` returns a reactive object), for form handling (Module 10 — form state is an object with many fields), and for shared state stores (Module 11 — reactive classes hold object state). The deep-proxy mental model you build here carries directly into understanding how props update, how context works, and how reactive class fields behave. If you understand "mutation through the proxy triggers targeted updates," you understand 80% of Svelte's reactivity story.
 
+### 1.7 What the compiler does with object `$state`
+
+When you write `let profile: Profile = $state({ name: 'Ada', email: 'a@b.c', theme: 'dark' })`, the compiler wraps the object in a `Proxy`. The Proxy's `get` trap registers subscriptions per-property. The `set` trap notifies only the subscribers of the changed property. Simplified:
+
+```js
+const profile = proxy({
+    name: source('Ada'),
+    email: source('a@b.c'),
+    theme: source('dark')
+});
+
+// Reading profile.name in markup → get trap → registers subscription to name signal
+// Writing profile.name = 'Augusta' → set trap → notifies only name subscribers
+```
+
+The per-property granularity means that changing `profile.name` does not re-render the part of the template that displays `profile.email`. Each field is its own signal. This is fundamentally more efficient than React's model, where calling `setProfile({...profile, name: 'Augusta'})` causes a full re-render of the component and its children.
+
+### 1.8 "In production" — mutation beats immutability for form state
+
+At a 50-developer HR platform, the employee settings page had 15 form fields — name, email, phone, department, manager, timezone, language, notifications preferences, and more. In the previous React codebase, every field change required a spread-and-copy pattern: `setSettings({...settings, phone: newPhone})`. With 15 fields and 15 event handlers, the component had 30 lines of boilerplate just for state updates.
+
+After migrating to Svelte 5, each handler became one line: `settings.phone = newPhone`. Deep reactivity meant the proxy intercepted every mutation. The component shrank from 180 lines to 95 lines. More importantly, a subtle bug in the React version — where the spread operator sometimes lost a concurrent field update due to stale closures — disappeared entirely because mutation does not suffer from stale-closure problems. You always mutate the current object, not a copy of a potentially-old snapshot.
+
+### 1.9 Common interview question
+
+**Q: "Explain the difference between Svelte 5's deep reactive proxy and React's immutable state pattern. When would you choose each?"**
+
+**Model answer:** Svelte 5 wraps objects in a deep Proxy that intercepts property reads and writes. You mutate the object directly (`profile.name = 'Ada'`), and the proxy notifies only the specific DOM nodes that read that property. React requires immutability: you create a new object with the changed field (`setProfile({...profile, name: 'Ada'})`), and React re-renders the component to find what changed via virtual DOM diffing. Svelte's approach is more ergonomic (less boilerplate), more performant (targeted updates instead of diffing), and avoids stale-closure bugs. React's approach is more familiar to functional programmers and makes "undo/redo" patterns simpler (you can store snapshots of each state). Choose Svelte's mutation for UI state that changes frequently (forms, toggles, real-time data). Choose immutable patterns when you need a change history or need to compare old and new states (use `$state.snapshot` in Svelte for this).
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — covers deep reactivity, proxies, and the `$state` rune in detail.
+- [svelte.dev/docs/svelte/reactivity-fundamentals](https://svelte.dev/docs/svelte/reactivity-fundamentals) — explains how the reactive graph works with objects.
+- [developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) — MDN reference for JavaScript Proxies.
+
+**Advanced pattern: reactive class instances.** You can use `$state` on class fields to create reactive objects with methods:
+
+```ts
+class Profile {
+    name = $state('');
+    email = $state('');
+    theme: 'light' | 'dark' = $state('dark');
+
+    toggleTheme() {
+        this.theme = this.theme === 'dark' ? 'light' : 'dark';
+    }
+}
+
+const profile = new Profile();
+```
+
+This pattern bundles state and behaviour together, and each field is independently reactive. It is the Svelte 5 equivalent of MobX's observable classes.
+
+**Challenge question (combines Lesson 2.3 + Lesson 2.2 + Lesson 1.8):** You have `let user = $state({ name: 'Ada', address: { city: 'London' } })`. Write code to update `user.address.city` to `'Paris'`. Then explain why `const { address } = user; address.city = 'Paris'` also works but `const { city } = user.address; city = 'Paris'` does not trigger reactivity. What TypeScript type does `city` have in the second case, and why?
+
 ## 2. Style it — A live settings panel
 
 The mini-build is a tiny settings panel: a form with a name input, an email input, and a theme toggle. All three fields read from and write to one `Profile` state object. PE7 tokens drive spacing, colour, and form styling. When the theme changes, a CSS custom property on the panel's root updates — we will make the whole panel's colour scheme flip.

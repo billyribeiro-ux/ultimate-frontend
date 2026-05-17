@@ -130,6 +130,38 @@ The rule is simple: if the output is a value, use `$derived`. If the output is a
 
 **Connection to other modules.** Effects are the bridge between Svelte's reactive world and everything outside it. Module 7 (GSAP) uses effects to start animations when state changes. Module 8 (routing) uses effects implicitly through SvelteKit's lifecycle. Module 9B (remote functions) uses effects to trigger queries. Module 11 (state management) uses effects for localStorage persistence. Module 12 dedicates an entire lesson to effect performance. Anywhere your code talks to the browser, a third-party library, or the network, an effect is the likely mechanism.
 
+### 1.10 Common interview question
+
+**Q: "What is the difference between `$derived` and `$effect`, and what is the most common mistake developers make with `$effect`?"**
+
+**Model answer:** `$derived` computes a value from other reactive values — it is pure, cached, and synchronous. `$effect` runs a side-effect function when reactive values change — it is impure, uncached, and runs after the DOM update. The most common mistake is using `$effect` to compute a value and write it to `$state`, when `$derived` would express the same relationship directly. For example, writing `$effect(() => { total = subtotal + tax })` instead of `const total = $derived(subtotal + tax)`. The `$effect` version hides the data relationship, introduces a one-tick delay, and risks infinite loops if the written state is also read in the effect. The rule: if the output is a value, use `$derived`. If the output is an action (DOM write, API call, storage), use `$effect`.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$effect](https://svelte.dev/docs/svelte/$effect) — the `$effect` rune reference with lifecycle details.
+- [svelte.dev/docs/svelte/lifecycle-hooks](https://svelte.dev/docs/svelte/lifecycle-hooks) — how `$effect` relates to the component lifecycle.
+- [svelte.dev/docs/svelte/svelte#untrack](https://svelte.dev/docs/svelte/svelte#untrack) — the `untrack` escape hatch for reading without subscribing.
+
+**Advanced pattern: debounced effects for search inputs.** A common pattern is debouncing an effect that fires on every keystroke:
+
+```ts
+let query: string = $state('');
+
+$effect(() => {
+    const currentQuery = query; // tracked read
+    const timer = setTimeout(() => {
+        searchAPI(currentQuery); // only fires after 300ms of no typing
+    }, 300);
+    return () => clearTimeout(timer); // cleanup cancels pending search
+});
+```
+
+The cleanup function cancels the previous timer whenever `query` changes. Only the last timer (after the user stops typing for 300ms) actually fires the API call. This combines `$effect` with cleanup to implement debouncing without any external library.
+
+**Challenge question (combines Lesson 2.9 + Lesson 2.7 + Lesson 2.11):** You want to persist a user's theme preference to `localStorage` whenever it changes. Write the `$effect` that does this. Then explain why using `$derived` instead would be wrong. Finally, add cleanup logic that would be needed if the effect also started a `setInterval` to auto-save.
+
 ## 2. Style it — A title-syncing demo
 
 The mini-build is a counter whose value is mirrored to `document.title` via an `$effect`. As you click, the browser tab's title updates in real time. A PE7-styled card shows the current value.

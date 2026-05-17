@@ -99,6 +99,70 @@ Nothing at the `Promise.all` level — it has been in JavaScript since ES2015. W
 
 The Network panel's waterfall column is your proof. Sequential fetches appear as stair-steps: each request starts only after the previous one finishes. Parallel fetches appear as a vertical stack: all requests start at the same horizontal position. The total duration is the height of the tallest bar, not the sum of all bars. Train yourself to look for stair-steps in the waterfall — every stair-step on independent data sources is a parallelization opportunity.
 
+### 1.9 What SvelteKit does under the hood
+
+SvelteKit itself performs parallelization at the layout/page level. When a user navigates to a route, SvelteKit identifies all the load functions in the route's layout chain. If none of them call `parent()`, SvelteKit runs them all in parallel automatically. This is "framework-level parallelism" — you do not need `Promise.all` for it.
+
+`Promise.all` is what you use for **intra-load parallelism** — multiple independent fetches within a single load function. The two levels work together:
+
+```
+Framework-level parallelism (automatic):
+  Root layout load ─────────┐
+  Dashboard layout load ────┤── all start at the same time
+  Analytics page load ──────┘
+
+Intra-load parallelism (your Promise.all):
+  Inside analytics page load:
+    fetchMetrics() ──────────┐
+    fetchAlerts() ───────────┤── all start at the same time
+    fetchBudget() ───────────┘
+```
+
+Total time = max(root_load, dashboard_load, max(metrics, alerts, budget)). Without either level of parallelism, total time = sum of everything.
+
+### 1.10 The TypeScript angle
+
+`Promise.all` preserves tuple types, which is essential for load functions that return multiple typed values:
+
+```ts
+const [user, notifications, stats] = await Promise.all([
+    fetchUser(userId),           // returns Promise<User>
+    fetchNotifications(userId),  // returns Promise<Notification[]>
+    fetchStats()                 // returns Promise<DashboardStats>
+]);
+// TypeScript knows:
+// user: User
+// notifications: Notification[]
+// stats: DashboardStats
+```
+
+This works because `Promise.all` is overloaded in TypeScript's standard library to preserve up to 10 tuple positions. If you have more than 10 parallel fetches (unusual but possible), the type inference falls back to a union array. In that case, use explicit typing:
+
+```ts
+const results = await Promise.all(
+    cities.map(c => fetchWeather(c.id))
+) as Weather[];
+```
+
+For `Promise.allSettled`, each result is typed as `PromiseSettledResult<T>`, which is a discriminated union of `PromiseFulfilledResult<T>` and `PromiseRejectedResult`. You narrow with `result.status === 'fulfilled'`:
+
+```ts
+const results = await Promise.allSettled([fetchA(), fetchB()]);
+for (const r of results) {
+    if (r.status === 'fulfilled') {
+        console.log(r.value); // typed as the resolved value
+    } else {
+        console.error(r.reason); // typed as any
+    }
+}
+```
+
+### 1.11 Common interview question
+
+**Q: "You have a SvelteKit load function with five independent API calls. The page takes 2 seconds to load. How do you diagnose and fix this?"**
+
+**Model answer:** Open the DevTools Network panel and look for a waterfall pattern — five sequential requests where each starts after the previous finishes. If each takes ~400ms, the total is 2 seconds. The fix is `Promise.all`: start all five fetches without awaiting, then await them together. The total drops to ~400ms (the slowest single request). If one of the five is much slower than the others and its data is below the fold, consider streaming it (Lesson 9A.9): return the slow fetch as a bare promise and render it with `{#await}`. The page paints the fast data immediately and the slow data streams in later. This combination of parallelism and streaming is the standard optimization for data-heavy dashboard pages.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a dashboard with 5 data widgets, sequential loading means the page takes the *sum* of all widget data fetches to render. If each takes 200ms, that is 1 second of load time. With `Promise.all`, it is 200ms — a 5x improvement. This directly affects LCP, which Google uses for search ranking. At scale (thousands of daily visitors), the compounding impact is enormous: every visitor gets a faster page, bounce rates drop, and the Lighthouse score goes from amber to green without any other optimization. Parallel loading is the highest-ROI performance fix available in most data-heavy applications.

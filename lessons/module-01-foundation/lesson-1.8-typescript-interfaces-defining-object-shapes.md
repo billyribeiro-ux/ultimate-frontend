@@ -145,6 +145,58 @@ That `Props` interface is the contract between this component and every other co
 
 **Cross-module connections.** Interfaces are the connective tissue of this entire course. Module 3 uses them for `Props` declarations on every component. Module 5 uses them to type event payloads. Module 9 uses them for load function return shapes and PageData types. Module 10 uses them for form action data. Module 11 uses them for shared reactive state shapes. The pattern is always the same: declare the shape, import it at boundaries, let the compiler enforce consistency. Mastering interfaces here makes every subsequent module's type patterns feel familiar rather than foreign.
 
+### 1.7 "In production" — interfaces caught a backend migration
+
+At a 50-developer fintech company, the payments API changed a response field from `amount: number` to `amount: { value: number; currency: string }`. The frontend had an `interface Payment { amount: number; }` imported in 22 components. The CI pipeline ran `pnpm check` after the backend deployed a new schema, and all 22 components lit up with type errors: "Property 'value' does not exist on type 'number'." The team updated the interface once, then followed the compiler's error trail to fix every usage site. Total time: 45 minutes. Without the interface, 22 components would have silently rendered `[object Object]` or `NaN` in production until a user noticed.
+
+### 1.8 What the compiler does with interfaces
+
+Interfaces are *completely* erased during compilation. `interface Product { id: string; name: string; price: number; }` produces zero JavaScript output. It exists only for the type checker. This is true for all TypeScript type constructs: `type`, `interface`, `enum` (mostly), and generic type parameters. The Svelte compiler processes your TypeScript through the `svelte-preprocess` pipeline, which runs the TypeScript checker and then strips all type syntax, leaving plain JavaScript for the Svelte compiler to transform into DOM instructions.
+
+### 1.9 Comparison: `interface` vs `type` for defining shapes
+
+| Feature | `interface` | `type` |
+|---|---|---|
+| Object shapes | Yes | Yes |
+| Union types | No | Yes (`'a' \| 'b'`) |
+| Intersection types | Via `extends` | Via `&` |
+| Declaration merging | Yes (re-open and add fields) | No |
+| Computed properties | No | Yes |
+| Used for component props | Convention in Svelte docs | Also works |
+| Error message readability | Shows interface name | Sometimes shows expanded shape |
+
+Rule of thumb in this course: `interface` for object shapes (props, data models, API responses), `type` for everything else (unions, tuples, utility types, mapped types).
+
+### 1.10 Common interview question
+
+**Q: "What is the difference between TypeScript's structural typing and nominal typing, and how does it affect component props in Svelte?"**
+
+**Model answer:** TypeScript uses structural typing (also called duck typing): if an object has all the fields an interface requires, it satisfies the interface — regardless of what constructor created it or what name the type has. This means if `Product` and `Gadget` both have `{ id: string; name: string; price: number }`, a value of type `Gadget` can be passed where `Product` is expected. For Svelte props, this means you can pass a plain object literal `{ id: 'x', name: 'Pen', price: 5 }` to a component expecting `Product` props without any class instantiation. It also means that if a backend returns JSON with the right fields, it automatically satisfies the interface without any adapter code. The trade-off is that accidental compatibility between unrelated types is possible — a `User` with `{ id: string; name: string }` might accidentally satisfy a `Product` interface if `price` is optional.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — how Svelte components work with TypeScript interfaces for props.
+- [typescriptlang.org/docs/handbook/2/objects.html](https://www.typescriptlang.org/docs/handbook/2/objects.html) — the full TypeScript object types reference.
+- [typescriptlang.org/docs/handbook/2/types-from-types.html](https://www.typescriptlang.org/docs/handbook/2/types-from-types.html) — utility types like `Pick`, `Omit`, `Partial`, and `Required`.
+
+**Advanced pattern: `Partial<T>` and `Required<T>` for API flexibility.** When a function accepts an update to an existing record, you want all fields to be optional. When validating a complete record, you want all fields to be required:
+
+```ts
+interface Product { id: string; name: string; price: number; }
+
+function updateProduct(id: string, patch: Partial<Product>): void { /* ... */ }
+// patch can be { name: 'New Name' } — only changed fields
+
+function validateProduct(input: unknown): Required<Product> { /* ... */ }
+// validateProduct must return an object with every field present
+```
+
+These utility types derive new shapes from existing interfaces without duplication.
+
+**Challenge question (combines Lesson 1.8 + Lesson 1.4 + Lesson 1.9):** Define a `LessonCard` interface with required `number` and `title` fields and an optional `badge` field. Write a Svelte template that renders an array of `LessonCard[]` using `{#each}`, showing the badge only when present. Explain what TypeScript catches if you forget the `{#if badge}` guard.
+
 ## 2. Style it — A list of typed cards
 
 The mini-build renders a list of "course modules" from a typed array. Each module has a number, a title, a duration, and an optional badge. The PE7 card style is the same one you built in Lesson 1.7. No new styling — focus on the types.

@@ -123,6 +123,85 @@ Option B is enough most of the time. If your `getPost()` is typed, the return is
 3. In the component, import `PageProps` from `./$types` and annotate `$props()`.
 4. Never, ever write `any`. If the compiler complains, fix the load's return shape, not the component's destructure.
 
+### 1.7 What SvelteKit does under the hood
+
+The `$types` generation pipeline is one of SvelteKit's most impressive pieces of build infrastructure. Here is exactly what happens:
+
+1. **`svelte-kit sync` runs.** This happens automatically when you start `pnpm dev` or `pnpm build`. It walks every folder under `src/routes/` and identifies files matching `+page.ts`, `+page.server.ts`, `+layout.ts`, `+layout.server.ts`.
+
+2. **Route parameters are extracted from folder names.** A folder named `[slug]` produces `{ slug: string }`. A folder named `[...rest]` produces `{ rest: string }`. A folder named `[[optional]]` produces `{ optional?: string }`. These become the `Params` type.
+
+3. **For each route, a `$types.d.ts` file is generated** at `.svelte-kit/types/src/routes/<path>/$types.d.ts`. This file exports:
+   - `PageLoad` constrained to the route's `Params`
+   - `PageServerLoad` constrained to the route's `Params` with server-only event fields
+   - `PageProps` whose `data` field is inferred from the load function's return type
+   - `LayoutLoad`, `LayoutServerLoad`, `LayoutProps` for layout files
+   - `Actions`, `ActionData` for form actions (Module 10)
+   - `EntryGenerator` for prerender entries
+   - `RouteParams` — the raw params type
+
+4. **TypeScript path aliases make it work.** In `tsconfig.json` (auto-managed by SvelteKit), `./$types` is aliased to the generated file. Your editor resolves the import as if it were a sibling module.
+
+5. **The return type flows downstream.** When you annotate `export const load: PageLoad = ...`, TypeScript infers the function's return type. SvelteKit's generated `PageProps` references that inferred type. In the component, `let { data }: PageProps = $props()` gives `data` the exact shape the load returned.
+
+The chain is: **folder name -> Params -> PageLoad constraint -> load return type -> PageProps.data**. Every link is generated. Break one link (rename a param, change a return field) and TypeScript immediately flags every downstream consumer.
+
+### 1.8 How the types propagate through layouts
+
+The type system gets more interesting with layout inheritance. Consider this route hierarchy:
+
+```
+src/routes/
+  +layout.server.ts     -> returns { user: User }
+  dashboard/
+    +layout.ts          -> returns { ...data, sidebar: Sidebar }
+    analytics/
+      +page.server.ts   -> returns { metrics: Metric[] }
+      +page.svelte      -> data has type { user: User, sidebar: Sidebar, metrics: Metric[] }
+```
+
+The `PageProps` for the analytics page's component includes fields from **every ancestor layout load** plus the page's own load. SvelteKit's type generator walks up the layout tree, collects every return type, and merges them into a single `data` type. This is why `data.user` works in a deeply nested page even though only the root layout loaded the user.
+
+If you add a field to the root layout's return, every `PageProps` in the app automatically includes it. If you remove a field, every component that read it immediately shows a type error. This is the "end-to-end" promise extended across the entire layout hierarchy.
+
+### 1.9 Comparison: hand-written types vs `$types`
+
+| Aspect | Hand-written interfaces | Auto-generated `$types` |
+| --- | --- | --- |
+| Source of truth | Your interface file | The load function's return type |
+| Drift risk | High (two places to update) | Zero (one source) |
+| Route params | Manual `{ slug: string }` | Auto from folder name |
+| Layout data merging | Manual intersection type | Automatic recursive merge |
+| Rename safety | Breaks silently | Compile error everywhere |
+| Setup cost | One interface per load | Zero (built-in) |
+| Works in tests | Yes (import the interface) | Yes (import from `$types`) |
+
+> **In production sidebar.** Before we adopted `$types`, our SvelteKit app had 47 hand-written `PageData` interfaces across 47 routes. Three of them were wrong — they described fields that the load no longer returned. Two of those bugs made it to production as undefined property reads that only manifested on specific pages. After migrating to `$types` (which took about 2 hours — delete the interfaces, import `PageProps`, fix the five type errors that surfaced), we found those two bugs plus three more we had not noticed. The migration literally paid for itself the same afternoon. There is zero reason to hand-write data interfaces in a SvelteKit project.
+
+### 1.10 Common interview question
+
+**Q: "How does SvelteKit achieve end-to-end type safety between load functions and components?"**
+
+**Model answer:** SvelteKit runs a build-time sync step (`svelte-kit sync`) that generates a `$types.d.ts` file for every route. This file exports types like `PageLoad`, `PageServerLoad`, and `PageProps` that are derived from the route's folder structure (for params) and the load function's return type (for data). The component imports `PageProps` and destructures `data` from `$props()`, so the data type is the exact return type of the load function. If the load changes its return shape, every component reading that data gets an immediate compile-time error. Layout data is merged recursively: a page's `PageProps.data` includes fields from every ancestor layout's load, all auto-generated. The developer never writes a manual data interface — the compiler writes it from the actual code.
+
+### 1.11 Debugging stale types
+
+Sometimes your editor shows wrong types even though the code is correct. Three common causes and fixes:
+
+1. **`svelte-kit sync` has not run.** Restart `pnpm dev` or run `pnpm svelte-kit sync` manually. The `.svelte-kit/types/` directory is regenerated.
+
+2. **Your editor's TypeScript server is cached.** In VS Code, open the command palette and run "TypeScript: Restart TS Server". The language server re-reads the generated files.
+
+3. **The `.svelte-kit/` directory is corrupted.** Delete it entirely and restart `pnpm dev`. SvelteKit rebuilds everything from scratch.
+
+If types still seem wrong after all three steps, check that your `tsconfig.json` includes the SvelteKit-generated paths. The default SvelteKit scaffold adds `"extends": "./.svelte-kit/tsconfig.json"` — if that line is missing, path aliases for `$types` will not resolve.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Types](https://svelte.dev/docs/kit/types) — the official reference for every generated type.
+- **Advanced pattern:** Create a utility type that extracts the `data` type from a `PageProps` for use in tests: `type PageData = PageProps extends { data: infer D } ? D : never;`. This lets you construct test fixtures with the exact shape your component expects.
+- **Challenge:** Add a `[slug]` segment to a route and inspect the generated `$types.d.ts` file in `.svelte-kit/types/`. Find where `Params` is defined. Now change the folder name to `[...path]`. Re-sync and compare. What changed in the generated file?
+
 ## 2. Style it — PE7 for a type inspector
 
 The mini-build shows the actual shape of `data` as a JSON tree on the page. We give it a green personality (`oklch(70% 0.18 150)`) and use a `<pre>` block to display the serialised value.

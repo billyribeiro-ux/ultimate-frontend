@@ -106,6 +106,55 @@ Read it in three beats. Where? `src/lib/cart.ts`, line 12, column 3. What is wro
 
 **Cross-module connections.** Type annotations are the foundation for everything that follows. Module 3 uses interfaces (which are named annotations) for component props. Module 5 uses them for event handler parameters. Module 9 uses them for load function return types. Module 11 uses them for shared state stores. Every time you see a `: SomeType` in this course, you are looking at the same mechanism you learned here — a contract that the compiler enforces. The investment you make in learning to read annotations today pays compound interest across all thirteen modules.
 
+### 1.6 What the compiler does with type annotations
+
+Type annotations are erased during compilation. The TypeScript code `const price: number = 99.5` compiles to `const price = 99.5`. The `: number` part never reaches the browser. It exists only for the type checker — which runs before the Svelte compiler produces output. This means annotations are free: zero bytes in the bundle, zero milliseconds at runtime. You can annotate as aggressively as you want without worrying about performance. The Svelte compiler chain is: TypeScript checks types → strips annotations → Svelte compiles the remaining JavaScript and markup → Vite bundles the output.
+
+### 1.7 "In production" — a type that caught a backend migration
+
+At a 50-developer SaaS company, the backend team renamed a JSON field from `total` to `grandTotal` in the invoice API. The frontend had `interface Invoice { total: number; }` used across 14 components. The moment the backend deployed, CI ran `pnpm check` (Svelte's type-checking command) and every component that referenced `invoice.total` failed to compile. The team fixed all 14 files in 20 minutes using the editor's "rename symbol" feature. Without the typed interface, the components would have rendered `undefined` on production invoices until a customer reported the bug — potentially days later.
+
+### 1.8 Comparison: `const` vs `let` vs `$state` declarations
+
+| Declaration | Can reassign? | TypeScript infers | Reactive in Svelte 5? |
+|---|---|---|---|
+| `const x = 5` | No | Literal type `5` | No — constant value |
+| `let x = 5` | Yes | `number` (widened) | No — plain variable |
+| `let x = $state(5)` | Yes | `number` | Yes — signal created |
+
+The widening rule for `let` vs `const` matters. `const x = 'hello'` infers the *literal* type `'hello'`. `let x = 'hello'` infers the *widened* type `string`. This distinction becomes important when you pass values to functions expecting specific literal unions.
+
+### 1.9 Common interview question
+
+**Q: "When should you explicitly annotate a TypeScript variable, and when should you rely on type inference?"**
+
+**Model answer:** Rely on inference when the initial value fully expresses your intent — `const price = 99.5` is clearly a number. Annotate explicitly in three situations: (1) when the inferred type is too wide, like `let status = 'loading'` inferring `string` when you want `'loading' | 'success' | 'error'`; (2) at function boundaries — always annotate parameters and return types, because inference does not cross function signatures and the annotation serves as documentation; (3) for empty collections — `const items = []` infers `never[]`, which blocks all future pushes, so you must write `const items: Item[] = []`. The principle is: annotate at boundaries, infer inside bodies.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — Svelte-specific TypeScript guidance, including how types flow through components.
+- [typescriptlang.org/docs/handbook/2/everyday-types.html](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html) — the official everyday types reference.
+- [typescriptlang.org/docs/handbook/2/narrowing.html](https://www.typescriptlang.org/docs/handbook/2/narrowing.html) — type narrowing with `typeof`, `instanceof`, and discriminated unions.
+
+**Advanced pattern: `as const` for freezing inferred types.** When you declare a configuration object and want TypeScript to infer the *exact* literal values rather than widening them:
+
+```ts
+const config = {
+    theme: 'dark',
+    maxRetries: 3,
+    features: ['search', 'export']
+} as const;
+// config.theme is 'dark', not string
+// config.maxRetries is 3, not number
+// config.features is readonly ['search', 'export'], not string[]
+```
+
+The `as const` assertion tells TypeScript to infer the narrowest possible type for every field. This is invaluable for configuration objects, route definitions, and enum-like constants.
+
+**Challenge question (combines Lesson 1.4 + Lesson 1.8 + Lesson 1.9):** You have a `status` variable typed as `'loading' | 'success' | 'error'` and you want to display a different colour for each status using a ternary in the markup. Write the template expression, explain what TypeScript catches if you misspell a status, and then refactor the ternary into a lookup object typed with `Record<Status, string>`.
+
 ## 2. Style it — A traffic-light colour per status
 
 The mini-build displays a single value — a shipment status — and colours a card according to whether it is `'loading'`, `'success'`, or `'error'`. Each status maps to a PE7 colour token (`--color-warning`, `--color-success`, `--color-error`). The colour token is applied via a `style:` directive tied to the value, so if you add a fourth status to the union, TypeScript will force you to either handle it or explicitly mark it as unsupported.

@@ -83,6 +83,54 @@ Identical to `$effect`: the function is `() => void` (or `() => () => void` if y
 
 **Cross-module connections.** `$effect.pre` appears in specific places throughout the course. Module 7 uses it for capturing element positions before GSAP animations (measuring the "from" state). Module 8 uses it for preserving scroll position during SvelteKit page transitions. Module 12 covers it in the context of performance-sensitive measurement patterns. The pattern "pre-effect captures old state, regular effect applies new behaviour based on that capture" is a recurring two-effect dance that you will recognise once you have seen it here.
 
+### 1.6 What the compiler does — comparing `$effect` vs `$effect.pre` timing
+
+Both `$effect` and `$effect.pre` compile to essentially the same signal subscription code. The only difference is when the scheduler runs them relative to DOM updates:
+
+```
+State change → $derived recomputation → $effect.pre runs → DOM update → $effect runs
+```
+
+The compiler does not generate different code for pre vs post effects. The difference is a scheduling flag: `$effect.pre` is queued in the "pre-update" phase, and `$effect` is queued in the "post-update" phase. Both track dependencies identically. Both support cleanup functions identically. The timing flag is the *only* difference.
+
+### 1.7 "In production" — scroll anchoring in a real-time log viewer
+
+At a 50-developer DevOps platform, the log viewer displayed 10,000+ lines streaming in real time. Users scrolled up to read earlier logs while new lines appended at the bottom. Without `$effect.pre`, the team used `requestAnimationFrame` hacks and setTimeout delays to detect "was the user at the bottom?" before new content pushed the scrollbar. The timing was unreliable — sometimes the measurement happened after the DOM update, giving a wrong answer.
+
+Switching to `$effect.pre` gave the team a guaranteed timing window: measure the scroll position *before* the new log lines are inserted. A regular `$effect` then used the measurement to decide whether to auto-scroll. The two-effect pattern eliminated all timing bugs and replaced 40 lines of rAF workaround with 12 lines of clean Svelte.
+
+### 1.8 Common interview question
+
+**Q: "When would you use `$effect.pre` instead of `$effect`?"**
+
+**Model answer:** Use `$effect.pre` when you need to measure or read the current DOM state *before* a reactive update changes it. The canonical case is scroll anchoring: you need to know if the user was at the bottom of a scroll container before new items are added. If you measure after the DOM update (in a regular `$effect`), the new content has already changed the scroll height, and you cannot tell where the user was. `$effect.pre` runs after state has changed but before the DOM reflects the change, giving you a window to capture the "before" snapshot. For any other timing need — logging, API calls, title updates — use regular `$effect`.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$effect#$effect.pre](https://svelte.dev/docs/svelte/$effect#$effect.pre) — the official `$effect.pre` reference.
+- [svelte.dev/docs/svelte/$effect](https://svelte.dev/docs/svelte/$effect) — the full `$effect` family including timing details.
+- [svelte.dev/docs/svelte/lifecycle-hooks](https://svelte.dev/docs/svelte/lifecycle-hooks) — lifecycle ordering.
+
+**Advanced pattern: FLIP animation measurement.** The pre-effect is the natural place to capture element positions for FLIP (First, Last, Invert, Play) animations:
+
+```ts
+let positions: Map<string, DOMRect> = new Map();
+
+$effect.pre(() => {
+    items.length; // track dependency
+    // Capture "first" positions before DOM update
+    for (const el of container.querySelectorAll('[data-key]')) {
+        positions.set(el.dataset.key!, el.getBoundingClientRect());
+    }
+});
+```
+
+After the DOM update, a regular `$effect` reads the new positions, computes the delta, and applies a CSS transform to animate the move. This is the foundation for smooth list reorder animations.
+
+**Challenge question (combines Lesson 2.10 + Lesson 2.9 + Lesson 2.11):** A chat component has a message list that grows when new messages arrive. Write the two-effect pattern (pre-effect to capture scroll state, regular effect to auto-scroll). Include cleanup logic in case the effect sets up an event listener. Explain what happens if you forget to read `messages.length` inside the pre-effect.
+
 ## 2. Style it — A chat log with sticky-bottom scroll
 
 The mini-build is a small chat log. New messages arrive on a button press. The log auto-scrolls to the bottom only if the user was already at the bottom — if they have scrolled up to read earlier messages, new arrivals do not yank the view. PE7 tokens for styling; `prefers-reduced-motion` respected.

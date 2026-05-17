@@ -79,6 +79,48 @@ Everything said in Lesson 2.7 about purity still applies. The function you pass 
 
 **Cross-module connections.** `$derived.by` is the workhorse behind many patterns in later modules. Module 5 uses it for complex form validation (checking multiple field states and returning a structured error object). Module 11 uses it inside reactive classes for computed properties that need loops. Module 12 uses it as the primary memoisation tool, replacing `useMemo` patterns from React. Whenever you see a "computed value that needs more than one line," `$derived.by` is the answer.
 
+### 1.6 What the compiler does with `$derived.by`
+
+The compiled output of `$derived.by` is essentially the same as `$derived`, but the computation is wrapped in a function call. For `$derived(expr)`, the compiler inlines the expression into a memo node. For `$derived.by(fn)`, it calls the function and stores the result in the same memo node. Both use the same dependency tracking, the same caching, and the same invalidation logic. The difference is purely syntactic — `.by` accepts a function body; plain `$derived` accepts an expression.
+
+### 1.7 "In production" — grouping data without losing reactivity
+
+At a 50-developer analytics platform, the dashboard needed to display metrics grouped by region. The data changed every 5 seconds via a WebSocket. Initially, the team computed the grouping in a `$effect` and stored the result in a separate `$state`. This worked but introduced a one-tick delay: the raw data updated, then the effect ran, then the grouped data updated. Users saw a brief flicker where the totals and the detail rows disagreed.
+
+Switching to `$derived.by` eliminated the flicker. The grouped data recomputed synchronously as part of the reactive graph, before the DOM updated. The totals and detail rows were always consistent in the same paint. The fix was replacing `$effect(() => { grouped = compute(data) })` with `const grouped = $derived.by(() => compute(data))`. One line, zero flicker.
+
+### 1.8 Common interview question
+
+**Q: "Can you put an `async` function inside `$derived.by`?"**
+
+**Model answer:** No. `$derived.by` requires a synchronous function that returns a value immediately. An async function returns a Promise, not the resolved value. If you need to compute a derived value from async data, the correct pattern is to store the async result in `$state` (via an `$effect` that awaits and assigns) and then derive from that state. Alternatively, use `{#await}` in the template for async data that drives rendering. The reason for the synchronous constraint is that the reactive graph must be consistent at all times — if a derived value were pending, every downstream consumer would need to handle a pending state, which defeats the purpose of deterministic derivations.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$derived#$derived.by](https://svelte.dev/docs/svelte/$derived#$derived.by) — the official `$derived.by` reference.
+- [svelte.dev/docs/svelte/$derived](https://svelte.dev/docs/svelte/$derived) — the full `$derived` family.
+- [svelte.dev/docs/svelte/reactivity-fundamentals](https://svelte.dev/docs/svelte/reactivity-fundamentals) — memoisation and dependency tracking.
+
+**Advanced pattern: multi-step derived transformations.** For complex data processing, chain multiple `$derived.by` calls:
+
+```ts
+const filtered = $derived.by(() => items.filter(i => i.active));
+const sorted = $derived.by(() => [...filtered].sort((a, b) => a.name.localeCompare(b.name)));
+const grouped = $derived.by(() => {
+    const groups: Record<string, Item[]> = {};
+    for (const item of sorted) {
+        (groups[item.category] ??= []).push(item);
+    }
+    return groups;
+});
+```
+
+Each step only recomputes when its inputs change. If only the sort order changes, `filtered` returns its cached value and only `sorted` and `grouped` recompute.
+
+**Challenge question (combines Lesson 2.8 + Lesson 2.7 + Lesson 2.4):** You have a `$state` array of sales records with `amount`, `region`, and `date`. Write a `$derived.by` that groups them by region and computes a total per region. Then write a second `$derived` that finds the highest-grossing region. Explain why you cannot put both computations in the same `$derived.by` call (you can, but should you?).
+
 ## 2. Style it — Grouped items view
 
 The mini-build extends the cart from Lesson 2.7. Line items now have a `category` field. A `groupedItems` derived value, computed with `$derived.by`, organises the items by category. The markup iterates over the groups and shows each category as its own subsection.

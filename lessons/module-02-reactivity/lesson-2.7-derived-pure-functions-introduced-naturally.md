@@ -135,6 +135,38 @@ Use inline expressions when:
 
 **Connection to other modules.** `$derived` reappears everywhere. Module 3 uses it for computed props. Module 5 uses it for derived event state (e.g., "is the form valid?" derived from all field states). Module 11 uses it in reactive classes for computed totals. Module 12 uses it as a memoization tool for expensive computations. The concept of "a value that is always a function of other values, guaranteed consistent" is the single most powerful tool for eliminating bugs in a reactive system.
 
+### 1.10 "In production" — `$derived` prevented a $47,000 bug
+
+At a 50-developer fintech company, a checkout component displayed a subtotal, tax, discount, and grand total. Originally all four were separate `$state` variables updated in a `calculateAll()` function called from every event handler. During a code review, a developer added a new "apply gift card" feature that updated the discount but forgot to call `calculateAll()`. The grand total displayed the wrong amount for 4 hours before a customer noticed. The discrepancy cost $47,000 in refunds and customer goodwill.
+
+After the incident, the team rewrote all derived values using `$derived`. The subtotal, tax, discount, and total each declared their formula explicitly. It was now structurally impossible for them to drift. Adding the gift card feature became adding one line to the discount derivation. No function to call. No update to forget. The reactive graph guaranteed consistency automatically.
+
+### 1.11 Common interview question
+
+**Q: "What is the difference between `$state`, `$derived`, and `$effect` in Svelte 5, and when do you use each?"**
+
+**Model answer:** `$state` stores a mutable value that the UI observes. Use it for primary data that can change: user input, toggle flags, counters. `$derived` computes a read-only value from other reactive values. Use it for any value that is a function of other state: totals, filtered lists, formatted strings. `$effect` runs side effects when reactive values change. Use it for actions that reach outside the reactive graph: writing to localStorage, setting document.title, calling APIs. The key discipline is: never use `$effect` when `$derived` would work. If you are computing a value, use `$derived`. If you are performing an action, use `$effect`. If you are storing primary data, use `$state`.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$derived](https://svelte.dev/docs/svelte/$derived) — the `$derived` rune reference.
+- [svelte.dev/docs/svelte/reactivity-fundamentals](https://svelte.dev/docs/svelte/reactivity-fundamentals) — how the reactive dependency graph works.
+- [svelte.dev/docs/svelte/$derived#$derived.by](https://svelte.dev/docs/svelte/$derived#$derived.by) — the multi-statement derived variant.
+
+**Advanced pattern: derived with fallback chains.** A common pattern is deriving a display value from multiple possible sources:
+
+```ts
+const displayName: string = $derived(
+    user.nickname || user.firstName || user.email.split('@')[0] || 'Anonymous'
+);
+```
+
+This single derived expression replaces a chain of `if` checks. It re-evaluates whenever any of the referenced fields change, always producing the most specific name available.
+
+**Challenge question (combines Lesson 2.7 + Lesson 2.4 + Lesson 2.2):** You have a `$state` array of cart items, each with `price` and `quantity`. Write three derived values: `subtotal`, `tax` (20%), and `total`. Then add a coupon code that gives 10% off. Explain why adding the coupon requires editing only the `total` derivation and nothing else.
+
 ## 2. Style it — A live cart total
 
 The mini-build is a mini shopping cart with three hardcoded line items. Each item has a stepper for quantity. Below the list, three derived values — subtotal, tax, and grand total — update as you press the steppers. PE7 tokens throughout; `prefers-reduced-motion` respected on the number transitions.

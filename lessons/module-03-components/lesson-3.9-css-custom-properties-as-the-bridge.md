@@ -103,6 +103,30 @@ In Module 6 you will see how PE7 uses this same mechanism at the page level for 
 
 **Cross-module connections.** This lesson's pattern is the bridge between PE7's global token system (Module 1) and component-level customisation. Module 6 uses custom properties for per-page colour personalities. Module 7 passes GSAP animation values into CSS via custom properties for hybrid CSS/JS animations. Module 9 and 13 use them for dynamic theming based on page data. The principle "components expose knobs, parents tune them" is the CSS equivalent of "components expose props, parents pass them" — two parallel API surfaces, one for data and one for style.
 
+### 1.7 Common interview question
+
+**Q: "How do CSS custom properties cross Svelte's scoping boundary, and why is this the preferred way to style a child component from a parent?"**
+
+**Model answer:** Svelte's scoping adds a hash suffix to class selectors, preventing a parent's `.btn` from matching a child's `.btn`. But CSS custom properties (variables starting with `--`) are not class selectors — they follow the normal CSS cascade. A parent can set `--btn-bg: red` on any ancestor element, and the child's `.btn { background: var(--btn-bg, var(--color-brand)) }` reads it through the cascade. The parent never touches the child's internal class names or markup. This preserves encapsulation: the child's structure stays private, but its *appearance* is negotiable through published knobs. The alternative — using `:global()` to target the child's internal classes — breaks encapsulation and creates fragile cross-file dependencies that break when the child renames its classes.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — how custom properties work with scoped styles.
+- [svelte.dev/docs/svelte/component-directives](https://svelte.dev/docs/svelte/component-directives) — the `--style-props` syntax for passing custom properties to components.
+- [developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties) — the MDN guide to custom properties.
+
+**Advanced pattern: the `--style-props` shorthand.** Svelte provides a shorthand for setting custom properties on component instances:
+
+```svelte
+<Button --btn-bg="red" --btn-fg="white">Delete</Button>
+```
+
+This compiles to wrapping the component in a `<div style="display: contents; --btn-bg: red; --btn-fg: white;">`. The `display: contents` ensures the wrapper does not affect layout. The custom properties cascade into the component's internal styles. This syntax is cleaner than wrapping the component in a styled `<div>`.
+
+**Challenge question (combines Lesson 3.9 + Lesson 1.5 + Lesson 3.8):** A `Button` component exposes three knobs: `--btn-bg`, `--btn-fg`, `--btn-radius`. A `PrimaryButton` wrapper hardcodes `--btn-bg` and `--btn-fg`. A page sets `--btn-radius` on a parent section. Trace the cascade: which custom property values does the final rendered button use? What happens if a parent also sets `--btn-bg` on the section — does the PrimaryButton's hardcoded value or the section's value win?
+
 ## 2. Style it — A single component, four danger zones
 
 The mini-build renders the same `Button` four times inside four wrapper divs. Each wrapper sets `--btn-bg`, `--btn-fg`, and `--btn-bg-hover` to a different OKLCH-derived set. The button file is never touched. Every preset is three lines of CSS.

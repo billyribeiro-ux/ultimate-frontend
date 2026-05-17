@@ -117,6 +117,39 @@ Once you recognise the render-prop pattern, you will see it everywhere in modern
 
 **Cross-module connections.** Snippet props are the mechanism behind Module 11's TanStack Table integration (where column cell renderers are snippets), Module 6's transition wrappers (where the animated content is a snippet), and Module 12's lazy-loading patterns (where deferred content is a snippet rendered on demand). The generic `List<T>` component you build here is a simplified version of the pattern used throughout production Svelte applications for any "render a collection" scenario.
 
+### 1.7 Common interview question
+
+**Q: "What is the render-prop pattern, and how does Svelte 5 implement it with snippets?"**
+
+**Model answer:** The render-prop pattern is when a component exposes a hole in its rendering that the caller fills with custom markup. The component provides data (like an item from a list), and the caller provides the visual representation. In React, this is done with render functions: `renderItem={(item) => <div>{item.name}</div>}`. In Svelte 5, it is done with parameterised snippets: the component declares a `Snippet<[T, number]>` prop, and the caller provides a snippet that receives the item and index as arguments. Svelte's approach is cleaner because snippets are syntax-highlighted markup (not JSX inside a function), they are type-checked via the `Snippet<[T]>` type, and they are referentially stable (they do not create new function objects on every render, avoiding unnecessary child updates).
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/snippet](https://svelte.dev/docs/svelte/snippet) — parameterised snippets.
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — generic components with `generics="T"`.
+- [svelte.dev/docs/svelte/@render](https://svelte.dev/docs/svelte/@render) — rendering snippets with arguments.
+
+**Advanced pattern: typed table column definitions with snippets.** Build a generic `DataTable<T>` component where columns are defined by an array of objects, each with a `header` snippet and a `cell` snippet:
+
+```ts
+interface Column<T> {
+    header: Snippet;
+    cell: Snippet<[T]>;
+    width?: string;
+}
+
+interface Props<T> {
+    items: T[];
+    columns: Column<T>[];
+}
+```
+
+Each column provides its own header and cell rendering. The table owns the layout (grid, borders, sorting UI). The caller owns what each cell looks like. This is the pattern behind headless table libraries like TanStack Table.
+
+**Challenge question (combines Lesson 3.7 + Lesson 3.6 + Lesson 2.4):** Build a `FilterableList<T>` component that accepts `items: T[]`, a `filter: (item: T) => boolean` function prop, and an `item: Snippet<[T, number]>` snippet prop. Inside the component, use `$derived` to compute the filtered list. Render each filtered item with `{@render item(entry, i)}`. From the parent, pass a search-based filter and a product card snippet. Explain how the generic `T` ensures type safety from the items array through the filter function to the snippet parameters.
+
 ## 2. Style it — Stripes, gaps, and a single-knob hover accent
 
 The `List` owns the visual rhythm: alternating row backgrounds via `:nth-child(even)`, a gap from `--space-sm`, and a subtle `:hover` outline that borrows `--color-brand` from whatever personality the consumer set. The consumer's snippet controls everything *inside* each row but touches none of the row chrome.

@@ -110,6 +110,125 @@ If you use `Promise.all` and one branch throws `error(404, ...)`, the whole load
 
 Nothing in the API shape. `error` and `redirect` have been stable since SvelteKit 1.0. What did change is that in April 2026 the `error` helper throws synchronously (no `throw` keyword needed in newest SvelteKit versions), but the `throw error(...)` form still works and is what we teach for clarity.
 
+### 1.8 What SvelteKit does under the hood
+
+The error and redirect lifecycle is one of the most carefully designed parts of SvelteKit's internals. Here is what happens at each stage:
+
+**When `error(404, 'Not found')` is thrown:**
+
+1. The `error()` helper creates an `HttpError` object. This is a special class that SvelteKit recognises.
+2. The load function's execution stops. The `HttpError` propagates up to SvelteKit's load orchestrator.
+3. SvelteKit checks the response context. If this is SSR, the HTTP status code is set to 404 on the response.
+4. SvelteKit walks up the route tree looking for the nearest `+error.svelte`. It starts at the failing route and moves toward the root.
+5. The `+error.svelte` component is rendered instead of the `+page.svelte`. Layout components above the error boundary stay mounted — only the page slot is replaced.
+6. Inside the error component, `page.status` is `404` and `page.error` is `{ message: 'Not found' }`.
+7. On the client (during navigation), the same process happens but the HTTP status is irrelevant — the error component renders in place of the page.
+
+**When `redirect(303, '/login')` is thrown:**
+
+1. The `redirect()` helper creates a `Redirect` object.
+2. SvelteKit catches it before any component renders.
+3. During SSR: the response is a 303 with a `Location: /login` header. The browser follows the redirect.
+4. During client navigation: SvelteKit calls `goto('/login')` internally. No HTTP redirect happens — the client router navigates directly.
+5. No `+error.svelte` renders. No component on the current route is touched.
+
+**When an unexpected error is thrown (a regular `Error`, `TypeError`, etc.):**
+
+1. SvelteKit catches it.
+2. It calls the `handleError` hook (defined in `src/hooks.server.ts`). You can log the full error here, send it to Sentry, etc.
+3. `handleError` returns an `App.Error` object — a sanitised version safe for the client. The default is `{ message: 'Internal Error' }`.
+4. SvelteKit sets the status to 500 and renders the nearest `+error.svelte` with the sanitised error.
+5. The original error message **never reaches the client** unless you explicitly put it in the `handleError` return.
+
+### 1.9 The TypeScript angle
+
+SvelteKit lets you customise the shape of errors that reach the client by declaring the `App.Error` interface in `src/app.d.ts`:
+
+```ts
+// src/app.d.ts
+declare global {
+    namespace App {
+        interface Error {
+            message: string;
+            code?: string;
+            details?: string;
+        }
+    }
+}
+export {};
+```
+
+Now when you throw `error(403, { message: 'Forbidden', code: 'NO_ACCESS' })`, the second argument must match `App.Error`. In the `+error.svelte`, `page.error` is typed as `App.Error`, so you can safely read `page.error.code`.
+
+For `redirect`, the types ensure you pass a valid redirect status (300-308). Passing `200` is a compile-time error. The location argument is typed as `string`, which means TypeScript cannot check if it is a valid route — that is a runtime concern.
+
+The `handleError` hook has this signature:
+
+```ts
+// src/hooks.server.ts
+import type { HandleServerError } from '@sveltejs/kit';
+
+export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+    console.error('Unexpected error:', error);
+    // Return a sanitised error for the client
+    return { message: 'Something went wrong', code: 'INTERNAL' };
+};
+```
+
+The return type must extend `App.Error`. This is where you gate what the user sees.
+
+### 1.10 Comparison: error handling strategies
+
+| Strategy | Use for | Status code | Component rendered | Details exposed |
+| --- | --- | --- | --- | --- |
+| `error(404, msg)` | Missing resources | Any 4xx/5xx | Nearest `+error.svelte` | Your message (safe) |
+| `error(403, { message, code })` | Authorization failures | 403 | Nearest `+error.svelte` | Your structured error |
+| `redirect(302, url)` | Auth guards, moved content | 3xx | None (browser redirects) | None |
+| Unhandled `throw` | Bugs, unexpected failures | 500 | Nearest `+error.svelte` | Sanitised by `handleError` |
+| `fail(400, data)` (form actions) | Validation errors | 400 | Same page (re-render) | Structured validation data |
+
+> **In production sidebar.** In our SaaS app, we originally used `error(500, error.message)` for database failures. A Postgres connection timeout leaked `"connection timed out: host=db-prod-001.internal port=5432"` to the client, exposing our internal database hostname. We immediately added a `handleError` hook that logs the real error to our monitoring service and returns `{ message: 'Something went wrong. Please try again.', code: 'DB_ERROR' }` to the client. The client shows the friendly message and the code helps our support team cross-reference with the server logs. Lesson: never pass raw error messages from unexpected exceptions to the client. The `handleError` hook exists specifically to prevent this class of information leak.
+
+### 1.11 Nested error boundaries
+
+You can have `+error.svelte` at multiple depths:
+
+```
+src/routes/
+  +error.svelte                  (catch-all: 500 errors, global 404s)
+  +layout.svelte
+  blog/
+    +error.svelte                (blog-specific errors)
+    +layout.svelte
+    [slug]/
+      +page.server.ts            (throws error(404) for missing posts)
+      +page.svelte
+```
+
+When the blog post load throws `error(404)`, SvelteKit finds `blog/+error.svelte` first. The root `+layout.svelte` stays mounted — the navigation, header, and footer are preserved. Only the blog section shows the error. This is important for UX: a missing blog post should not strip the entire site shell.
+
+If `blog/+error.svelte` did not exist, the error would bubble up to `+error.svelte` at the root. If that did not exist either, SvelteKit renders a minimal built-in error page (adequate for development, unbranded for production).
+
+### 1.12 Common interview question
+
+**Q: "What is the difference between `error()`, `fail()`, and throwing a regular `Error` in a SvelteKit load function? When would you use each?"**
+
+**Model answer:** `error(status, message)` is for expected failures where you want to show an error page — a 404 for a missing resource, a 403 for forbidden access. It renders the nearest `+error.svelte`. `fail(status, data)` is only used in form actions — it returns structured validation data to the same page, letting the user correct their input. A regular thrown `Error` is an unexpected failure (a bug, a network timeout). SvelteKit catches it, routes it through `handleError` for sanitisation and logging, and renders `+error.svelte` with a generic message. Use `error()` for "this is normal and the user should see it." Use `fail()` for "the form input was wrong." Let unexpected exceptions propagate for "something broke that I did not anticipate."
+
+## Deep Dive
+
+**Redirect chains.** If a load function throws `redirect(302, '/dashboard')` and the dashboard's own load function throws `redirect(302, '/login')`, SvelteKit follows the chain. During SSR, this produces two 302 responses (the browser follows them). During client navigation, SvelteKit resolves the chain internally via `goto`. There is a limit (typically 10 redirects) to prevent infinite loops. If a redirect chain exceeds the limit, SvelteKit throws a 500 error.
+
+**Errors in layout loads.** If a layout load throws `error()`, every page under that layout is affected. The layout's own `+error.svelte` (if it exists) cannot catch the error because the layout itself failed — it is the layout's *parent's* `+error.svelte` that renders. This means a root layout load error can only be caught by the root-level `+error.svelte`. If the root layout load fails and there is no root `+error.svelte`, the built-in fallback renders.
+
+**Errors in parallel loads.** When multiple loads run in parallel via `Promise.all`, the first one to throw `error()` wins. The other loads are cancelled. If you want partial data, use `Promise.allSettled` and handle failures individually in the component rather than throwing from the load.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Errors](https://svelte.dev/docs/kit/errors) covers expected vs unexpected errors and the `handleError` hook.
+- **Advanced pattern:** Create a typed `AppError` class that extends `Error` and includes a `code` field. In `handleError`, check `instanceof AppError` to distinguish your own domain errors from truly unexpected ones, giving more specific client-facing messages for known error types.
+- **Challenge:** Build a page with a load that randomly throws `error(503, 'Service unavailable')` 50% of the time. Add an `+error.svelte` that shows a "Retry" button. The retry button should call `invalidateAll()` to re-run the load. How many clicks does it typically take to get a successful render?
+
 ## 2. Style it — PE7 for an error surface
 
 The mini-build has an index page that links to three dynamic post slugs. Two of them succeed; one of them is missing and triggers `error(404)`. We style both the success state and the `+error.svelte` with a red/amber personality for the error, and keep the success state blue.

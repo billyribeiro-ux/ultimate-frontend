@@ -77,6 +77,34 @@ TypeScript does not care whether the state is proxied — the type is just the v
 
 **Cross-module connections.** `$state.raw` is the foundation for several patterns introduced later. Module 7 uses it for GSAP timeline instances and Three.js scenes that must not be proxied. Module 9 uses it for large server responses that are replaced on refetch. Module 12 revisits it explicitly in the performance optimization lesson, showing how to combine `$state.raw` with `$derived` for computed views over large datasets. The complementary tool `$state.snapshot` (Lesson 2.6) goes in the opposite direction — extracting a plain copy from a deep proxy — forming a complete toolkit for controlling when and where proxying happens.
 
+### 1.6 Common interview question
+
+**Q: "When would you choose `$state.raw` over `$state` for an array of 10,000 items?"**
+
+**Model answer:** Choose `$state.raw` when the array is replaced wholesale (for example, re-fetched from an API) rather than mutated item by item. Deep `$state` would create a Proxy wrapper for each of the 10,000 objects, consuming memory and proxy-creation time. With `$state.raw`, the array is stored as a plain JavaScript array. You trigger reactivity by reassigning the variable (`data = newData`), not by mutating individual items. The trade-off: you lose the ability to mutate a single item and have the UI update (`data[5].name = 'new'` does nothing). If you need per-item mutation, use deep `$state`. If you replace the whole array and render it read-only, use `$state.raw`. For the 10,000-item case, the savings can be 2-5 ms of proxy creation time and 200+ KB of memory from avoided Proxy wrappers.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — the `$state.raw` variant reference.
+- [svelte.dev/docs/svelte/reactivity-fundamentals](https://svelte.dev/docs/svelte/reactivity-fundamentals) — deep vs shallow reactivity explained.
+- [svelte.dev/docs/svelte/$state#$state.raw](https://svelte.dev/docs/svelte/$state#$state.raw) — specific documentation for the raw variant.
+
+**Advanced pattern: hybrid reactive/raw for chart data.** A charting component receives 50,000 data points from an API (raw — no per-point mutation needed) but also has a `selectedIndex` state that highlights one point (reactive — changes on hover):
+
+```ts
+let dataPoints: Point[] = $state.raw([]);      // raw: replaced wholesale
+let selectedIndex: number = $state(-1);         // reactive: changes on interaction
+const selectedPoint = $derived(
+    selectedIndex >= 0 ? dataPoints[selectedIndex] : null
+);
+```
+
+The chart re-renders the data layer only when `dataPoints` is reassigned (new fetch). The highlight layer re-renders only when `selectedIndex` changes. Two different reactivity strategies in one component, each optimised for its use case.
+
+**Challenge question (combines Lesson 2.5 + Lesson 2.4 + Lesson 2.6):** You have a `$state.raw` array of 5,000 products. The user adds one product. Write the code to add the product reactively, then explain why `$state.snapshot` is unnecessary for `$state.raw` values. What would happen if you converted the array to deep `$state` and called `products.push(newProduct)` instead?
+
 ## 2. Style it — A big list, two versions
 
 The mini-build shows the same list twice: once with deep `$state`, once with `$state.raw`. A button rebuilds each. Both versions use identical PE7 styling. The difference is measured via `performance.now()` and displayed as a small benchmark chip.

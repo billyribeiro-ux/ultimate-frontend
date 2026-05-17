@@ -82,6 +82,77 @@ Both methods are frequently overused. Two red flags:
 
 Svelte 3/4 had a shorthand: `on:submit|preventDefault={handleSubmit}`. Svelte 5 removed it. In the April 2026 version you call `event.preventDefault()` yourself inside the handler. This aligns with the rest of the platform (`addEventListener` has never had a modifier) and makes the call visible in the handler body where it belongs.
 
+### 1.7 The full event propagation path — a concrete walkthrough
+
+Consider this DOM structure with handlers at every level:
+
+```svelte
+<form onsubmit={handleForm}>           <!-- Phase 3: bubble reaches here -->
+    <div onclick={handleCard}>          <!-- Phase 3: bubble reaches here -->
+        <button onclick={handleDelete}> <!-- Phase 2: target -->
+            <span>×</span>             <!-- Phase 1: capture passes here -->
+        </button>
+    </div>
+</form>
+```
+
+When the user clicks the `<span>` icon inside the delete button:
+
+1. **Capture phase** (top-down): `window` → `document` → `html` → `body` → `form` → `div` → `button` → `span`. No capture-phase listeners are registered here, so nothing fires yet.
+2. **Target phase**: The event reaches `span`. There is no handler on `span`.
+3. **Bubble phase** (bottom-up): `span` → `button` (fires `handleDelete`) → `div` (fires `handleCard`) → `form` (fires `handleForm`) → `body` → `html` → `document` → `window`.
+
+If `handleDelete` calls `event.stopPropagation()`, the bubble stops at `button`. Neither `handleCard` nor `handleForm` fire. If `handleDelete` calls `event.preventDefault()` instead, the bubble continues but the form's native submit action is suppressed.
+
+### 1.8 What the runtime does — `event.cancelable` and `event.defaultPrevented`
+
+Not every event can be prevented. The `scroll` event, for example, has `cancelable: false` — calling `preventDefault()` on it does nothing (the browser ignores the call). You can check `event.cancelable` before calling `preventDefault()` if you want to be defensive. After a successful `preventDefault()`, the event's `defaultPrevented` property becomes `true`. Other handlers in the chain can read this flag to know that an earlier handler already prevented the default:
+
+```ts
+function handleParentClick(event: MouseEvent): void {
+    if (event.defaultPrevented) return; // a child already handled this
+    // ...proceed with parent logic
+}
+```
+
+This pattern — "check `defaultPrevented` instead of `stopPropagation`" — is considered better practice because it allows other listeners to still run while signaling that the primary action was already handled.
+
+### 1.9 The TypeScript angle — typing handlers that prevent defaults
+
+A clean pattern for submit handlers:
+
+```ts
+function createSubmitHandler(
+    onSubmit: (data: FormData) => Promise<void>
+): (event: SubmitEvent) => void {
+    return (event: SubmitEvent): void => {
+        event.preventDefault();
+        const form = event.currentTarget as HTMLFormElement;
+        const data = new FormData(form);
+        onSubmit(data);
+    };
+}
+```
+
+TypeScript ensures the handler receives `SubmitEvent` (which has `submitter`) rather than plain `Event`. It also ensures `currentTarget` is narrowed to `HTMLFormElement` so you can safely access `FormData`.
+
+### 1.10 Comparison: event control methods
+
+| Method                     | What it stops                          | What still happens              |
+|----------------------------|----------------------------------------|---------------------------------|
+| `preventDefault()`         | Browser's default action               | Propagation continues           |
+| `stopPropagation()`        | Bubble/capture to ancestor listeners   | Default action still occurs     |
+| `stopImmediatePropagation()` | All listeners on same + ancestor elements | Default still occurs (unless also prevented) |
+| Check `defaultPrevented`   | Nothing — a read-only signal           | Everything continues            |
+
+> **In production sidebar.** On a 100K-daily-user dashboard with nested clickable cards, we spent two days debugging why the analytics library stopped tracking clicks. The root cause: a developer added `event.stopPropagation()` inside a delete-confirmation modal to prevent the card underneath from navigating. That also stopped the document-level click listener that the analytics library used. The fix was to replace `stopPropagation()` with a `defaultPrevented` check in the card handler: `if (event.defaultPrevented) return;`. The delete handler called `preventDefault()` instead of `stopPropagation()`, and the analytics listener — which did not depend on the default action — continued to fire. The lesson: `stopPropagation` is a sledgehammer. Use `preventDefault` + `defaultPrevented` checks whenever possible.
+
+### 1.11 Common interview question
+
+**Q: You have a dropdown menu inside a page that has a "click outside to close" listener on `document`. Clicking a menu item fires the close handler because the click bubbles to `document`. How do you fix this without `stopPropagation`?**
+
+**Model answer:** Inside the `document` click handler, check whether `event.target` is inside the dropdown using `dropdown.contains(event.target as Node)`. If it is, return early without closing. This avoids `stopPropagation` (which would break other document-level listeners like analytics) and keeps the handler logic self-contained. The pattern is: "the parent listener decides whether to act based on where the click came from, rather than the child silencing the event." Alternatively, the menu item handler can call `event.preventDefault()`, and the document handler can check `event.defaultPrevented` before closing.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 50-component production app, event propagation bugs are among the hardest to diagnose. A delete button inside a clickable card triggers both the delete action and the card's navigation. A submit button inside a modal submits the form and also closes the modal via a bubbling click on the overlay. These are real bugs that reach production because they only manifest under specific nesting conditions that unit tests miss. Understanding `preventDefault` and `stopPropagation` at a deep level — knowing when each is appropriate, and when neither is the answer — prevents dozens of nesting-related interaction bugs.
@@ -93,6 +164,33 @@ Svelte 3/4 had a shorthand: `on:submit|preventDefault={handleSubmit}`. Svelte 5 
 **Performance implications.** Neither `preventDefault` nor `stopPropagation` has meaningful performance cost — they are single flag checks in the browser's event dispatch loop. However, *how* you attach handlers affects performance. Adding a click handler to every row in a 1,000-row table creates 1,000 listeners. Event delegation — attaching one handler to the parent and checking `event.target` — creates one listener. Svelte handles this efficiently for `{#each}` blocks, but understanding the propagation model helps you design efficient delegation patterns for performance-critical lists.
 
 **Cross-module connections.** Event control is critical in Module 7 (preventing scroll events from bubbling during GSAP ScrollTrigger animations), Module 8 (preventing default navigation for client-side routing), Module 10 (preventing form submission for progressive enhancement with `use:enhance`), and Module 12 (managing focus trapping in modals and accessible components). The principle "be specific about which events you intercept and why" is a professional discipline that prevents subtle interaction regressions.
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: Event.preventDefault()](https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault) — including the `cancelable` property
+- [MDN: Event.stopPropagation()](https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation) — and why `stopImmediatePropagation` exists
+- [Svelte docs: on:eventname (legacy)](https://svelte.dev/docs/svelte/legacy-on) — explains why the `|preventDefault` modifier was removed
+
+**Advanced pattern: an event control utility.** Build a `handled` wrapper that calls `preventDefault`, calls `stopPropagation` only when explicitly requested, and returns the event for chaining:
+
+```ts
+function handled<E extends Event>(
+    fn: (event: E) => void,
+    options: { prevent?: boolean; stop?: boolean } = { prevent: true }
+): (event: E) => void {
+    return (event: E) => {
+        if (options.prevent) event.preventDefault();
+        if (options.stop) event.stopPropagation();
+        fn(event);
+    };
+}
+
+// Usage: <form onsubmit={handled(submitForm)}>
+// Usage: <button onclick={handled(deleteItem, { prevent: false, stop: true })}>
+```
+
+**Challenge question (combines Lessons 5.4, 5.1, and 5.3):** Build a nested component structure: a `<Card>` with `onclick` that navigates, containing a `<Menu>` with `onclick` that opens a dropdown, containing a `<DeleteButton>` with `onclick` that deletes the item. Each handler should work independently. Implement it *without* `stopPropagation` — instead, use `event.defaultPrevented` checks so each parent handler skips its action if a child already handled the event. Verify that clicking the delete button does not navigate or open the menu.
 
 ## 2. Style it — A card with a nested delete button
 

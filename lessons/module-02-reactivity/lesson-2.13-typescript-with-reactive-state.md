@@ -162,6 +162,44 @@ The `get value()` method is the key trick: every time you read `counter.value`, 
 
 **Cross-module connections.** The typing patterns in this lesson are the foundation for Module 3's typed props (every component prop is an interface field), Module 9's typed load functions (return types flow into PageData), Module 10's typed form actions (ActionData is an interface), and Module 11's typed reactive classes (class fields are annotated state). The getter pattern specifically reappears in Module 11 as the primary API for shared reactive stores. If you master these patterns now, every subsequent module's TypeScript integration will feel like a natural extension rather than a new challenge.
 
+### 1.8 Common interview question
+
+**Q: "What is the `never[]` problem with empty arrays in TypeScript, and how do you solve it in Svelte 5?"**
+
+**Model answer:** When you write `const items = $state([])`, TypeScript infers the type as `never[]` because the empty array literal contains no elements for inference. `never` is the bottom type — no value is assignable to it. Attempting `items.push({ id: '1', text: 'Hello', done: false })` fails because the argument is not assignable to `never`. The fix is to annotate the variable explicitly: `const items: Todo[] = $state([])`. This tells TypeScript the array will hold `Todo` elements, even though it starts empty. This is the single most common TypeScript surprise in Svelte code, and annotating empty collections is the habit that prevents it.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — the full Svelte + TypeScript guide.
+- [svelte.dev/docs/svelte/$state](https://svelte.dev/docs/svelte/$state) — typing patterns for all `$state` variants.
+- [svelte.dev/docs/svelte/svelte-files](https://svelte.dev/docs/svelte/svelte-files) — the `.svelte.ts` file extension and how the compiler processes it.
+
+**Advanced pattern: generic reactive stores with full type inference.** Build a typed, reusable reactive list store:
+
+```ts
+// src/lib/stores/list.svelte.ts
+export function createList<T>(initial: T[] = []) {
+    const items: T[] = $state(initial);
+    
+    return {
+        get items() { return items; },
+        get length() { return items.length; },
+        add(item: T) { items.push(item); },
+        remove(predicate: (item: T) => boolean) {
+            const index = items.findIndex(predicate);
+            if (index >= 0) items.splice(index, 1);
+        },
+        clear() { items.length = 0; }
+    };
+}
+```
+
+Usage: `const todos = createList<Todo>()`. The generic `T` flows through every method. `todos.add({ wrong: 'shape' })` is a compile error. The store is reusable, type-safe, and reactive.
+
+**Challenge question (combines Lesson 2.13 + Lesson 2.7 + Lesson 2.3):** Create a `createCounter` function in a `.svelte.ts` file that returns an object with a `value` getter, `increment`, `decrement`, and `reset` methods. Type the return type with an interface. Import it into two different components and verify that both components share the same reactive counter. Explain why the getter pattern (`get value()`) is necessary for reactivity to cross module boundaries.
+
 ## 2. Style it — A two-panel comparison
 
 The mini-build shows two panels side-by-side: one typed with explicit annotations, one relying on inference. They produce the same UI. The exercise is to see the difference in the code, not the browser.

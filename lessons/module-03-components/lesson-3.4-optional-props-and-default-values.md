@@ -94,6 +94,46 @@ This is the "sensible default" pattern in action: the caller stays short, the co
 
 **Cross-module connections.** Optional props with defaults are the backbone of every component API in this course. Module 6's transition components use defaults for duration and easing. Module 7's GSAP action components default animation parameters. Module 12's performance-optimised components use defaults to enable lazy behaviour without opt-in. The principle "require the minimum, default the rest" is a design philosophy that extends beyond props — it applies to function parameters, configuration objects, and API designs throughout the course.
 
+### 1.7 Common interview question
+
+**Q: "What is the difference between an optional prop (`size?: Size`) and a required prop with a default value?"**
+
+**Model answer:** In TypeScript, `size?: Size` means the property can be absent from the object. Inside the component, `size` is typed as `Size | undefined` until you provide a default. A required prop with no `?` must always be passed by the caller — omitting it is a compile error. The Svelte pattern combines both: mark the field optional in the interface (`size?: Size`), then provide a default in the destructure (`size = 'md'`). This gives you the best of both worlds: callers can omit the prop (optional), but inside the component the type is narrowed to `Size` (never undefined). The key insight is that the `?` lives in the interface (the contract) and the default lives in the destructure (the behaviour). Keep them separate.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/$props](https://svelte.dev/docs/svelte/$props) — default values in the `$props()` destructure.
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — how optional props interact with TypeScript.
+- [typescriptlang.org/docs/handbook/2/objects.html#optional-properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#optional-properties) — the `?` modifier reference.
+
+**Advanced pattern: the "80/20" API design.** Design your component's required props to cover the 80% use case with minimum friction:
+
+```ts
+// Bad: too many required props
+interface ButtonProps {
+    label: string;
+    variant: 'solid' | 'outline' | 'ghost';
+    size: 'sm' | 'md' | 'lg';
+    type: 'button' | 'submit' | 'reset';
+    disabled: boolean;
+}
+
+// Good: one required prop, sensible defaults for the rest
+interface ButtonProps {
+    children: Snippet;
+    variant?: 'solid' | 'outline' | 'ghost';   // defaults to 'solid'
+    size?: 'sm' | 'md' | 'lg';                  // defaults to 'md'
+    type?: 'button' | 'submit' | 'reset';       // defaults to 'button'
+    disabled?: boolean;                           // defaults to false
+}
+```
+
+The first design requires every caller to think about five decisions. The second requires only one (what text to display). Defaults handle the common case.
+
+**Challenge question (combines Lesson 3.4 + Lesson 3.3 + Lesson 1.4):** Design an `Alert` component with `message` (required), `tone` (optional, defaults to `'info'`), `dismissible` (optional, defaults to `false`), and `onDismiss` (optional callback). Write the interface and the `$props()` destructure. Explain what TypeScript enforces if a caller passes `dismissible={true}` without providing `onDismiss`.
+
 ## 2. Style it — Avatar sizes via remapped custom property
 
 The mini-build's `Avatar` component exposes a `size` prop whose only job is to swap the value of `--avatar-size` (a custom property) between `2rem`, `2.75rem`, and `4rem`. Everything else — padding, typography scaling, border radius — is derived from that one variable. Three sizes, one knob.

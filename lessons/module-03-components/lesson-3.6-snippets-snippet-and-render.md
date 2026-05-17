@@ -154,6 +154,48 @@ The rule of thumb: components encapsulate behavior; snippets delegate appearance
 
 **Connection to other modules.** Snippets are the foundation of the advanced patterns in Lesson 3.7 (passing snippets as props with parameters — the render-prop pattern). Module 4 uses snippets inside `{#each}` for custom list rendering. Module 6's transition system works with snippet-based component boundaries. Module 11's TanStack Table integration uses parameterized snippets for cell renderers. Module 12's error boundaries use the `failed` snippet for fallback UI. Snippets are Svelte 5's answer to every pattern that other frameworks solve with render props, higher-order components, or scoped slots.
 
+### 1.9 Common interview question
+
+**Q: "What are Svelte 5 snippets and how do they differ from Svelte 4 slots?"**
+
+**Model answer:** Snippets are named, parameterised blocks of markup declared with `{#snippet name(args)}...{/snippet}` and rendered with `{@render name(args)}`. They replace Svelte 4's `<slot>` mechanism. Three key differences: (1) Snippets are typed — a `Snippet<[Item, number]>` prop appears in the component's TypeScript interface, is checked by the compiler, and shows up in editor autocomplete. Slots had no TypeScript surface. (2) Snippets are first-class values — you can store them in variables, put them in arrays, pass them through multiple component levels, and conditionally select which one to render. Slots were markup-only constructs. (3) Snippets have a single, uniform syntax. Slots had separate APIs for default content, named slots, and slot props, each with different syntax. Snippets unify all three cases into one pattern: declare, pass, render.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/snippet](https://svelte.dev/docs/svelte/snippet) — the snippet block reference.
+- [svelte.dev/docs/svelte/@render](https://svelte.dev/docs/svelte/@render) — the `{@render}` tag reference.
+- [svelte.dev/docs/svelte/old-vs-new](https://svelte.dev/docs/svelte/old-vs-new) — migrating from slots to snippets.
+
+**Advanced pattern: conditional snippet rendering.** A component can accept multiple optional snippets and render whichever one the parent provides:
+
+```svelte
+<script lang="ts">
+    import type { Snippet } from 'svelte';
+    
+    interface Props {
+        compact?: Snippet;
+        expanded?: Snippet;
+        isExpanded: boolean;
+    }
+    
+    let { compact, expanded, isExpanded }: Props = $props();
+</script>
+
+{#if isExpanded && expanded}
+    {@render expanded()}
+{:else if compact}
+    {@render compact()}
+{:else}
+    <p>No content provided.</p>
+{/if}
+```
+
+This pattern gives the parent full control over both the compact and expanded views of a collapsible section, without the component needing to know what goes inside either view.
+
+**Challenge question (combines Lesson 3.6 + Lesson 3.3 + Lesson 3.4):** Build a `Dialog` component with three snippet props: `title` (required), `children` (required), and `actions` (optional, defaults to showing a Close button). Write the Props interface using the `Snippet` type. Then write a parent that renders the dialog with custom actions (Save and Cancel buttons). Explain what happens if the parent omits the `actions` snippet.
+
 ## 2. Style it — Card chrome that never changes
 
 `Card.svelte` owns the chrome — border, radius, padding, optional header and footer styling. The content styling is the parent's responsibility. This is the classic *container/content* separation: the card guarantees consistent chrome across every card in the app while parents retain complete freedom over what goes inside.
