@@ -66,6 +66,19 @@ When something breaks, the file that exploded tells you which docs to open. A re
 
 Since SvelteKit 2.50 the reactive page state API lives in `$app/state`, not `$app/stores`. Since SvelteKit 2.55 typed route parameters are generated into `$app/types`. Remote functions (query / form / command) are stable and opt-in via `experimental.remoteFunctions: true` in `svelte.config.js`. You will meet each of these in its own lesson.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs](https://svelte.dev/docs/kit)
+- [Svelte docs](https://svelte.dev/docs/svelte)
+- [SvelteKit: Introduction](https://svelte.dev/docs/kit/introduction)
+
+**Advanced pattern:** List every SvelteKit file convention (`+page.svelte`, `+layout.svelte`, etc.) and explain what each does in one sentence.
+
+**Challenge question:** (Combines Lessons 8.1, 8.2, and 8.4) Build a mental model diagram showing how a browser request flows through SvelteKit: URL → routing → load functions → SSR → HTML response → hydration → interactive page.
+
 ## 2. Style it — PE7 for the module
 
 The mini-build for this lesson is a table of stack layers. Each row is a card with a left border. We give Module 8 a per-page color personality by setting `--color-brand` to a cool blue (`oklch(70% 0.18 230)`). Svelte-owned layers use a warm accent so the two families are visually distinct. Spacing comes from `--space-*`, type comes from `--text-*`, and the 44px minimum height on every card satisfies touch-target rules. Mobile-first: the grid is one column until `min-width: 480px` is not even needed here — one column scales to any width.

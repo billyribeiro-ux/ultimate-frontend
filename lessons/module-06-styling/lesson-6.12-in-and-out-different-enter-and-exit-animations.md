@@ -93,6 +93,19 @@ The same rule as Lesson 6.11 applies: check `prefersReducedMotion.current` and c
 {/if}
 ```
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: in: and out:](https://svelte.dev/docs/svelte/in-and-out)
+- [Svelte docs: transition events](https://svelte.dev/docs/svelte/transition#Transition-events)
+- [Svelte tutorial: In and out](https://svelte.dev/tutorial/svelte/in-and-out)
+
+**Advanced pattern:** Build a modal that uses `in:scale` with a slight delay and `out:fly` downward. Add `onintroend` and `onoutrostart` event handlers to log the transition lifecycle.
+
+**Challenge question:** (Combines Lessons 6.12, 6.11, and 6.15) Build a notification system where toasts enter with `in:fly` from the right and exit with `out:fade`. Add a spring-driven progress bar inside each toast that shows time remaining. When the progress bar reaches zero, dismiss the toast.
+
 ## 2. Style it — A modal dialog with asymmetric motion
 
 The mini-build is a centred modal with an orange brand hue (`oklch(72% 0.17 55)`). The modal has a scrim backdrop and a dialog card. The scrim fades in and fades out. The dialog **scales up** from 0.9 on enter (`in:scale`) and **flies down** on exit (`out:fly`), communicating clearly that the modal is "put away". Close button is 44×44px. Mobile-first: modal is full-width on narrow screens, max-width 28rem above 480px.

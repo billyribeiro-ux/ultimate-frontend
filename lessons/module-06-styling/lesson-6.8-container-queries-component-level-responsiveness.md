@@ -114,6 +114,36 @@ Container queries are powerful but have some cost and add complexity. A few case
 - **One-off breakpoints at the page level** — if the whole page changes, the page-level breakpoint is fine.
 - **Legacy browsers** — container queries are fully supported in 2026 but older data in analytics may still justify media fallbacks.
 
+
+
+### The TypeScript angle
+
+For typed container-query-aware components, expose a `containerName` prop:
+
+```ts
+interface Props { containerName?: string; }
+```
+
+This lets parents name their container explicitly when multiple query contexts coexist.
+
+### Comparison
+
+| Feature | Media query | Container query |
+|---------|------------|----------------|
+| What it measures | Viewport width | Container width |
+| Use case | Page-level layout | Component-level layout |
+| Units | `vw`, `vh` | `cqi`, `cqw` |
+| Requires setup | No | `container-type` on parent |
+| Circular deps | No | Prevented by containment |
+
+> **In production sidebar.** On a 100K-daily-user dashboard, container queries eliminated the `<Card size="sm|md|lg">` prop entirely. Cards placed in a sidebar auto-detected their narrow context and stacked. Cards in the main area auto-detected their wide context and went horizontal. The component API surface shrank by 30%.
+
+### Common interview question
+
+**Q: What is a container query and how does it differ from a media query?**
+
+**Model answer:** A container query measures the size of a parent element instead of the viewport. You mark a parent with `container-type: inline-size`, then use `@container (min-width: 28rem)` in a descendant to change layout based on the parent's width. This lets components adapt to their local context — the same card can stack in a narrow sidebar and go horizontal in a wide main column, without props or media queries.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a design system with 20+ components, container queries eliminate the "size prop" anti-pattern entirely. Without them, teams create `<Card size="sm" />`, `<Card size="md" />`, `<Card size="lg" />` — tripling the component's API surface and requiring every consumer to manually set the right size for their context. With container queries, the card adapts automatically. The consumer places it; the card figures out its own layout. This decoupling reduces API complexity by ~30% in a typical design system and eliminates an entire category of "the card looks broken in this column width" bugs.
@@ -125,6 +155,19 @@ Container queries are powerful but have some cost and add complexity. A few case
 **Performance implications.** Container queries are evaluated during the browser's layout phase, which already computes element sizes. The additional cost of checking `@container` breakpoints is negligible — it is a comparison between a computed value (the container's width) and a constant (your breakpoint). Even 100 container-queried elements on a page produce no measurable performance difference compared to 100 media-queried elements. The containment context created by `container-type` can actually *improve* paint performance because the browser knows it can paint that subtree independently.
 
 **Connection to other modules.** Container queries first appeared in Module 3 Lesson 3.10 (this lesson's companion in the component architecture story). Module 6 teaches them as a styling technique. The capstone project uses them for the dashboard's widget cards — each card adapts between compact (in a narrow sidebar), medium (in a 2-column grid), and wide (in a full-width hero) with zero JavaScript and zero configuration props. The pattern composes with Module 3's custom-property knobs: the `@container` rule reassigns knob values, and the component's existing rules pick up the new values automatically.
+
+
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: Container queries](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries)
+- [MDN: container-type](https://developer.mozilla.org/en-US/docs/Web/CSS/container-type)
+- [web.dev: Container queries](https://web.dev/articles/cq-stable)
+
+**Advanced pattern:** Build a card that transitions between compact (image on top) and expanded (image on left) layouts using a container query. Use `cqi` units for fluid typography inside the card.
+
+**Challenge question:** (Combines Lessons 6.8, 6.6, and 6.3) Build a dashboard with 3 widget cards in a resizable grid. Each card uses container queries for its internal layout. Use tokens for all spacing. Add a drag handle that resizes the grid columns so students can see cards adapt in real time.
 
 ## 2. Style it — The same card in two columns
 

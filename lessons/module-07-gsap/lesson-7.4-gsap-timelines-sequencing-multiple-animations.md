@@ -109,6 +109,19 @@ const tl = gsap.timeline({ defaults: { duration: prefersReducedMotion.current ? 
 
 Setting `duration` to 0 collapses every child tween to instant. One check, whole sequence accessible.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs: Timeline](https://gsap.com/docs/v3/GSAP/Timeline)
+- [GSAP docs: Position parameter](https://gsap.com/docs/v3/GSAP/Timeline/position-parameter)
+- [GSAP: Understanding timelines](https://gsap.com/resources/getting-started/timelines)
+
+**Advanced pattern:** Build a hero timeline with 5 elements, a progress scrubber slider, and Play/Reverse/Replay buttons. Use labels for readability.
+
+**Challenge question:** (Combines Lessons 7.4, 7.3, and 7.7) Build a multi-step onboarding animation with a timeline. Use `gsap.context` for cleanup. Add a "Skip" button that seeks to the end. Add a reduced-motion guard that collapses all durations to 0.
+
 ## 2. Style it — A hero reveal with a teal-blue brand
 
 The mini-build is a hero section with a teal-blue brand (`oklch(68% 0.14 230)`). The hero has a logo mark, a headline, a subheadline, a CTA button, and three feature cards below. A timeline choreographs all seven elements: logo pops in, then headline flies in, then subheadline fades in overlapping, then CTA scales in, then feature cards stagger in. "Replay" button restarts the timeline. Mobile-first.

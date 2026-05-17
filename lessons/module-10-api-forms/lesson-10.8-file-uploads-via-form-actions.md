@@ -86,6 +86,85 @@ After a failed submit, text fields can be restored from `form?.values`. A file i
 
 The two patterns are interoperable — you can have classic actions for one form and a remote form for another on the same page. Pick per-feature.
 
+### 1.6 What SvelteKit does under the hood
+
+The file upload lifecycle in classic form actions:
+
+1. **Browser constructs multipart payload.** When the form has `enctype="multipart/form-data"`, the browser creates a multipart body with a unique boundary string. Text fields are encoded as name-value pairs. File fields include the filename, MIME type, and raw binary content.
+
+2. **Server receives the full payload.** In classic form actions, `await request.formData()` waits for the entire request body to arrive before returning. For a 50 MB file on a slow connection, this means the handler is blocked for the entire upload duration. (This is different from remote `form()` functions, which can stream — Lesson 9B.6.)
+
+3. **FormData parsing.** The parsed `FormData` object contains `File` objects for file inputs and strings for text inputs. `data.get('photo')` returns a `File` if a file was selected, or a string (the empty filename) if not.
+
+4. **Validation.** You check `instanceof File`, `photo.size`, and `photo.type`. If validation fails, `fail(400, data)` sends the error back. Crucially, the file bytes are already on the server — they were fully uploaded before validation ran. This is a bandwidth waste for large invalid files.
+
+5. **Processing.** For small files, `await photo.arrayBuffer()` loads the entire file into memory. For larger files, `photo.stream()` provides a `ReadableStream` for streaming to disk or cloud storage.
+
+### 1.7 The TypeScript angle
+
+File handling in TypeScript requires careful narrowing because `FormData.get()` returns `FormDataEntryValue | null`, which is `string | File | null`:
+
+```ts
+const photo = data.get('photo');
+// Type: FormDataEntryValue | null = string | File | null
+
+// Wrong: assumes it's a File
+const size = photo.size; // TypeScript error: string has no 'size'
+
+// Right: narrow first
+if (!(photo instanceof File) || photo.size === 0) {
+    return fail(400, { error: 'No file selected' });
+}
+// Now TypeScript knows photo: File
+const { name, size, type } = photo; // All typed correctly
+```
+
+For Valibot validation in a form action, you cannot use `v.file()` directly on `FormData` because `Object.fromEntries(formData)` converts files to strings. Instead, validate the file separately:
+
+```ts
+const textFields = Object.fromEntries(formData) as Record<string, unknown>;
+const textResult = v.safeParse(textSchema, textFields);
+
+const photo = formData.get('photo');
+if (!(photo instanceof File)) return fail(400, { error: 'Photo required' });
+if (photo.size > 5_000_000) return fail(400, { error: 'Too large' });
+```
+
+> **In production sidebar.** We handle two kinds of uploads: profile photos (< 2 MB, classic form action) and document attachments (up to 100 MB, `+server.ts` with streaming). The classic form action pattern works perfectly for small files — the code is simple, progressive enhancement works, and the validation is straightforward. For the 100 MB documents, we use a dedicated `+server.ts` endpoint with `request.body` piped directly to S3 via a streaming upload, because loading 100 MB into memory with `arrayBuffer()` would crash our 256 MB serverless function. The boundary between the two patterns is around 10 MB: below that, classic actions are simpler; above that, streaming is necessary.
+
+### 1.8 Common interview question
+
+**Q: "Compare file uploads via classic form actions versus remote `form()` functions. When would you use each?"**
+
+**Model answer:** Classic form actions wait for the entire upload to complete before the handler runs (`await request.formData()` blocks). This means validation happens after the full file is on the server — a 50 MB invalid file wastes bandwidth. Remote `form()` functions can validate text fields while the file is still uploading, rejecting invalid submissions early. Classic actions have the advantage of working entirely without JavaScript (progressive enhancement). Remote forms also have a no-JS fallback but provide a richer JS-enhanced experience with automatic field helpers (`.as('file')`) and built-in Valibot file validators (`v.file()`, `v.mimeType()`, `v.maxSize()`). Use classic actions for simple file uploads where the no-JS experience matters and file sizes are small. Use remote forms when you want schema-based validation, early rejection for invalid text fields, or a more ergonomic API.
+
+## Deep Dive
+
+**The `enctype` mistake in detail.** Without `enctype="multipart/form-data"`, the browser sends the form as `application/x-www-form-urlencoded`. In this encoding, a `<input type="file" name="photo">` sends the filename as a string: `photo=sunset.jpg`. The handler calls `data.get('photo')` and gets `"sunset.jpg"` — a string, not a `File`. `instanceof File` returns `false`, your validation says "no file selected," and the user is confused. This is the single most common file upload bug. Always check that `enctype` is present.
+
+**Memory-efficient processing.** For image processing (resize, compress, convert), use streaming where possible:
+
+```ts
+import sharp from 'sharp';
+
+const buffer = Buffer.from(await photo.arrayBuffer());
+const processed = await sharp(buffer)
+    .resize(800, 800, { fit: 'inside' })
+    .webp({ quality: 80 })
+    .toBuffer();
+// processed is a WebP image, resized to max 800x800
+```
+
+`sharp` can also stream, but for most profile photos (< 2 MB) the buffer approach is simpler and fast enough.
+
+**The security surface.** Uploaded files are untrusted input. Even if `photo.type` says `image/jpeg`, the actual content could be anything — a malicious script, a zip bomb, or an oversized image that crashes the image processor. Validate the file's actual content (not just the MIME type header), set hard size limits in your server config, and run uploads through a sanitisation pipeline before storing.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Form actions](https://svelte.dev/docs/kit/form-actions) covers file uploads via actions.
+- **Advanced pattern:** Create a reusable `validateUpload(formData: FormData, field: string, options: { maxSize: number; types: string[] })` utility that extracts, validates, and returns a typed `File` or validation errors.
+- **Challenge:** Upload a PNG file, read it with `arrayBuffer()`, and convert it to a base64 data URL. Return the data URL from the action and display it as an `<img src>` in the component. What is the size limit before this approach becomes impractical? (Hint: base64 is ~33% larger than binary, and the data URL is serialised into the `form` prop, which is embedded in the page. For anything over ~1 MB, this is wasteful.)
+
 ## 2. Style it — A dropzone that falls back to a plain input
 
 Per-page brand is a fresh mint. The `<input type="file">` is visually hidden but keyboard-accessible; a styled label covers it with a dashed border. Under `prefers-reduced-motion`, hover effects are suppressed.

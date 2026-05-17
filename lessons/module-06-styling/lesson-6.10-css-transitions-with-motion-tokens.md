@@ -82,6 +82,19 @@ Some of your users have vestibular disorders. Some have ADHD and find motion dis
 
 That safety net means you are allowed to write expressive animations in your components without worrying about accessibility. Still, we recommend you test your app with the preference enabled at least once per feature — on macOS it is **System Settings → Accessibility → Display → Reduce motion**; on Windows it is **Settings → Accessibility → Visual effects → Animation effects**.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: CSS transitions](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_transitions)
+- [MDN: CSS animation performance](https://developer.mozilla.org/en-US/docs/Web/Performance/CSS_JavaScript_animation_performance)
+- [web.dev: Animations guide](https://web.dev/articles/animations-guide)
+
+**Advanced pattern:** Create a "transition playground" with 4 cards, each using a different easing token. Add labels showing the easing name and a description of when to use it.
+
+**Challenge question:** (Combines Lessons 6.10, 6.3, and 6.4) Build an interactive card that uses CSS transitions for hover/focus states, with all durations and easings from PE7 tokens. Nest the hover, focus-visible, and active states inside a single CSS rule. Verify with DevTools Paint Flashing that hover triggers no paint (only composite).
+
 ## 2. Style it — PE7 tokens driving every transition
 
 The mini-build is a row of three interactive cards. Every hover, focus, and press uses only `--dur-*` and `--ease-*` tokens. We assign each card a different easing so you can feel the difference side by side. A per-page brand hue (`oklch(70% 0.2 40)` — a warm amber) is pushed via a single `--color-brand` override in the scoped `<style>`.

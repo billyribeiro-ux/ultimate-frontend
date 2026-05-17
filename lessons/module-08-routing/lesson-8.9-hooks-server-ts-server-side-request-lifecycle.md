@@ -119,6 +119,19 @@ The function returns either a string (the new pathname) or nothing (no rewrite).
 
 Everything in `hooks.server.ts` runs in Node (or your adapter's equivalent). It never ships to the browser. This is important for two reasons: you can safely `import` server-only modules (database clients, secrets), and the bundle the client downloads is smaller.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: hooks.server.ts](https://svelte.dev/docs/kit/hooks#Server-hooks)
+- [SvelteKit docs: event.locals](https://svelte.dev/docs/kit/types#App.Locals)
+- [SvelteKit docs: handle](https://svelte.dev/docs/kit/hooks#Server-hooks-handle)
+
+**Advanced pattern:** Build a `handle` hook that adds a `x-request-id` header to every response and logs the request method, URL, and duration.
+
+**Challenge question:** (Combines Lessons 8.9, 8.4, and 8.2) Build a handle hook that reads a `theme` cookie and injects it into `event.locals`. Use it in a layout load function to render the correct theme. Walk through the full request lifecycle from browser to response.
+
 ## 2. Style it — PE7 for a request log
 
 The mini-build reads a request ID that was set in `hooks.server.ts` via `event.locals.requestId` and displays it on the page via a `+page.server.ts` load function. We give the page a slate personality (`oklch(55% 0.05 260)`) to feel like a server console. The request ID is monospaced and bordered with `var(--color-border)`.

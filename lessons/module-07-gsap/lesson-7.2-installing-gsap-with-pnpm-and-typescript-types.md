@@ -68,6 +68,19 @@ Three-step smoke test:
 2. Edit any existing `+page.svelte` and add `import { gsap } from 'gsap';` to the `<script>`. Save.
 3. Run `pnpm dev`. The page should load with no errors. Open DevTools → Network → filter "gsap". You will see a gsap chunk on first load (dev server bundles differently from production). Confirm it is there.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP: Installation](https://gsap.com/docs/v3/Installation)
+- [GSAP: TypeScript](https://gsap.com/docs/v3/TypeScript/)
+- [Vite: Dependency pre-bundling](https://vite.dev/guide/dep-pre-bundling)
+
+**Advanced pattern:** After installing, open the console and type `gsap.version` to verify. Then check `node_modules/gsap/types/index.d.ts` to see the bundled type definitions.
+
+**Challenge question:** (Combines Lessons 7.2, 7.1, and 1.2) Install GSAP, import it in a page, and display `gsap.version` in the DOM. Verify in DevTools Network tab that the gsap chunk loads. Then import ScrollTrigger from `gsap/ScrollTrigger` and verify it adds a separate chunk.
+
 ## 2. Style it — A status card with a turquoise brand
 
 The mini-build is a single status card with a turquoise brand (`oklch(72% 0.13 180)`). The card shows "GSAP installed: yes/no", "GSAP version", and "Console log check". The card lifts on hover (CSS transition — still the right tool). The install check runs in `onMount` equivalent (`$effect`) and logs to the browser console.

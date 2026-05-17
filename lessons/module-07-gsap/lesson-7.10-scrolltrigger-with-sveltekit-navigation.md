@@ -137,6 +137,19 @@ ScrollTrigger.getAll().map(t => ({ trigger: t.trigger?.className, start: t.start
 
 This shows every active ScrollTrigger with its trigger element and cached start/end positions. If the numbers look wildly off, you need a refresh. If the array is empty but you expected triggers, creation failed — check your effect.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs: ScrollTrigger.refresh()](https://gsap.com/docs/v3/Plugins/ScrollTrigger/static.refresh())
+- [SvelteKit docs: afterNavigate](https://svelte.dev/docs/kit/$app-navigation#afterNavigate)
+- [GSAP: ScrollTrigger in SPAs](https://gsap.com/docs/v3/Plugins/ScrollTrigger/)
+
+**Advanced pattern:** Build two linked pages, each with ScrollTrigger animations. Navigate between them 5 times and verify animations work correctly each time.
+
+**Challenge question:** (Combines Lessons 7.10, 7.9, and 7.7) Build a 3-page SvelteKit app where each page has ScrollTrigger animations. Implement the full navigation-safe pattern. Add a "trigger count" display that reads `ScrollTrigger.getAll().length` to prove no triggers leak.
+
 ## 2. Style it — A two-page demo with a lavender brand
 
 The mini-build is actually *two* routes: the main route and a sub-route. The main route has four reveal sections; the sub-route has three pin-and-scrub blocks. A nav at the top links between them. Both use the lavender brand (`oklch(75% 0.11 295)`). The point is to navigate back and forth and see that both pages work correctly.

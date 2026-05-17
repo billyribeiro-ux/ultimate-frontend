@@ -82,6 +82,19 @@ Folder names are the literal URL segment. `src/routes/About` would become `/Abou
 
 Names starting with `[` are dynamic parameters (Lesson 8.6). Names wrapped in parentheses like `(marketing)` are route groups (Lesson 8.5) — they organise files without affecting the URL.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: Routing](https://svelte.dev/docs/kit/routing)
+- [SvelteKit docs: +page](https://svelte.dev/docs/kit/routing#page)
+- [SvelteKit docs: +layout](https://svelte.dev/docs/kit/routing#layout)
+
+**Advanced pattern:** Create a new route by adding a folder with `+page.svelte`. Navigate to it. Delete the folder. Observe the 404.
+
+**Challenge question:** (Combines Lessons 8.4, 8.5, and 8.6) Build a mini documentation site with a root layout, a docs layout, and 3 documentation pages. Add a `[slug]` dynamic route for individual doc pages. Create a root `+error.svelte` for 404s.
+
 ## 2. Style it — PE7 for a route tree visualiser
 
 The mini-build renders a tree of folders and their URLs side by side. We give the page a teal personality (`oklch(72% 0.16 190)`). Folders are indented with `padding-inline-start` based on depth; URLs align to the right of each row. The tree uses a monospace font for the file paths, which makes the indentation read like a real directory listing.

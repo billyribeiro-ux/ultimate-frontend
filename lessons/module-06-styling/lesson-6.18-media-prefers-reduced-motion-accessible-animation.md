@@ -116,6 +116,19 @@ Reduced motion is the big-ticket accessibility item for animation, but it is not
 - **Pause-able animation.** If your component has a loop (carousel, marquee), give users a way to pause it.
 - **Touch targets 44×44 CSS pixels.** Not a motion thing exactly, but it goes on the same checklist.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: prefers-reduced-motion](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion)
+- [Svelte docs: prefersReducedMotion](https://svelte.dev/docs/svelte/svelte-motion#prefersReducedMotion)
+- [WCAG 2.3.3: Animation from Interactions](https://www.w3.org/WAI/WCAG21/Understanding/animation-from-interactions)
+
+**Advanced pattern:** Build a "motion preference viewer" that displays the current OS preference in real time and shows two animations side by side: one CSS transition and one Svelte transition. Toggle the preference in DevTools and verify both respond.
+
+**Challenge question:** (Combines Lessons 6.18, 6.11, and 6.14) Build a dashboard page with 3 animated widgets: a CSS-transitioned hover card, a Svelte-transitioned modal, and a Tweened progress counter. Add the reduced-motion two-layer defence. Verify with DevTools emulation that all three collapse to instant under reduced motion.
+
 ## 2. Style it — A toggle that demonstrates both tiers
 
 The mini-build has a red brand (`oklch(62% 0.22 25)`) and a single interactive card that demonstrates three things: a CSS transition on hover (handled by the global reset), a Svelte transition on a show/hide toggle (handled by `prefersReducedMotion.current`), and a visible banner that updates live to display the current preference state. Toggle targets are 44px.

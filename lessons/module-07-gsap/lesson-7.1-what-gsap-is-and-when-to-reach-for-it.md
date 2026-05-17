@@ -61,6 +61,19 @@ GSAP's **core** (`gsap`) and most plugins including **ScrollTrigger, Flip, Obser
 
 GSAP *is* a runtime framework — it ships 50KB of JavaScript that lives alongside your app. That is a real cost, and it is why you should not install GSAP just because an interaction "would be nice". You install it when you need it, tree-shake the plugins you do not use, and lazy-load it on routes that do not need it. We will cover lazy-loading in Lesson 7.9 when we introduce ScrollTrigger.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs](https://gsap.com/docs/v3/)
+- [GSAP: Why GSAP?](https://gsap.com/why-gsap/)
+- [Svelte docs: svelte/transition](https://svelte.dev/docs/svelte/svelte-transition)
+
+**Advanced pattern:** Build a "decision tree" component that asks 3 yes/no questions and recommends which animation layer to use based on the answers.
+
+**Challenge question:** (Combines Lessons 7.1, 6.10, and 6.11) Build a demo page with 4 animated elements, each using a different layer: a CSS-transitioned hover card, a Svelte-transitioned modal, a Tweened counter, and a GSAP-animated hero headline. Label each with the tool used and the bundle cost.
+
 ## 2. Style it — A comparison table with a gold brand
 
 The mini-build is a four-row comparison table with a gold brand hue (`oklch(78% 0.17 85)`). Each row describes one of the four layers and shows when to use it. The table animates into view with a stagger using Svelte's built-in `transition:fly` — a tiny object lesson in "pick the right tool". Mobile-first: table becomes a stack of cards on narrow screens.

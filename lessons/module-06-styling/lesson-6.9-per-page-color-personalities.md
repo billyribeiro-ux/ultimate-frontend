@@ -86,6 +86,19 @@ Three routes in this module demonstrate the pattern with different hues:
 
 Open the mini-build with DevTools and inspect `<section>` on each page. The only difference between them is the one line of custom-property override.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Styling](https://svelte.dev/docs/svelte/styling)
+- [MDN: CSS custom properties inheritance](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties)
+- [MDN: oklch() relative syntax](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch)
+
+**Advanced pattern:** Build a hue-slider component that updates `--color-brand` on a parent element in real time. Watch all child components (buttons, cards, links) update their accent colours without any prop changes.
+
+**Challenge question:** (Combines Lessons 6.9, 6.2, and 6.3) Create three side-by-side cards, each inside a `<section>` with a different `--color-brand` override. Use `oklch(from ...)` to derive hover, focus, and muted variants from each override. Verify with a contrast checker that all text-on-brand combinations pass WCAG AA.
+
 ## 2. Style it — Three cards, three personalities
 
 The mini-build renders the same card three times, each inside a `<section>` with its own `--color-brand` override. No other styles differ. Per-page colour cycles: `oklch(68% 0.2 20)`, `oklch(68% 0.2 160)`, `oklch(68% 0.2 280)`.

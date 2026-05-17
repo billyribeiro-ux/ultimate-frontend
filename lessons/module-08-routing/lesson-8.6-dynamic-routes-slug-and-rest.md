@@ -98,6 +98,19 @@ Before SvelteKit 2.55, you had to import `PageProps` from the generated `./$type
 | `[...rest]`       | zero or more         | `/docs/a/b/c`               |
 | `[id=integer]`    | one matching segment | `/users/42` (not `/users/x`)|
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: Dynamic routes](https://svelte.dev/docs/kit/routing#Dynamic-routes)
+- [SvelteKit docs: Param matchers](https://svelte.dev/docs/kit/advanced-routing#Matching)
+- [SvelteKit docs: Rest parameters](https://svelte.dev/docs/kit/routing#Rest-parameters)
+
+**Advanced pattern:** Build a `/users/[id=integer]` route with a matcher that only accepts numeric IDs. Test with `/users/42` (should work) and `/users/abc` (should 404).
+
+**Challenge question:** (Combines Lessons 8.6, 8.4, and 8.5) Build a documentation site with a `[...path]` catch-all route that renders different content based on path depth. Add a `[[lang]]` optional prefix for i18n. Create a param matcher that restricts `lang` to a set of 2-letter codes.
+
 ## 2. Style it — PE7 for a URL sandbox
 
 The mini-build renders the current route's parameters live. We give it an orange personality (`oklch(72% 0.18 55)`) and use a monospace font for the parameter values to make them look like machine output. Spacing and type come from PE7 tokens.

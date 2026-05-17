@@ -107,6 +107,19 @@ if (prefersReducedMotion.current) {
 
 `gsap.set()` is a zero-duration assignment — useful for putting an element in its "final" state without animating.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs: gsap.to()](https://gsap.com/docs/v3/GSAP/gsap.to())
+- [GSAP docs: gsap.from()](https://gsap.com/docs/v3/GSAP/gsap.from())
+- [GSAP docs: gsap.fromTo()](https://gsap.com/docs/v3/GSAP/gsap.fromTo())
+
+**Advanced pattern:** Build a 3-panel demo where each panel demonstrates one method. Include a "Replay" button that resets and re-runs each animation.
+
+**Challenge question:** (Combines Lessons 7.3, 7.5, and 5.1) Build a card that uses `gsap.from` for its entrance reveal (triggered by `bind:this` + `$effect`), `gsap.to` for a hover lift (triggered by `onpointerenter`/`onpointerleave`), and `gsap.set` for the reduced-motion fallback. Type all event handlers correctly.
+
 ## 2. Style it — Three rows, three GSAP methods, one rose brand
 
 The mini-build uses a rose brand hue (`oklch(70% 0.2 15)`). Three rows, one per method. Each row has a coloured box and a "Run" button. Clicking the button triggers the corresponding `gsap.to`/`gsap.from`/`gsap.fromTo` on that box. Buttons are 44px tall. Mobile-first: rows stack in a single column.

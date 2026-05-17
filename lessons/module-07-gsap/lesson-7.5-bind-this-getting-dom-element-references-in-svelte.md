@@ -91,6 +91,19 @@ Svelte fills the array as each element mounts. The effect runs when `cards.lengt
 
 `bind:this` on a regular element gives you the DOM node. `bind:this` on a child component gives you the component instance (a reference to its exports). In this lesson we are only talking about the element form. Component-instance binding is a different topic covered in Module 3.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: bind:this](https://svelte.dev/docs/svelte/bind#bind:this)
+- [Svelte docs: $state](https://svelte.dev/docs/svelte/$state)
+- [GSAP docs: Targets](https://gsap.com/docs/v3/GSAP/gsap.to())
+
+**Advanced pattern:** Build a component that binds 3 elements and passes them to a GSAP timeline. Display the ref values (undefined vs HTMLElement) in a debug panel.
+
+**Challenge question:** (Combines Lessons 7.5, 7.3, and 2.1) Build an `{#each}` list where each item has a `bind:this` ref stored in an array. Use the array of refs as the target for a staggered `gsap.from` call. Verify that adding/removing items updates the ref array correctly.
+
 ## 2. Style it — A single card with a coral brand
 
 The mini-build is one card with a coral brand (`oklch(70% 0.19 30)`). The card has a headline and a paragraph. On mount, GSAP animates the card in with a `from` call — the call takes the bound element, not a selector. Mobile-first responsive.

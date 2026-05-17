@@ -113,6 +113,19 @@ Stagger is like salt: a pinch makes everything better, a fistful ruins the meal.
 
 This is the reference pattern for every staggered list in this course.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: transition parameters](https://svelte.dev/docs/svelte/transition)
+- [Svelte docs: svelte/easing](https://svelte.dev/docs/svelte/svelte-easing)
+- [Svelte tutorial: Deferred transitions](https://svelte.dev/tutorial/svelte/deferred-transitions)
+
+**Advanced pattern:** Build a "stagger lab" with sliders for gap (10-200ms), cap (200-2000ms), and easing selection. Replay the stagger with each setting to feel the difference.
+
+**Challenge question:** (Combines Lessons 6.17, 6.11, and 6.16) Build a staggered grid reveal using a custom transition function that combines fly + scale. Use the `mounted` flag pattern for first-paint. Cap the stagger at 600ms. Add an easing dropdown to switch between cubicOut, backOut, and expoOut.
+
 ## 2. Style it — A feature grid with a cyan brand
 
 The mini-build is a six-item feature grid with a cyan brand hue (`oklch(72% 0.14 220)`). Each feature tile flies in with a 60ms stagger on first paint. Mobile-first: one column; two columns at 480px; three at 720px (container query friendly).

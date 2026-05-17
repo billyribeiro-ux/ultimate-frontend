@@ -129,6 +129,19 @@ export const heroReveal: Action<HTMLElement> = (node) => {
 
 The scope argument to `gsap.context` is the action's own node, which means the action is safe to use multiple times on the same page — each instance gets its own scope.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: use: action](https://svelte.dev/docs/svelte/use)
+- [Svelte docs: svelte/action types](https://svelte.dev/docs/svelte/svelte-action)
+- [Svelte docs: Attachments](https://svelte.dev/docs/svelte/attach)
+
+**Advanced pattern:** Build a `use:tooltip` action that shows a GSAP-animated tooltip on hover. Parameterise the tooltip text and position.
+
+**Challenge question:** (Combines Lessons 7.11, 7.3, and 5.9) Build a `use:dragDrop` action that uses pointer events for drag and GSAP for snap-back animation. Type the action with `Action<HTMLElement, { snapDuration?: number }>`. Handle `pointercancel` in the `destroy` method.
+
 ## 2. Style it — A gallery with a single `use:lift` action
 
 The mini-build is a six-card gallery with a blue brand (`oklch(66% 0.18 250)`). Each card uses `use:lift={{ distance: -6 }}`. The action lives in `src/lib/actions/lift.ts`. Hovering any card lifts it; leaving returns it. Keyboard focus triggers the same animation via `:focus-visible`. Touch targets 44px.

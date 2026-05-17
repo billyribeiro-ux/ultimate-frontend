@@ -146,6 +146,19 @@ Each section gets its own observer. Browsers optimise multiple observers well; t
 
 We keep the base action simple in this lesson; advanced variants are fine to layer on top.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: IntersectionObserver](https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API)
+- [GSAP docs: ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/)
+- [web.dev: Intersection Observer](https://web.dev/articles/intersectionobserver)
+
+**Advanced pattern:** Build the `use:revealOnScroll` action with IntersectionObserver + GSAP. Include the reduced-motion guard and the `gsap.set` for initial hidden state.
+
+**Challenge question:** (Combines Lessons 7.12, 7.11, and 7.9) Build a long marketing page that uses `use:revealOnScroll` for 20 section reveals AND ScrollTrigger for one pinned hero section. Compare Performance tab recordings to see the cost difference.
+
 ## 2. Style it — A long marketing page with a moss brand
 
 The mini-build is a marketing page with a moss brand (`oklch(60% 0.1 140)`). A hero, four feature sections, a testimonial row, and a CTA. Every section uses `use:revealOnScroll` with slightly different parameters. Mobile-first.

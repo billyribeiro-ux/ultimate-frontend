@@ -110,6 +110,19 @@ async function move(x: number, y: number): Promise<void> {
 }
 ```
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Spring](https://svelte.dev/docs/svelte/svelte-motion#Spring)
+- [Svelte docs: svelte/motion](https://svelte.dev/docs/svelte/svelte-motion)
+- [Svelte tutorial: Springs](https://svelte.dev/tutorial/svelte/springs)
+
+**Advanced pattern:** Build a spring-driven cursor follower with live stiffness/damping sliders. Display the spring's current velocity to show the physics in action.
+
+**Challenge question:** (Combines Lessons 6.15, 6.14, and 5.9) Build a "drag and spring" component: the user drags a card with pointer events (Lesson 5.9), and on release the card springs back to its origin. Use `Spring` for the return animation and `Tween` for a progress bar showing drag distance. Type the pointer event handlers correctly.
+
 ## 2. Style it — A cursor follower with a pink brand
 
 The mini-build is a pink brand page (`oklch(72% 0.2 350)`) with a soft circular cursor follower. The dot chases the mouse with a spring tuned to feel alive but critically damped. On touch devices (no hover capable), a draggable card demonstrates the spring following touch position. Hit targets are 44px.

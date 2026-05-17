@@ -157,6 +157,37 @@ WebGL rendering is expensive. A single `<Canvas>` runs a render loop that produc
 
 Module 12 Lesson 12.12 covers Threlte performance in depth.
 
+
+
+### The TypeScript angle
+
+Threlte components use the `T` proxy which is typed through Three.js's type system:
+
+```ts
+// T.Mesh → THREE.Mesh, T.PerspectiveCamera → THREE.PerspectiveCamera
+// Props are typed from Three.js constructor parameters
+<T.MeshStandardMaterial color="hotpink" roughness={0.5} />
+```
+
+`@types/three` provides full type coverage for all Three.js classes.
+
+### Comparison
+
+| Layer | What it provides | Direct GPU access? |
+|-------|-----------------|--------------------|
+| WebGL | Raw GPU API | Yes (shaders, buffers) |
+| Three.js | Scene graph, materials, lights | Via abstractions |
+| Threlte | Svelte components wrapping Three.js | Via `<T.*>` proxy |
+| `<Canvas>` | WebGL context + render loop | Created automatically |
+
+> **In production sidebar.** On a 100K-daily-user product configurator, embedding a 3D model viewer with Threlte increased "add to cart" conversion by 22% compared to static images. The key technical challenge was SSR safety — wrapping `<Canvas>` in `{#if browser}` prevented server crashes, and the 3D scene hydrated cleanly on the client.
+
+### Common interview question
+
+**Q: What is the relationship between WebGL, Three.js, and Threlte?**
+
+**Model answer:** WebGL is the browser's low-level GPU API for 3D rendering. Three.js wraps WebGL in a high-level scene graph (cameras, meshes, materials, lights) so you don't write shaders manually. Threlte wraps Three.js as Svelte components so you write `<T.Mesh>` instead of `new THREE.Mesh()`. Each layer adds convenience at the cost of abstraction. In SvelteKit, wrap `<Canvas>` in `{#if browser}` to prevent SSR crashes, because WebGL requires `document` and `window`.
+
 ## Deep Dive
 
 **Why this matters at scale.** 3D on the web is increasingly common in marketing sites, product configurators, and data visualizations. But most implementations are fragile: they crash on SSR, leak WebGL contexts on navigation, fail to adapt to reduced motion preferences, and destroy page performance. Threlte + SvelteKit + GSAP, properly integrated with the patterns taught in this course (browser guard, effect cleanup, ScrollTrigger with `ctx.revert()`, reduced motion checks), gives you 3D that is production-ready — it handles SSR gracefully, cleans up on navigation, respects accessibility preferences, and co-exists with 2D UI without blocking the main thread.
@@ -168,6 +199,19 @@ Module 12 Lesson 12.12 covers Threlte performance in depth.
 **Performance implications.** A Threlte `<Canvas>` with `frameloop="always"` (the default) renders 60fps continuously, consuming GPU cycles even when nothing is changing. For a hero animation that only moves on scroll, this is wasteful. Use `frameloop="demand"` and call `invalidate()` only when the scene needs a new frame. With GSAP ScrollTrigger driving the animation, you can invalidate inside the `onUpdate` callback. This reduces GPU usage from 100% (60fps rendering) to near-zero (rendering only on scroll frames), which dramatically improves battery life on mobile and reduces thermal throttling.
 
 **Connection to other modules.** This lesson connects Module 7 (GSAP) with the concept of 3D rendering. Module 8 (routing) ensures 3D scenes survive navigation correctly. Module 12 Lesson 12.12 covers Threlte performance optimization in depth (lazy canvas, DPR limiting, demand frameloop). Module 13 Lesson 13.15 covers the SEO implications of canvas content (LCP, invisible text alternatives, accessibility). The capstone project includes a Threlte hero section that demonstrates the complete integration: SSR-safe mounting, GSAP scroll-driven rotation, OKLCH color bridging, reduced motion fallback, and cleanup on navigation.
+
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Threlte docs](https://threlte.xyz/docs)
+- [Three.js docs](https://threejs.org/docs/)
+- [MDN: WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API)
+
+**Advanced pattern:** Build a minimal Threlte scene with a rotating torus. Drive the rotation with GSAP ScrollTrigger so it spins as the user scrolls.
+
+**Challenge question:** (Combines Lessons 7.14, 7.9, and 6.2) Build a 3D product showcase with a Threlte scene. Use ScrollTrigger to rotate the model on scroll. Convert an OKLCH brand colour to a Three.js-compatible hex value using a helper function. Add a browser guard for SSR safety.
 
 ## 2. Style it — A spinning PE7-coloured torus
 

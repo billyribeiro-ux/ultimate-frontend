@@ -118,6 +118,19 @@ gsap.from(cards, {
 });
 ```
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs: Staggers](https://gsap.com/docs/v3/Staggers)
+- [GSAP docs: gsap.utils.toArray()](https://gsap.com/docs/v3/GSAP/UtilityMethods/toArray())
+- [GSAP: Advanced staggers](https://gsap.com/resources/getting-started/Staggers)
+
+**Advanced pattern:** Build a 4x3 grid gallery with a center-out ripple stagger. Add a dropdown to switch between "start", "center", "edges", and "random" directions.
+
+**Challenge question:** (Combines Lessons 7.8, 7.7, and 7.5) Build a staggered card grid using `bind:this` refs. Wrap in `gsap.context` for cleanup. Add a "Replay" button that uses `gsap.set` to reset all cards, then re-runs the stagger.
+
 ## 2. Style it — A 12-card image gallery with an emerald brand
 
 The mini-build is a grid of twelve illustrated cards with an emerald brand (`oklch(70% 0.15 155)`). On mount, the grid ripples in from the centre over 1 second total (`amount: 1, from: 'center', grid: 'auto'`). A "Replay" button re-runs the stagger. Mobile-first: 2 columns; 3 columns at 480px; 4 columns at 720px.

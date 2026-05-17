@@ -116,6 +116,19 @@ If GSAP animates `color` and Svelte transitions animate `transform`, they do not
 
 Each system has its own reduced-motion handling (CSS reset for Svelte transitions + `prefersReducedMotion.current` for both Svelte JS transitions and GSAP). Make sure both sides honour the preference; one without the other is still bad.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Transition events](https://svelte.dev/docs/svelte/transition#Transition-events)
+- [GSAP docs: gsap.killTweensOf()](https://gsap.com/docs/v3/GSAP/gsap.killTweensOf())
+- [Svelte docs: transition:](https://svelte.dev/docs/svelte/transition)
+
+**Advanced pattern:** Build a modal with `transition:scale` on the wrapper and a GSAP continuous pulse on an inner badge. Verify no jitter.
+
+**Challenge question:** (Combines Lessons 7.13, 7.7, and 6.12) Build a modal that uses `in:scale` + `out:fly` (asymmetric Svelte transitions) with a GSAP timeline for inner content reveals. Use `onintroend` to play the timeline after the modal is fully open. Clean up the timeline on `outrostart`.
+
 ## 2. Style it — A modal with a pulsing badge inside
 
 The mini-build is a modal with an amber brand (`oklch(75% 0.16 65)`). The modal opens with a Svelte `transition:scale`. Inside the modal is a badge element that pulses continuously with GSAP (`scale` yoyo). The badge lives on a child element so no conflict. Close button 44×44px.

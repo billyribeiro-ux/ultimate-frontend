@@ -108,6 +108,19 @@ If you know React, `$effect` is closest to `useEffect`. Key differences:
 
 The dependency-tracking difference is the biggest win: you cannot forget to list a dependency.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: $effect](https://svelte.dev/docs/svelte/$effect)
+- [SvelteKit docs: Client-side rendering](https://svelte.dev/docs/kit/page-options#csr)
+- [GSAP docs: gsap.to()](https://gsap.com/docs/v3/GSAP/gsap.to())
+
+**Advanced pattern:** Build a carousel that advances on button click. Use `$effect` to bridge the `step` state to GSAP. Add a debug counter showing how many times the effect has run.
+
+**Challenge question:** (Combines Lessons 7.6, 7.5, and 2.4) Build a component where a `$state` number drives GSAP via `$effect`. Add a `$derived` value that transforms the state. Use both in the effect to animate two elements. Verify that changing unrelated state does not trigger the effect.
+
 ## 2. Style it — A multi-step carousel with a violet brand
 
 The mini-build is a three-slide carousel with a violet brand (`oklch(64% 0.22 310)`). Two buttons (Prev, Next) update a `step` state. The effect reads `step`, clamps it, and runs `gsap.to` on the slide track. Buttons are 44×44px. Dots indicate current slide.

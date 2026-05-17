@@ -37,6 +37,12 @@
 		packages.find((p) => p.name === selected)
 	);
 
+	let dependents: WorkspacePackage[] = $derived(
+		selectedPkg
+			? packages.filter((p) => p.dependencies.includes(selectedPkg!.name))
+			: []
+	);
+
 	function getTypeColor(type: WorkspacePackage['type']): string {
 		switch (type) {
 			case 'app': return 'var(--color-brand)';
@@ -110,7 +116,6 @@
 						</dd>
 						<dt>Dependents</dt>
 						<dd>
-							{@const dependents = packages.filter(p => p.dependencies.includes(selectedPkg!.name))}
 							{#if dependents.length > 0}
 								<ul class="dep-list">
 									{#each dependents as dep}

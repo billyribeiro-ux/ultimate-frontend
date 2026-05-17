@@ -87,6 +87,19 @@ You can also target a specific ancestor: `+page@(app).svelte` means "use the `(a
 
 Layouts are for **structural shell** and **data that every child page needs** (loaded via `+layout.ts` or `+layout.server.ts`, Lesson 9A.5). They are not for "global state" — that is `$state` in a `.svelte.ts` module, Module 11.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: Layouts](https://svelte.dev/docs/kit/routing#layout)
+- [SvelteKit docs: Route groups](https://svelte.dev/docs/kit/advanced-routing#Route-groups)
+- [SvelteKit docs: Breaking out of layouts](https://svelte.dev/docs/kit/advanced-routing#Breaking-out-of-layouts)
+
+**Advanced pattern:** Build a 3-level nested layout chain (root → section → page) with visible borders at each level to show the nesting.
+
+**Challenge question:** (Combines Lessons 8.5, 8.4, and 6.9) Build a site with two route groups: `(marketing)` with a full-width layout and `(app)` with a sidebar layout. Give each group a different `--color-brand` override. Verify that navigating between groups changes the layout AND the accent colour.
+
 ## 2. Style it — PE7 for a three-layer shell
 
 The mini-build shows a nested layout live. The outer layout is a pink/magenta (`oklch(72% 0.18 340)`) panel containing an inner teal panel, which contains the page. Each layer has a labelled border so you can see where one ends and the next begins. Mobile-first: layers stack vertically; no media queries needed.

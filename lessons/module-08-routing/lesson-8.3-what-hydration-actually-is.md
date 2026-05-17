@@ -89,6 +89,36 @@ SvelteKit minimizes this by code-splitting per route. Each page only hydrates it
 
 Some frameworks (Astro, Qwik) experiment with partial hydration: only interactive components are hydrated, while static content remains inert HTML. SvelteKit does not currently implement this model — it hydrates the entire page. However, Svelte's compiled output is already extremely lean (no runtime, targeted DOM operations), which makes full hydration faster than partial hydration in many other frameworks. The April 2026 version's narrow-list hydration walker is a step toward even more targeted hydration, and future SvelteKit versions may offer explicit islands for specific use cases.
 
+
+
+### The TypeScript angle
+
+Hydration errors surface as TypeScript-catchable issues when load function return types don't match component props:
+
+```ts
+// +page.server.ts returns { title: string }
+// +page.svelte expects { title: string } via $props()
+// Mismatch → TypeScript error
+```
+
+### Comparison
+
+| Phase | What happens | Who runs it |
+|-------|-------------|------------|
+| SSR | Components render to HTML string | Server (Node.js) |
+| Transfer | HTML sent to browser | Network |
+| First Paint | Browser displays HTML (non-interactive) | Browser |
+| Hydration | JS attaches handlers to existing DOM | Svelte client runtime |
+| Interactive | Page is fully functional | Browser + Svelte |
+
+> **In production sidebar.** On a 100K-daily-user e-commerce site, a hydration mismatch caused by rendering `new Date().toLocaleString()` during SSR (server timezone) vs CSR (user timezone) produced a visible "flash" where the time changed on hydration. The fix: render dates in a `$effect` (client-only) or use UTC formatting consistently.
+
+### Common interview question
+
+**Q: What is hydration and why does SvelteKit need it?**
+
+**Model answer:** Hydration is the process where the client-side JavaScript "takes over" server-rendered HTML by attaching event handlers and reactive state to existing DOM nodes, rather than re-creating the DOM from scratch. SvelteKit needs it because SSR produces static HTML that looks correct but is not interactive — buttons do not respond to clicks, forms do not submit. Hydration bridges the gap: the browser receives fast-rendering HTML (good for LCP and SEO) and then makes it interactive without a visible re-render. The key constraint: the client-side render must produce the same DOM structure as the server render, or Svelte reports a hydration mismatch.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 20-route production app, hydration performance directly determines the user's perceived responsiveness on first visit. A user arriving from a Google search result sees the page painted (thanks to SSR) and immediately tries to interact. If hydration takes 400ms, their first click does nothing. They click again. The second click fires after hydration and does the action twice. This "unresponsive first click" problem is the most common user complaint about modern web apps and is directly caused by slow hydration. Svelte's lean compiled output gives you a structural advantage, but you must still be disciplined about bundle size and third-party library imports.
@@ -100,6 +130,19 @@ Some frameworks (Astro, Qwik) experiment with partial hydration: only interactiv
 **Performance implications.** Svelte 5's hydration is O(n) in the number of components on the page — it visits each component exactly once to wire up its reactive system. The per-component cost is small (creating signal cells, attaching a few event listeners), but it is not zero. A page with 200 components takes longer to hydrate than one with 20. For very complex pages (like a dashboard with many widgets), consider lazy-loading below-the-fold widgets so they hydrate after the initial viewport is interactive. This technique reduces Time to Interactive for the visible portion of the page.
 
 **Connection to other modules.** Hydration is the bridge between Module 8 (SSR) and everything interactive. Module 9A (load functions) provides the data that is serialized into the HTML for hydration. Module 12 (performance) measures hydration time as part of INP optimization. Module 7 (GSAP) must wait for hydration before starting DOM animations (which is why effects are the correct trigger point). Every decision about what to include in a page's component tree — and what to lazy-load — is ultimately a hydration budget decision.
+
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Hydration](https://svelte.dev/docs/svelte/misc#hydrate)
+- [SvelteKit docs: Page options](https://svelte.dev/docs/kit/page-options)
+- [web.dev: Hydration](https://web.dev/articles/rendering-on-the-web#rehydration)
+
+**Advanced pattern:** Intentionally create a hydration mismatch by rendering `Math.random()` in the template. Observe the console warning. Fix it by moving the random value into a `$effect`.
+
+**Challenge question:** (Combines Lessons 8.3, 8.2, and 2.4) Build a page that shows a server-rendered timestamp and a client-rendered timestamp. The server timestamp appears instantly in the HTML; the client timestamp appears after hydration. Use `$effect` for the client timestamp to avoid mismatch.
 
 ## 2. Style it — making the "moment" visible
 

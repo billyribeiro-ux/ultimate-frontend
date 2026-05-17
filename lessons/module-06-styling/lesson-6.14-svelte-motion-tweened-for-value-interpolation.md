@@ -125,6 +125,19 @@ const progress = new Tween(0, { duration, easing: cubicOut });
 
 Since `duration` can also be a function, an even cleaner version is `duration: () => prefersReducedMotion.current ? 0 : 400`.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Tween](https://svelte.dev/docs/svelte/svelte-motion#Tween)
+- [Svelte docs: svelte/motion](https://svelte.dev/docs/svelte/svelte-motion)
+- [Svelte docs: svelte/easing](https://svelte.dev/docs/svelte/svelte-easing)
+
+**Advanced pattern:** Build a colour tween that interpolates between two OKLCH values using a custom `interpolate` function. Display the current colour as a live swatch.
+
+**Challenge question:** (Combines Lessons 6.14, 6.2, and 6.3) Build a progress ring that uses `Tween` for smooth fill animation. Derive the ring colour from `var(--color-brand)` using OKLCH relative syntax. Use PE7 motion tokens for the tween duration. Add reduced-motion support that collapses the tween to instant.
+
 ## 2. Style it — An animated progress ring with a purple brand
 
 The mini-build is a circular progress ring with a purple brand hue (`oklch(65% 0.22 295)`). Advance and reset buttons (44px tall) modify the target; the ring fills smoothly via an SVG stroke-dasharray bound to `progress.current`. The ring is 200px wide on mobile and scales up to 280px at `min-width: 480px`.

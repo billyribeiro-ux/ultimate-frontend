@@ -91,6 +91,19 @@ If you deploy a new version of your app and a user has been on the old version f
 
 Before SvelteKit 2.12, reactive router state was exported as Svelte stores from `$app/stores`. You imported `page` and read it as `$page.params.slug` — the `$` prefix auto-subscribed to the store. Runes changed the best way to build reactive values, and `$app/stores` was retired in favour of `$app/state`, which is runes-native. You may still see `$page.params.slug` in old blog posts and old Stack Overflow answers. Treat them as outdated. **In this course, we only use `$app/state`.**
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: $app/state](https://svelte.dev/docs/kit/$app-state)
+- [SvelteKit docs: page](https://svelte.dev/docs/kit/$app-state#page)
+- [SvelteKit docs: navigating](https://svelte.dev/docs/kit/$app-state#navigating)
+
+**Advanced pattern:** Build a navigation component that highlights the active link by comparing `page.url.pathname` against each link's href.
+
+**Challenge question:** (Combines Lessons 8.7, 8.6, and 6.9) Build a breadcrumb component that reads `page.url.pathname`, splits it into segments, and renders each as a link. Use `page.params` to display the current route parameter. Override `--color-brand` based on the route module.
+
 ## 2. Style it — PE7 for a router introspector
 
 The mini-build is a dashboard that shows every relevant field from `page` updating live. We give the page a brand-blue personality (`oklch(68% 0.18 250)`) and use PE7's monospace convention for values. The dashboard updates as you navigate, edit the URL or add query parameters.

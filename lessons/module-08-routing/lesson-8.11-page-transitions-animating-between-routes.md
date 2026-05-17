@@ -100,6 +100,19 @@ You can override the default crossfade with CSS on the root view transition pseu
 
 For named transitions (where specific elements morph between pages), you tag elements with `view-transition-name: hero;` in CSS and the browser animates that element between its old and new positions. We cover the tagged morph pattern in Module 12's performance work — for this lesson, the root fade is enough.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: onNavigate](https://svelte.dev/docs/kit/$app-navigation#onNavigate)
+- [MDN: View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API)
+- [Chrome: View Transitions](https://developer.chrome.com/docs/web-platform/view-transitions/)
+
+**Advanced pattern:** Add a crossfade view transition to the root layout. Style it with a slide effect using `::view-transition-old` and `::view-transition-new` CSS.
+
+**Challenge question:** (Combines Lessons 8.11, 8.8, and 6.11) Build a page transition that uses View Transitions for route changes AND Svelte transitions for in-page element mount/unmount. Verify both respect reduced motion independently.
+
 ## 2. Style it — PE7 for a hub page with transition links
 
 The mini-build is a two-page hub: one index page with two coloured cards, and one detail page per card. Clicking a card navigates; a view transition crossfades between them. We use PE7 OKLCH tokens with distinct per-card accents. Every interactive element hits the 44px minimum.

@@ -95,6 +95,19 @@ As with Svelte transitions, the global CSS reset does not touch `animate:flip` b
 <li animate:flip={{ duration: prefersReducedMotion.current ? 0 : 300 }}>
 ```
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: animate:](https://svelte.dev/docs/svelte/animate)
+- [Svelte docs: svelte/animate](https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect)
+- [Aerotwist: FLIP Your Animations](https://aerotwist.com/blog/flip-your-animations/)
+
+**Advanced pattern:** Combine `animate:flip` with `transition:fade` on the same list items. Add and remove items to see transitions fire, then reorder to see FLIP fire — all on the same elements.
+
+**Challenge question:** (Combines Lessons 6.13, 6.11, and 4.2) Build a sortable to-do list. Items fade in on add, fade out on remove, and FLIP on reorder. Add "Move up" and "Move down" buttons. Key the list on `item.id`. Verify that removing the key breaks FLIP but not transitions.
+
 ## 2. Style it — A kanban-style card list with a green brand
 
 The mini-build is a single column of cards with a green brand hue (`oklch(70% 0.16 145)`). Each card has a title and two buttons — move up and move down — that reorder the card within the list. The reorder triggers `animate:flip`. Mobile-first: cards are full-width; on `min-width: 480px` they stay full-width but gain more internal padding. Buttons are 44×44px.

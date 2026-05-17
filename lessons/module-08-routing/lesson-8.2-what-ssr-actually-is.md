@@ -99,6 +99,36 @@ For a simple page, this takes 5-20ms on a modern server. For a complex page with
 
 A critical point that beginners miss: code that runs during SSR has full server access. Your `load` function can read environment variables, query databases, access the filesystem. But the *rendered HTML* is sent to the browser, so any secret data included in the markup or serialized data is exposed to the client. SvelteKit's `+page.server.ts` (server-only load) serializes its return value with `devalue` and sends it to the client as JSON. If your load function returns `{ user: { email, internalNotes } }`, both fields are visible in the page source. Only return data that is safe for the requesting user to see.
 
+
+
+### The TypeScript angle
+
+SvelteKit's load functions are fully typed:
+
+```ts
+import type { PageServerLoad } from "./$types";
+export const load: PageServerLoad = async ({ params }) => {
+    // params.slug is typed as string
+    return { title: "Hello" };
+};
+```
+
+### Comparison
+
+| Mode | HTML generated | When | SEO | TTFB |
+|------|--------------|------|-----|------|
+| SSR | On server | Every request | Excellent | Server render time |
+| SSG | At build time | Once | Excellent | Near-zero (CDN) |
+| CSR | In browser | After JS loads | Poor | Fast (empty shell) |
+
+> **In production sidebar.** On a 100K-daily-user blog, enabling SSR improved the Largest Contentful Paint (LCP) from 3.2s (CSR) to 0.8s because the browser received rendered HTML immediately instead of waiting for JavaScript to download, parse, and execute before showing any content.
+
+### Common interview question
+
+**Q: Walk through every step of a server-side rendered request in SvelteKit.**
+
+**Model answer:** When a browser requests a SvelteKit page: (1) The request hits the server. (2) SvelteKit matches the URL to a route via the file system. (3) If `hooks.server.ts` exports `handle`, it runs first (authentication, logging). (4) The route's `+page.server.ts` or `+page.ts` load function runs, fetching data. (5) SvelteKit renders the component tree to HTML on the server, including the load data. (6) The server sends the HTML response with a `<script>` tag that loads the client bundle. (7) The browser displays the HTML immediately (fast first paint). (8) The JavaScript loads and "hydrates" the HTML — attaching event handlers and making it interactive.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a production app with 20 routes, SSR is the difference between a site that scores 90+ on Lighthouse Performance (for LCP and FCP) and one that scores 40. The reason is physics: no amount of JavaScript optimization can make a client-rendered page appear faster than the network round-trip to download and parse the JS bundle. SSR sidesteps the problem entirely — the HTML arrives pre-rendered, and the browser can paint immediately. For SEO-critical pages (anything that should appear in search results), SSR is non-negotiable. For authenticated dashboards, it is strongly recommended. The only pages where CSR is acceptable are those where SEO does not matter and the user is already authenticated with a loaded shell.
@@ -110,6 +140,19 @@ A critical point that beginners miss: code that runs during SSR has full server 
 **Performance implications.** SSR's impact on Core Web Vitals is dramatic. LCP improves by 500-3000ms on mobile because the largest content element is in the initial HTML, not waiting for JS execution. CLS improves because server-rendered elements have their final dimensions from the start. INP is neutral — SSR does not affect interaction responsiveness once the page is hydrated. The cost is server CPU time, which scales linearly with traffic. For high-traffic pages, SSG (prerendering) eliminates that cost entirely.
 
 **Connection to other modules.** SSR was previewed in Module 1 (compiled output). This lesson (8.2) explains the mechanism. Lesson 8.3 covers hydration (making SSR'd pages interactive). Module 9A teaches load functions (the server-side data-fetching layer). Module 12 connects SSR to LCP optimization. Module 13 connects SSR to SEO (crawlers see the full HTML). Every architectural decision in the course — from token-based styling to typed load functions — is designed to work correctly across both server and client environments.
+
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: Loading data](https://svelte.dev/docs/kit/load)
+- [SvelteKit docs: Hooks](https://svelte.dev/docs/kit/hooks)
+- [web.dev: Rendering on the Web](https://web.dev/articles/rendering-on-the-web)
+
+**Advanced pattern:** Build a page that logs "Rendered on server" vs "Rendered on client" to prove SSR is happening. Check the page source (View Source) to see server-rendered HTML.
+
+**Challenge question:** (Combines Lessons 8.2, 8.3, and 8.1) Build a page with a load function that fetches data. View the page source to confirm the data appears in the HTML. Then disable SSR with `export const ssr = false` and view source again — the data is gone from the HTML.
 
 ## 2. Style it — PE7 for a "proof" page
 

@@ -100,6 +100,19 @@ A good production setup uses all three. SvelteKit's instrumentation.server.ts is
 
 We do not wire up a real OpenTelemetry backend in this course repository, because doing so requires either a local collector or a paid service and would make `pnpm dev` slower and less reliable. The mini-build is a small console that *simulates* a trace locally — it measures the load function duration on the server and displays it on the client, so you can see the shape of a span without the external dependencies. In a real project, swap the console for the real OTel SDK and everything else stays identical.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: instrumentation](https://svelte.dev/docs/kit/hooks#Instrumentation)
+- [OpenTelemetry JS docs](https://opentelemetry.io/docs/languages/js/)
+- [OpenTelemetry: Getting Started](https://opentelemetry.io/docs/getting-started/)
+
+**Advanced pattern:** Set up a minimal `instrumentation.server.ts` that logs "OTel initialized" on server boot. Verify it runs before `hooks.server.ts` by comparing log timestamps.
+
+**Challenge question:** (Combines Lessons 8.10, 8.9, and 8.2) Set up OpenTelemetry tracing with a console exporter. Add a custom span inside a `handle` hook. View the trace output showing the request flow: instrumentation → handle → load → render → response.
+
 ## 2. Style it — PE7 for a trace viewer
 
 The mini-build displays a "simulated trace" panel with one parent row (the whole request) and two child rows (load function, render). We give the page a deep-purple personality (`oklch(55% 0.2 300)`) and use monospaced values. Durations are formatted in milliseconds with `.toFixed(1)`.

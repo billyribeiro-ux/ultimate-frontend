@@ -142,6 +142,19 @@ The code inside the media-query block only runs when the user does **not** prefe
 
 > **Note:** `ScrollTrigger.matchMedia` works but `gsap.matchMedia()` is the newer, more flexible API. Both are valid in April 2026.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [GSAP docs: ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/)
+- [GSAP: ScrollTrigger start/end](https://gsap.com/docs/v3/Plugins/ScrollTrigger/start)
+- [GSAP: ScrollTrigger demos](https://gsap.com/scroll/)
+
+**Advanced pattern:** Build a scroll-driven article with 4 reveal sections and a pinned hero with parallax. Use `markers: true` during development.
+
+**Challenge question:** (Combines Lessons 7.9, 7.7, and 7.4) Build a scroll-driven timeline that sequences 5 elements with overlapping reveals. Pin the first section while the rest scroll past. Clean up with `gsap.context`. Add `ScrollTrigger.matchMedia` for reduced motion.
+
 ## 2. Style it — A long-form article with scroll-triggered section reveals
 
 The mini-build is a fictional article with a graphite brand (`oklch(50% 0.06 260)`). Four sections: intro, body-1, body-2, conclusion. Each section's h2 and first paragraph animate in as the section enters the viewport. The hero image pins with a slow parallax (`scrub: 1`). Mobile-first.

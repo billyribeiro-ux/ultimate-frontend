@@ -105,6 +105,19 @@ Use it when you need to match URLs exactly — for example, to highlight an acti
 
 A principle you will see throughout SvelteKit: **use HTML first, reach for JavaScript only when HTML cannot do the job.** A plain `<a href="/blog">` works without JavaScript, is fast, is accessible, and gets you through SSR and hydration for free. `$app/navigation` is for the cases where you genuinely need code — conditional redirects, programmatic refreshes, preloading before a click. It is not a replacement for links.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [SvelteKit docs: $app/navigation](https://svelte.dev/docs/kit/$app-navigation)
+- [SvelteKit docs: goto](https://svelte.dev/docs/kit/$app-navigation#goto)
+- [SvelteKit docs: invalidate](https://svelte.dev/docs/kit/$app-navigation#invalidate)
+
+**Advanced pattern:** Build a search form that uses `goto` to navigate to `/search?q=query` after submission. Use `invalidate` to refresh data when a "Refresh" button is clicked.
+
+**Challenge question:** (Combines Lessons 8.8, 8.7, and 8.6) Build a wizard flow with 3 steps. Use `goto` to navigate between steps. Use `beforeNavigate` to warn the user if they try to leave with unsaved changes. Use `afterNavigate` to scroll to top on each step.
+
 ## 2. Style it — PE7 for a control panel
 
 The mini-build is a control panel with buttons for each `$app/navigation` helper. We give the page a rose personality (`oklch(70% 0.2 15)`). Every button hits a 44px minimum block size. The panel layout stacks on mobile and becomes two columns at the 480px breakpoint.

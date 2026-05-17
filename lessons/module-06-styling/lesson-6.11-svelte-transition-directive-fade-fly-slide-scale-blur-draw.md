@@ -103,6 +103,19 @@ Svelte 5.7 added a reactive helper called `prefersReducedMotion` in `svelte/moti
 
 This is the recommended way to make per-component accessibility decisions in Svelte 5. The global CSS reset handles CSS transitions; `prefersReducedMotion.current` handles JavaScript-driven Svelte transitions.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: transition:](https://svelte.dev/docs/svelte/transition)
+- [Svelte docs: svelte/transition](https://svelte.dev/docs/svelte/svelte-transition)
+- [Svelte docs: svelte/easing](https://svelte.dev/docs/svelte/svelte-easing)
+
+**Advanced pattern:** Build a notification stack where each notification uses `transition:fly` to enter from the right and exit to the right. Use the `local` modifier (default) so that notifications do not re-animate when the parent unmounts.
+
+**Challenge question:** (Combines Lessons 6.11, 6.10, and 6.3) Build a card that uses CSS transitions for hover states AND a Svelte `transition:fade` for show/hide. Use PE7 motion tokens for both. Verify that reduced motion collapses both the CSS transition (via the global reset) and the Svelte transition (via `prefersReducedMotion.current`).
+
 ## 2. Style it — A notification stack with per-page personality
 
 The mini-build is a stack of dismissible toast notifications with a teal brand hue (`oklch(72% 0.14 190)`). Each toast uses `transition:fly` to enter from the right and leave to the right. Duration comes from PE7 tokens (300ms base). Mobile-first: toasts are full-width on narrow screens and capped at 24rem at `min-width: 480px`. Dismiss buttons are 44px tall.

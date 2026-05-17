@@ -89,6 +89,84 @@ SvelteKit also exposes a small set of template placeholders for `src/app.html`:
 
 `%sveltekit.version%` is useful for cache-busting a static asset referenced directly in `app.html`, such as a favicon or an analytics script URL.
 
+### 1.6 What SvelteKit does under the hood
+
+SvelteKit's environment variable system is built on top of Vite's `import.meta.env` but with important additions:
+
+**Build-time static variables (`$env/static/private` and `$env/static/public`):**
+
+1. During `pnpm build`, Vite reads `.env`, `.env.local`, `.env.production`, etc. (following Vite's standard env file resolution).
+2. Variables are injected as string constants via `define` in the Vite config. This means the actual value is inlined into the compiled JavaScript at build time.
+3. For `$env/static/private`, the build system enforces a **server-only boundary**. If any file that ends up in the client bundle tries to import from this module, the build fails with a clear error. The enforcement works by checking the module graph: if a `.svelte` file, a `+page.ts`, or any module imported by client code tries to resolve `$env/static/private`, the plugin throws.
+4. For `$env/static/public`, variables must start with `PUBLIC_`. The build system only exposes variables with this prefix. Other variables are silently excluded.
+
+**Run-time dynamic variables (`$env/dynamic/private` and `$env/dynamic/public`):**
+
+1. These are read from `process.env` at request time, not at build time. The values are not inlined.
+2. The same server-only / public split applies: `$env/dynamic/private` is server-only, `$env/dynamic/public` only exposes `PUBLIC_*` variables.
+3. Dynamic variables update without rebuilding — restart the server with new env vars and the code reads the new values.
+
+### 1.7 The TypeScript angle
+
+SvelteKit generates type declarations for your environment variables. When `svelte-kit sync` runs, it reads `.env` and generates types in `.svelte-kit/types/$env/`:
+
+```ts
+// Auto-generated: .svelte-kit/types/$env/static/private.d.ts
+declare module '$env/static/private' {
+    export const DATABASE_URL: string;
+    export const WEBHOOK_SECRET: string;
+}
+```
+
+This means you get autocomplete and type checking for your env variables. If you typo `DATABSE_URL`, TypeScript catches it. If you access a variable that does not exist in `.env`, you get a compile error.
+
+After adding a new variable to `.env`, run `pnpm svelte-kit sync` (or restart `pnpm dev`) to regenerate the types.
+
+### 1.8 Comparison: SvelteKit env vs other frameworks
+
+| Aspect | SvelteKit `$env` | Next.js `process.env` | Vite `import.meta.env` |
+| --- | --- | --- | --- |
+| Server/client boundary | Enforced at build time | `NEXT_PUBLIC_` convention (not enforced) | `VITE_` prefix (convention) |
+| Build error on leak | Yes (`$env/static/private`) | No (silent leak) | No (silent leak) |
+| Static vs dynamic | Four distinct modules | `process.env` (always dynamic) | `import.meta.env` (static) |
+| Type generation | Automatic from `.env` | Via `next-env.d.ts` | Via `vite-env.d.ts` |
+| Tree-shaking | Yes (unused vars eliminated) | Partial | Yes |
+
+SvelteKit's approach is the most secure of the three because the build fails if you try to use a private variable in client code. Next.js relies on naming conventions that developers can accidentally violate.
+
+> **In production sidebar.** A team we consulted for had a Next.js app where a developer accidentally used `process.env.STRIPE_SECRET_KEY` in a client component. The key was exposed in the client bundle for three weeks before someone noticed. SvelteKit's `$env/static/private` build-time enforcement would have caught this on the first build. The lesson: convention-based security (naming prefixes) is weaker than enforcement-based security (build errors). Always prefer the system that makes the wrong thing impossible, not just unlikely.
+
+### 1.9 Common interview question
+
+**Q: "How does SvelteKit prevent you from accidentally leaking a secret environment variable to the browser?"**
+
+**Model answer:** SvelteKit provides four `$env` modules, split along two axes: static/dynamic and private/public. Private modules (`$env/static/private` and `$env/dynamic/private`) are enforced as server-only at build time. If any file that ends up in the client bundle imports from a private module, the build fails with a clear error. This is enforced by SvelteKit's Vite plugin, which traces the module graph and checks that private env imports only appear in server-only files (`+page.server.ts`, `+server.ts`, `hooks.server.ts`, `.remote.ts`). Public modules only expose variables whose names start with `PUBLIC_` — other variables are silently excluded. The combination of build-time enforcement and naming conventions makes accidental secret leaks nearly impossible.
+
+## Deep Dive
+
+**Environment file priority.** Vite reads `.env` files in a specific order, with later files overriding earlier ones:
+1. `.env` — always loaded
+2. `.env.local` — always loaded, gitignored by convention
+3. `.env.[mode]` — only when running in that mode (e.g., `.env.development`, `.env.production`)
+4. `.env.[mode].local` — only when running in that mode, gitignored
+
+For SvelteKit, `mode` is `development` during `pnpm dev` and `production` during `pnpm build`.
+
+**The `env()` function (adapter-specific).** Some adapters (like `adapter-node`) provide a runtime `env()` function for reading variables that are set by the hosting platform at deploy time and are not available during build:
+
+```ts
+import { env } from '$env/dynamic/private';
+const dbUrl = env.DATABASE_URL; // read at runtime, not build time
+```
+
+This is essential for Docker deployments where one image serves multiple environments.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Modules — $env](https://svelte.dev/docs/kit/$env-static-private) covers all four modules.
+- **Advanced pattern:** Create a `config.server.ts` module that imports all private env vars and exports a typed, validated configuration object. Validate with Valibot at startup to fail fast if a required variable is missing.
+- **Challenge:** Create a `.env` with both `SECRET_KEY=abc` and `PUBLIC_SITE_NAME=MySite`. Try importing `SECRET_KEY` from `$env/static/public`. What happens? (Answer: it is not there — only `PUBLIC_*` variables are exposed by the public modules. You need `$env/static/private`.)
+
 ## 2. Style it — An environment info panel
 
 Per-page brand is a pale gold. The mini-build reads one public and one private variable (safely, through a load function for the private one) and displays them in a table, with a warning icon next to the private value indicating "this came from the server, not the bundle".

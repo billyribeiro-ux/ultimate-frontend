@@ -134,6 +134,19 @@ Here `css` cannot help — we are modifying the text content itself — so we us
 
 For custom transitions, reduced motion is your responsibility. Read `prefersReducedMotion.current` at the call site and either collapse the parameters or skip the transition entirely.
 
+
+
+## Going Deeper
+
+**Official documentation:**
+- [Svelte docs: Custom transitions](https://svelte.dev/docs/svelte/transition#Custom-transitions)
+- [Svelte docs: TransitionConfig](https://svelte.dev/docs/svelte/svelte-transition)
+- [MDN: Web Animations API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API)
+
+**Advanced pattern:** Build a "typewriter" transition using the `tick` function that reveals text one character at a time. Then build a "curtain wipe" transition using the `css` function with `clip-path`.
+
+**Challenge question:** (Combines Lessons 6.16, 6.11, and 6.2) Build a custom transition that "colour-wipes" an element: the background transitions from one OKLCH colour to another via a horizontal gradient, while opacity fades in. Use the `css` function for compositor performance. Parameterise the start and end colours.
+
 ## 2. Style it — A hero section with a custom curtain reveal
 
 The mini-build is a hero with a deep indigo brand (`oklch(45% 0.18 265)`). An "Enter" button mounts a hero card using the custom `curtain` transition from above. The reveal is horizontal, 500ms, cubicOut. Mobile-first responsive, reduced motion skips the reveal.

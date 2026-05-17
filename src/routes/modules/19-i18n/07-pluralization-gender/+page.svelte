@@ -59,7 +59,7 @@
 		<label class="field">
 			<span class="field__label">Locale</span>
 			<select class="field__input" bind:value={locale}>
-				{#each availableLocales as loc}
+				{#each availableLocales as loc (loc.code)}
 					<option value={loc.code}>{loc.name} ({loc.code})</option>
 				{/each}
 			</select>
@@ -95,7 +95,7 @@
 			{usedCategories.length} categor{usedCategories.length === 1 ? 'y' : 'ies'} for {locale} ({pluralType})
 		</h2>
 		<div class="legend__items">
-			{#each usedCategories as category}
+			{#each usedCategories as category (category)}
 				<span class="legend__item">
 					<span class="legend__dot" style="background: {categoryColors[category] ?? 'var(--color-text-muted)'}"></span>
 					{category}
