@@ -22,7 +22,10 @@
 		{ id: '11', number: '11', title: 'State at Scale', href: '/modules/11-state', goal: 'Context, .svelte.ts stores, TanStack Table.' },
 		{ id: '12', number: '12', title: 'Performance & Production', href: '/modules/12-performance', goal: 'Core Web Vitals, tests, 3D performance, deploy.' },
 		{ id: '13', number: '13', title: 'SEO', href: '/modules/13-seo', goal: 'Structured data, E-E-A-T, 3D-aware SEO.' },
-		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte', goal: 'Declarative 3D: scenes, models, physics, production.' }
+		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte', goal: 'Declarative 3D: scenes, models, physics, production.' },
+		{ id: '18', number: '18', title: 'Advanced Patterns', href: '/modules/18-advanced', goal: 'Compound, polymorphic, headless components, monorepos.' },
+		{ id: '19', number: '19', title: 'Internationalization', href: '/modules/19-i18n', goal: 'i18n, ICU messages, Paraglide, RTL, locale routing.' },
+		{ id: '20', number: '20', title: 'Testing Deep Dive', href: '/modules/20-testing', goal: 'Vitest, component tests, Playwright, CI/CD pipelines.' }
 	];
 </script>
 

@@ -98,6 +98,96 @@ For a full progress bar, replace `submit()` with an `XMLHttpRequest` upload keye
 
 `await photo.arrayBuffer()` loads the entire file into RAM. For small images that is fine. For videos or archives you want to stream the file to disk with `photo.stream()` and a Node `Readable`. That pattern is Module 12 material; for now, use `arrayBuffer` with a 5 MB ceiling.
 
+### 1.6 What SvelteKit does under the hood — the streaming form data pipeline
+
+File upload streaming in remote form functions involves a more sophisticated pipeline than text-only forms. Here is the full lifecycle:
+
+**Client-side:**
+
+1. The user selects a file and clicks "Upload".
+2. The Svelte attachment intercepts the submit.
+3. A `FormData` object is constructed from all named inputs, including the `File` object from the file input.
+4. The attachment sends a `fetch` POST with the `FormData` as the body. The browser automatically sets `Content-Type: multipart/form-data; boundary=...` and chunks the upload.
+5. Unlike text-only forms, file uploads cannot use the preflight to validate the file on the server before the upload starts. However, client-side preflight can check `file.size` and `file.type` before sending, preventing obviously invalid uploads from ever leaving the browser.
+
+**Server-side (streaming):**
+
+1. The server receives the multipart request. Instead of waiting for the entire body to arrive before processing, SvelteKit can begin parsing the multipart stream immediately.
+2. Text fields arrive first (they are small). SvelteKit's runtime can validate them via the Valibot schema while file bytes are still in transit.
+3. If a text field fails validation, the server can reject the request early — before the file upload completes. This saves bandwidth: a 50 MB upload is aborted mid-stream instead of completing before the server says "your caption was too short."
+4. Once all fields (including files) have arrived, the full Valibot schema validates the `File` object's metadata: `v.mimeType()` checks the MIME type, `v.maxSize()` checks the byte count.
+5. The handler receives the validated data. `photo` is a `File` object with full access to its contents via `arrayBuffer()`, `stream()`, or `text()`.
+
+### 1.7 The TypeScript angle
+
+Valibot's file validators have precise TypeScript types:
+
+```ts
+const schema = v.object({
+    caption: v.pipe(v.string(), v.maxLength(120)),
+    photo: v.pipe(
+        v.file('A photo is required'),        // type: File
+        v.mimeType(['image/jpeg', 'image/png', 'image/webp'], 'Unsupported type'),
+        v.maxSize(5 * 1024 * 1024, 'Too large')
+    )
+});
+
+type FormInput = v.InferInput<typeof schema>;
+// { caption: string; photo: File }
+```
+
+In the handler, `photo` is typed as `File`. This is the web-standard `File` class with methods like:
+- `photo.name: string` — the original filename
+- `photo.size: number` — size in bytes
+- `photo.type: string` — MIME type
+- `photo.arrayBuffer(): Promise<ArrayBuffer>` — full contents
+- `photo.stream(): ReadableStream<Uint8Array>` — streaming contents
+- `photo.text(): Promise<string>` — contents as UTF-8 text (rarely useful for binary files)
+
+The type system prevents you from accidentally treating the `File` as a string (which is what happens without `enctype="multipart/form-data"` — the browser sends the filename as a string).
+
+### 1.8 Comparison: remote form upload vs classic action upload vs dedicated upload endpoint
+
+| Aspect | Remote `form()` upload | Classic form action upload | `+server.ts` upload endpoint |
+| --- | --- | --- | --- |
+| Validation | Valibot schema (automatic) | Manual `instanceof File` checks | Manual validation |
+| Type safety | `v.file()` -> `File` type | Manual narrowing | Manual narrowing |
+| Progressive enhancement | Yes (standard POST fallback) | Yes | No (JS-only) |
+| Upload progress | Via custom `enhance` / XHR | Via custom `enhance` / XHR | Via XHR directly |
+| Early rejection | Yes (text fields validated before file finishes) | No (all data arrives before handler) | Depends on implementation |
+| Streaming to disk | Via `photo.stream()` in handler | Via `photo.stream()` | Via `request.body` |
+
+> **In production sidebar.** Our app handles profile photo uploads (< 2 MB) and document uploads (up to 50 MB). We use remote `form()` for profile photos — the Valibot schema enforces `v.maxSize(2 * 1024 * 1024)` and `v.mimeType(['image/jpeg', 'image/png'])`, and the handler stores the file in S3. For document uploads, we use a dedicated `+server.ts` endpoint with `request.body` streaming directly to cloud storage, because loading a 50 MB file into memory with `arrayBuffer()` would crash the server process. The rule: use remote `form()` for uploads under 10 MB where you need the full Valibot validation pipeline. Use a streaming `+server.ts` endpoint for large files where memory efficiency is critical.
+
+### 1.9 Common interview question
+
+**Q: "A user uploads a 10 MB file via a form. What happens if the caption field is invalid? How does the streaming approach differ from the traditional approach?"**
+
+**Model answer:** In the traditional approach (classic form actions), the server calls `await request.formData()`, which waits for the entire request body — including the 10 MB file — to arrive before parsing. The handler then discovers the caption is invalid and returns a `fail(400)`. The user waited for the full upload, wasted 10 MB of bandwidth, and gets an error. In the streaming approach (remote `form()` functions), the server can parse the multipart stream incrementally. Text fields arrive first. SvelteKit can validate the caption against the Valibot schema while file bytes are still in transit. If the caption fails validation, the server rejects the request immediately and closes the connection — the remaining file bytes are never received. This saves bandwidth and gives the user faster feedback. Even better: a client-side preflight schema can catch the invalid caption before any network request, preventing the upload entirely.
+
+## Deep Dive
+
+**The `arrayBuffer()` vs `stream()` decision.** For files under ~10 MB, `await photo.arrayBuffer()` is simple and fast. The entire file loads into memory, you process it (resize, hash, validate contents), and write it to storage. For files over 10 MB, `photo.stream()` returns a `ReadableStream<Uint8Array>` that you can pipe directly to disk, S3, or another destination without loading the whole file into memory. Node.js example:
+
+```ts
+import { createWriteStream } from 'node:fs';
+import { Writable } from 'node:stream';
+
+const writable = createWriteStream(`/uploads/${photo.name}`);
+const nodeWritable = Writable.toWeb(writable);
+await photo.stream().pipeTo(nodeWritable);
+```
+
+This pattern handles files of arbitrary size with constant memory usage.
+
+**EXIF data and security.** Uploaded images often contain EXIF metadata including GPS coordinates, camera model, and timestamps. For privacy, strip EXIF before storing. Libraries like `sharp` (Node.js) can do this during the image processing step. This is server-side work — never trust the client to strip metadata.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Remote functions — form](https://svelte.dev/docs/kit/remote-functions#form) covers file upload patterns.
+- **Advanced pattern:** Implement a resumable upload by splitting the file into chunks on the client, sending each chunk as a separate request, and reassembling on the server. This is complex but necessary for files over 100 MB on unreliable connections.
+- **Challenge:** Upload an image, read it with `arrayBuffer()`, compute its SHA-256 hash with `crypto.subtle.digest()`, and return the hash as part of the form result. Verify the hash matches by computing it independently in the browser before upload.
+
 ## 2. Style it — A drop zone and a progress state
 
 Per-page brand is a fresh green. The drop zone uses `border: 2px dashed var(--color-brand)` and animates a gentle brand-tinted glow while `uploading` is true. All animation respects `prefers-reduced-motion`.

@@ -135,6 +135,117 @@ Turn off JavaScript in DevTools. Submit the form. It still works: the browser po
 
 Server-side validation is the security boundary. The preflight is a convenience for the user, not a guarantee. Never assume preflight-passed data is valid — the server schema is always the final word.
 
+### 1.6 What SvelteKit does under the hood — the progressive enhancement lifecycle
+
+Understanding the full lifecycle of a remote `form()` submission reveals why this pattern is so powerful. Here is what happens at each stage:
+
+**Without JavaScript (no-JS fallback):**
+
+1. The user fills in the form and clicks "Save".
+2. The browser reads the `method="POST"` and `action` attributes that `{...updateSettings}` spread onto the `<form>`. The action is an auto-generated URL pointing to the form's server endpoint.
+3. The browser constructs a `FormData` from all named inputs and submits a standard multipart POST.
+4. The server receives the request. SvelteKit's runtime extracts the form data, runs it through the Valibot schema, and either returns the handler's result or returns validation errors.
+5. The server re-renders the page with the `form` result populated. The user sees a full-page reload with the success message or validation errors.
+
+**With JavaScript (progressive enhancement):**
+
+1. The user fills in the form and clicks "Save".
+2. The Svelte attachment (set by `{...updateSettings}`) intercepts the submit event and calls `event.preventDefault()`.
+3. If a preflight schema was provided via `.preflight(schema)`, the form data is validated in the browser first. If validation fails, the `issues()` arrays populate immediately — no network request.
+4. If preflight passes (or no preflight exists), the attachment serialises the form data and sends a `fetch` POST to the same auto-generated endpoint.
+5. The `pending` property on `updateSettings` flips to `true`. The template can show a spinner.
+6. The server validates with the authoritative Valibot schema. If it fails, the 400 response carries the issues. If it passes, the handler runs and returns the result.
+7. The response arrives. `pending` flips to `false`. Either `result` is populated (success) or the per-field `issues()` arrays are populated (failure).
+8. No page reload. No scroll-to-top. No lost input focus.
+
+The key insight is that **the same form, the same validation, the same handler** works in both paths. You write one Valibot schema on the server, optionally mirror it as a preflight on the client, and both JS-on and JS-off users get the same experience — just with different performance characteristics.
+
+### 1.7 The TypeScript angle
+
+The `form()` function's type signature is:
+
+```ts
+function form<Schema, Result>(
+    schema: StandardSchema<Schema>,
+    handler: (data: Schema) => Promise<Result>
+): FormRemoteFunction<Schema, Result>;
+```
+
+The return type `FormRemoteFunction<Schema, Result>` is both:
+- A spreadable object (for `{...updateSettings}` on the form element)
+- A reactive state container with `result: Result | null`, `pending: boolean`, and `fields`
+
+The `fields` object is derived from the schema. For `v.object({ displayName: v.string(), theme: v.picklist([...]) })`, the fields are:
+- `fields.displayName` with `.as('text')`, `.as('textarea')`, `.issues()`
+- `fields.theme` with `.as('select')`, `.issues()`
+
+Each field's `.as()` method returns the correct HTML attributes including `name`, `type`, `value`, and `aria-invalid`. The `aria-invalid` attribute is set to `"true"` when that field has validation issues, which is both an accessibility feature and a CSS hook.
+
+### 1.8 Comparison: remote `form()` vs classic form actions
+
+| Aspect | Remote `form()` | Classic form actions |
+| --- | --- | --- |
+| Validation | Valibot schema (automatic) | Manual `FormData` parsing |
+| Type safety | Schema -> handler -> result (automatic) | Manual `ActionData` typing |
+| Progressive enhancement | Built-in (attachment intercepts) | Via `use:enhance` (manual) |
+| Per-field errors | `fields.name.issues()` (automatic) | Manual error mapping |
+| Client preflight | `.preflight(schema)` | Manual `onsubmit` handler |
+| Field helpers | `.as('text')`, `.as('checkbox')`, etc. | Manual `name`/`type` attributes |
+| No-JS fallback | Yes (standard POST) | Yes (standard POST) |
+| Existing codebase support | Requires `experimental.remoteFunctions` | Built-in since SvelteKit 1.0 |
+
+> **In production sidebar.** We rebuilt our settings page from classic form actions to remote `form()` functions. The original code was 180 lines across `+page.server.ts` (manual FormData parsing, manual validation, manual error mapping) and `+page.svelte` (manual error display, manual field repopulation). The remote form version is 65 lines across `settings.remote.ts` (schema + handler) and `+page.svelte` (spread + fields). The validation is more thorough (Valibot catches edge cases our manual checks missed), the error display is more precise (per-field via `.issues()`), and the code is 64% shorter. The one trade-off: the preflight schema must live outside the `.remote.ts` file, which adds one small file.
+
+### 1.9 Common interview question
+
+**Q: "Explain progressive enhancement in the context of SvelteKit forms. How does a remote `form()` function achieve it?"**
+
+**Model answer:** Progressive enhancement means the form works at the baseline level (no JavaScript) and gets better when JavaScript is available. A remote `form()` function achieves this by generating a real HTML form with `method="POST"` and an auto-generated `action` URL. Without JavaScript, the browser submits the form normally, the server validates and processes it, and the page reloads with the result. With JavaScript, a Svelte attachment intercepts the submit, runs an optional client-side preflight validation for instant feedback, then sends the data via `fetch` in the background. The page updates reactively without a reload — showing validation errors per-field, displaying a pending state during submission, and rendering the result when it arrives. The same Valibot schema validates on both sides, ensuring consistency. The developer writes the form once; SvelteKit delivers two user experiences from the same code.
+
+## Deep Dive
+
+**The preflight schema placement problem.** A `.remote.ts` file is server-only. Its code never ships to the client. But a preflight schema must run in the browser. This creates a tension: you want one schema (DRY), but the schema must exist in two bundles. The solution is to put the shared schema in a plain `.ts` file (not `.remote.ts`) that both sides can import:
+
+```ts
+// src/routes/settings/settings-schema.ts (plain .ts — both sides can import)
+import * as v from 'valibot';
+export const settingsSchema = v.object({ ... });
+```
+
+```ts
+// src/routes/settings/settings.remote.ts (server-only)
+import { form } from '$app/server';
+import { settingsSchema } from './settings-schema';
+export const updateSettings = form(settingsSchema, async (data) => { ... });
+```
+
+```svelte
+<!-- src/routes/settings/+page.svelte (client) -->
+<script lang="ts">
+    import { updateSettings } from './settings.remote';
+    import { settingsSchema } from './settings-schema';
+</script>
+<form {...updateSettings.preflight(settingsSchema)}>
+```
+
+One schema, shared between server validation and client preflight, with zero duplication.
+
+**The `pending` property for UX.** `updateSettings.pending` is a reactive boolean. Use it to disable the submit button and show a spinner:
+
+```svelte
+<button disabled={updateSettings.pending}>
+    {updateSettings.pending ? 'Saving...' : 'Save'}
+</button>
+```
+
+This is automatic — no `$state` management, no manual flag toggling.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Remote functions — form](https://svelte.dev/docs/kit/remote-functions#form) covers the full API.
+- **Advanced pattern:** Compose multiple `form()` exports in the same `.remote.ts` file for pages with multiple forms. Each form has its own schema, handler, and `result` — they do not interfere.
+- **Challenge:** Create a form with a `v.optional(v.boolean(), false)` checkbox field. Submit the form with the checkbox unchecked. What does the server receive? (Answer: `false`, because `v.optional` with a default handles the missing-checkbox edge case. Without the default, an unchecked checkbox is absent from FormData and would fail validation.)
+
 ## 2. Style it — A settings card with inline errors
 
 Per-page brand is a deep violet. Invalid fields get a `--color-error` border and the `aria-invalid="true"` attribute (set automatically by `.as('text')`), which we match in CSS with `[aria-invalid='true']`.

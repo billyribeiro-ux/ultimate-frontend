@@ -89,6 +89,18 @@ A menu that is a column on mobile and a row on desktop is a one-liner with Flexb
 
 The same gap works for both orientations because `gap` respects the main axis.
 
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: CSS Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
+- [MDN: flex shorthand](https://developer.mozilla.org/en-US/docs/Web/CSS/flex)
+- [CSS-Tricks: Complete Guide to Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/)
+
+**Advanced pattern:** Build a holy-grail layout using `flex-direction: column` and `min-block-size: 100dvb`. The content area gets `flex: 1 1 auto` to push the footer down.
+
+**Challenge question:** (Combines Lessons 6.7, 6.6, and 6.5) Build a responsive page with a Flexbox navigation bar (row on desktop, column on mobile), a Grid card section, and a Flex tag list. Use logical properties throughout. Verify in RTL.
+
 ## 2. Style it — A tag chip row + a holy-grail frame
 
 The mini-build shows a wrap-friendly chip list plus a flex-column holy-grail layout where the content block expands to push the footer down. Per-page colour: `oklch(68% 0.18 290)` (purple).

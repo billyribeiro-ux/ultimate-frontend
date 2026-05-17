@@ -83,11 +83,53 @@ At two levels, inline nested `{#each}` is readable. At three levels, it starts t
 
 The page now reads at one level of nesting; the component handles its own level. The rule of thumb: **extract a component whenever you find yourself nesting deeper than two `{#each}` blocks in one file**.
 
-### 1.5 Type flow across the nest
+### 1.5 What the compiler does with nested `{#each}`
+
+The compiler treats each `{#each}` level independently. The outer loop creates a fragment per category. Each category fragment contains an inner loop that creates a fragment per product. The key maps are separate:
+
+```js
+// Simplified
+let outerMap = new Map(); // category.id → category DOM fragment
+
+for (const category of catalogue) {
+    const outerFragment = createCategoryHeader(category);
+    
+    let innerMap = new Map(); // product.id → product DOM fragment
+    for (const product of category.products) {
+        const innerFragment = createProductRow(product);
+        innerMap.set(product.id, innerFragment);
+    }
+    
+    outerMap.set(category.id, { outerFragment, innerMap });
+}
+```
+
+The independence is important: when a product is added to category A, only category A's inner map is reconciled. Category B's inner DOM is untouched. When categories reorder, the outer map moves whole category fragments (including their inner DOMs) without recreating the inner products.
+
+### 1.6 Type flow across the nest
 
 Because the outer `category` is typed as `Category`, `category.products` is typed as `Product[]`, and the inner `product` variable is typed as `Product`. TypeScript carries the types across the nest without you re-annotating anything. If you rename `Product.name` to `Product.title`, the inner `{product.name}` becomes a red squiggle immediately.
 
-### 1.6 Reactivity across nests
+### 1.6 "In production" — nested iteration for a navigation menu
+
+At a 50-developer content management system, the sidebar navigation had sections (Dashboard, Content, Settings) each containing sub-items. The initial implementation flattened the navigation into a single array with `parentId` references, requiring grouping logic in the template. After refactoring to a nested data structure (`Section[]` where each section has `items: NavItem[]`), the template became a clean two-level `{#each}`. Adding a new section was adding one object to the array. Adding a new item within a section was pushing into that section's `items` array. The nested structure matched the UI structure, making the code self-documenting.
+
+### 1.7 The TypeScript angle — types flow through nesting
+
+TypeScript carries types through nested destructuring automatically:
+
+```svelte
+{#each catalogue as { id, name, products } (id)}
+    <h2>{name}</h2>
+    {#each products as { id: productId, name: productName, price } (productId)}
+        <p>{productName}: ${price.toFixed(2)}</p>
+    {/each}
+{/each}
+```
+
+TypeScript knows `name` (outer) is `string` because `catalogue` is `Category[]` and `Category.name` is `string`. It knows `price` (inner) is `number` because `products` is `Product[]` and `Product.price` is `number`. A typo like `price.toFxied(2)` is caught at compile time. The types propagate through every level of nesting without re-annotation.
+
+### 1.8 Reactivity across nests
 
 If `catalogue` is `$state`, both levels react. Adding a product to a category updates only that category's inner list. Adding a whole new category adds a new outer section. As long as your keys are correct, Svelte does the minimum DOM work.
 
@@ -102,6 +144,44 @@ If `catalogue` is `$state`, both levels react. Adding a product to a category up
 **Performance implications.** Nested `{#each}` creates DOM nodes proportional to the product of the outer and inner array lengths. For 10 categories × 20 items = 200 DOM nodes, this is trivial. For 100 × 1000 = 100,000 DOM nodes, you need virtualisation. The important optimisation insight: Svelte's reactivity is granular per-node, so updating one inner item touches only that item's DOM — it does not re-render the entire nested structure. This granularity means nested iteration performs well even with moderately large datasets, as long as updates are localised.
 
 **Cross-module connections.** Nested iteration appears in Module 9 (rendering grouped API results), Module 11 (TanStack Table with grouped rows), and Module 13 (generating nested sitemap XML). The pattern of "outer container provides structure, inner content provides detail" mirrors the snippet-prop pattern from Module 3 — sometimes you combine both, with the outer loop providing the container and a snippet prop providing each item's rendering.
+
+### 1.7 Common interview question
+
+**Q: "When iterating nested data with two `{#each}` loops, do both levels need their own keys? Why?"**
+
+**Model answer:** Yes. Each `{#each}` level is an independent list with its own reconciliation. The outer key identifies categories; the inner key identifies items within a category. If you forget the outer key, reordering categories recreates all their inner items (losing form state). If you forget the inner key, reordering items within a category produces the "focus jumps" and "input values swap" bugs. Keys at both levels ensure Svelte can move DOM nodes correctly at both levels independently. The keys do not need to be globally unique — only unique within their own list. Category IDs only need to be unique among categories, and product IDs only need to be unique within their category (though global uniqueness is safer and more common).
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/each](https://svelte.dev/docs/svelte/each) — nested `{#each}` examples.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — composing logic blocks.
+- [svelte.dev/docs/svelte/svelte-files](https://svelte.dev/docs/svelte/svelte-files) — extracting inner loops into components.
+
+**Advanced pattern: recursive components for tree data.** When data nesting is arbitrarily deep (a file tree, an org chart, a comment thread), you cannot use a fixed number of nested `{#each}` blocks. Instead, create a component that renders itself:
+
+```svelte
+<!-- TreeNode.svelte -->
+<script lang="ts">
+    interface TreeItem { id: string; name: string; children?: TreeItem[]; }
+    interface Props { items: TreeItem[]; depth?: number; }
+    let { items, depth = 0 }: Props = $props();
+</script>
+
+<ul style:padding-left="{depth * 16}px">
+    {#each items as item (item.id)}
+        <li>{item.name}</li>
+        {#if item.children?.length}
+            <svelte:self items={item.children} depth={depth + 1} />
+        {/if}
+    {/each}
+</ul>
+```
+
+`<svelte:self>` renders the current component recursively. Be careful with depth — always have a base case (the `{#if}` guard) to prevent infinite recursion.
+
+**Challenge question (combines Lesson 4.5 + Lesson 4.4 + Lesson 3.1):** You have `Category[]` where each category contains `Product[]`. Currently the page renders both loops inline. The template is 40 lines and deeply indented. Refactor: extract the inner loop into a `CategorySection.svelte` component. Write the Props interface. Explain how keys are handled — does the extracted component need its own outer key, and where does the inner key live?
 
 ## 2. Style it — Sticky category headers
 

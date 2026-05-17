@@ -97,6 +97,82 @@ Sometimes you want the node to exist but be invisible — for example, you want 
 
 **Cross-module connections.** Conditional rendering is foundational for Module 4's entire progression (`{:else}`, `{:else if}`, `{#await}`). Module 8 uses it for route-based conditional content. Module 9 uses it for loading/error/success states in load functions. Module 12 uses it with `{#await}` for progressive rendering. The concept of "existence vs visibility" also underpins Module 6's transition system, which animates the creation and destruction events that `{#if}` triggers.
 
+### 1.7 What the compiler does with `{#if}`
+
+The compiler transforms `{#if}` into conditional DOM creation code:
+
+```svelte
+{#if isSignedOut}
+    <aside class="banner"><p>Welcome, guest!</p></aside>
+{/if}
+```
+
+Compiles to roughly:
+
+```js
+// Simplified
+let banner_fragment = null;
+
+$.effect(() => {
+    if ($.get(isSignedOut)) {
+        if (!banner_fragment) {
+            banner_fragment = create_banner();
+            insert(anchor, banner_fragment);
+        }
+    } else {
+        if (banner_fragment) {
+            detach(banner_fragment);
+            banner_fragment = null;
+        }
+    }
+});
+```
+
+The key detail: the DOM fragment is *created* when the condition becomes true and *destroyed* when it becomes false. It is not hidden — it is gone. Any components inside the block are fully destroyed (their effects cleaned up, their state lost) when the condition becomes false.
+
+### 1.8 "In production" — permission gates with `{#if}`
+
+At a 50-developer enterprise app, the admin panel had features visible only to specific user roles. The initial implementation used `display: none` via a CSS class. A security audit revealed that users could inspect the hidden admin buttons in DevTools, modify the HTML to remove the `display: none`, and click them. Although the server rejected unauthorized requests, the visible (even if hidden) admin UI was a security concern.
+
+After switching to `{#if user.role === 'admin'}`, the admin buttons did not exist in the DOM at all for non-admin users. DevTools showed nothing to inspect. The UI was not hidden — it was structurally absent. This is the security benefit of conditional rendering over conditional visibility: the browser's DOM cannot reveal markup that was never created.
+
+### 1.9 Comparison: `{#if}` vs ternary vs `display: none`
+
+| Approach | DOM when false | State preserved? | Screen readers | Performance |
+|---|---|---|---|---|
+| `{#if}` | Not in DOM | No — recreated fresh | Cannot find it | Best for infrequent toggles |
+| Ternary in attribute | Element exists | Yes | Can find it | N/A (attributes only) |
+| `display: none` | In DOM, hidden | Yes | May announce it | Best for frequent toggles |
+| `hidden` attribute | In DOM, hidden | Yes | Hidden from AT | Same as `display: none` |
+
+### 1.10 Common interview question
+
+**Q: "What is the difference between conditional rendering (`{#if}`) and conditional visibility (`display: none`), and when should you use each?"**
+
+**Model answer:** Conditional rendering removes the element from the DOM entirely when the condition is false. It does not exist — no memory, no event handlers, no accessibility tree entry. Use it for content that is logically absent (a login prompt that does not exist when logged in, an error message that does not exist when there is no error). Conditional visibility keeps the element in the DOM but hides it visually. Use it for content that toggles frequently (a tooltip, a dropdown) where the creation/destruction cost would cause visible jank, or when you need to preserve state (a form tab whose inputs should retain their values when the user switches tabs). The rule of thumb: `{#if}` for infrequent, logical absence. CSS visibility for frequent, visual toggling.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/if](https://svelte.dev/docs/svelte/if) — the `{#if}` block reference.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — all logic blocks overview.
+- [svelte.dev/docs/svelte/transition](https://svelte.dev/docs/svelte/transition) — animating elements as they enter and leave via `{#if}`.
+
+**Advanced pattern: `{#if}` with `transition:` for animated enter/leave.** Module 6 teaches transitions in full, but the preview: adding `transition:fade` to an element inside `{#if}` makes Svelte animate the element's opacity when the condition changes:
+
+```svelte
+{#if isVisible}
+    <div transition:fade={{ duration: 200 }}>
+        Now you see me...
+    </div>
+{/if}
+```
+
+The element fades in when `isVisible` becomes true and fades out before being destroyed when it becomes false. The `{#if}` still destroys the element — but the transition delays the destruction long enough for the animation to play.
+
+**Challenge question (combines Lesson 4.1 + Lesson 2.2 + Lesson 1.9):** A component shows a "loading" spinner when `isLoading` is true and the content when it is false. Write the `{#if}` block. Then explain what happens to any `$state` variables declared *inside* the loading spinner block when `isLoading` flips to false and back to true. Why does this matter for a spinner that counts elapsed seconds?
+
 ## 2. Style it — A banner that enters and leaves cleanly
 
 The mini-build is a small banner above the main content. When present, it has a coloured left border (from `--color-brand`), generous padding, and a subtle background. When absent, the content below moves up smoothly because the banner's DOM is gone — not hidden. The page never leaves a gap for a node that does not exist.

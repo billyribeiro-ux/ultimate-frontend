@@ -95,6 +95,18 @@ They are not rivals; they solve different problems.
 
 A useful rule of thumb: if you find yourself writing `flex-wrap: wrap` and trying to align items across rows, you probably want Grid.
 
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
+- [MDN: repeat()](https://developer.mozilla.org/en-US/docs/Web/CSS/repeat)
+- [CSS-Tricks: Complete Guide to Grid](https://css-tricks.com/snippets/css/complete-guide-grid/)
+
+**Advanced pattern:** Build a grid that switches between `auto-fill` and `auto-fit` via a toggle. Add and remove cards to see the difference visually.
+
+**Challenge question:** (Combines Lessons 6.6, 6.5, and 6.3) Build a responsive product grid using `auto-fill` and `minmax()`. Use logical properties for all internal spacing. Use PE7 tokens for gap and padding. Add a `grid-template-areas` page layout that swaps at 768px. Verify in RTL mode.
+
 ## 2. Style it — A card grid + a page layout
 
 The mini-build has two parts. Part 1: a card grid using `repeat(auto-fill, minmax(16rem, 1fr))` with 12 sample cards. Part 2: a named-area page layout that swaps at 768 px. Per-page colour: `oklch(68% 0.2 20)` (coral).

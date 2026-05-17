@@ -120,6 +120,41 @@ Put the **more specific** condition first — otherwise the more general `status
 
 **Cross-module connections.** Multi-branch rendering is the visual expression of discriminated unions from TypeScript. Module 8 uses it for different layouts based on route data. Module 9 uses `{#if}` chains for load/error/success patterns. Module 12 covers the trade-off between conditional rendering and CSS visibility for tab interfaces. The skill of designing clean, exhaustive condition chains translates to pattern matching in any language.
 
+### 1.7 Common interview question
+
+**Q: "How do you ensure an `{#if}/{:else if}` chain handles every possible state of a string union in Svelte?"**
+
+**Model answer:** Type the state as a string literal union (`type Status = 'idle' | 'loading' | 'success' | 'error'`). Write one `{:else if}` branch per value. End with `{:else}` as a catch-all that renders an "unexpected state" message. TypeScript catches typos in the branch conditions (e.g., `'sucess'` is rejected). The `{:else}` fallback ensures the UI always shows something — even if a new status value is added later and the template has not been updated yet. For compile-time exhaustiveness checking, you can use a TypeScript `satisfies never` pattern in a helper function that the `{:else}` branch calls. If any status value is unhandled, the function fails to compile.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/if](https://svelte.dev/docs/svelte/if) — the `{#if}` / `{:else if}` / `{:else}` reference.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — all logic blocks.
+- [typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking) — TypeScript exhaustiveness checking.
+
+**Advanced pattern: exhaustiveness checking with `satisfies never`.** Ensure every union member is handled at compile time:
+
+```ts
+function assertNever(value: never): never {
+    throw new Error(`Unhandled value: ${value}`);
+}
+
+// In a script block helper:
+function getStatusMessage(status: Status): string {
+    if (status === 'idle') return 'Ready';
+    if (status === 'loading') return 'Loading...';
+    if (status === 'success') return 'Done!';
+    if (status === 'error') return 'Failed';
+    return assertNever(status); // Compile error if any Status is unhandled
+}
+```
+
+If you add `'cancelled'` to the `Status` union but forget to handle it, `assertNever(status)` fails to compile because `'cancelled'` is not assignable to `never`. The compiler forces you to add the missing branch.
+
+**Challenge question (combines Lesson 4.2 + Lesson 2.2 + Lesson 3.3):** A component receives a `tier: 'free' | 'pro' | 'enterprise'` prop. Write an `{#if}/{:else if}/{:else}` chain that renders different content for each tier. Then add a new tier `'student'` to the union type. Where does the compiler tell you that the new tier is unhandled? How would `{:else}` mask or reveal the problem?
+
 ## 2. Style it — A single panel whose face changes
 
 The mini-build has one bordered panel whose inner content switches between an idle prompt, a loading spinner, a success list, and an error message. The outer chrome — border, radius, padding — never changes, so the layout stays put. Only the inside swaps. This is what the user sees as a smooth state change rather than the whole layout reshuffling.

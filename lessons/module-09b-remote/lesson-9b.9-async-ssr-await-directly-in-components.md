@@ -95,6 +95,109 @@ Even though you will keep using `{#await}` for now, you should know the async SS
 - The shape of your data-fetching code is *different* — one `const` at the top instead of blocks in the markup — and the refactor later will be almost mechanical.
 - Remote functions were co-designed with async SSR. The full vision is "your component is an `async` function; it calls remote functions like any other function." Once `experimental.async` is stable, that vision lands.
 
+### 1.6 What SvelteKit does under the hood — async SSR mechanics
+
+The async SSR system changes the fundamental rendering model. Here is the internal pipeline:
+
+**Without `experimental.async` (today's stable model):**
+
+1. The component renders synchronously. `{#await getPosts()}` starts the query but renders the pending branch immediately.
+2. On the server, SvelteKit does NOT wait for the promise to resolve. The pending branch HTML ships in the initial response.
+3. On the client, after hydration, the promise resolves and the `{:then}` branch replaces the pending branch. The user sees a flash of loading state.
+4. If you want the server to wait, you must use a `load()` function instead — load blocks SSR until all awaited values resolve.
+
+**With `experimental.async` (the future model):**
+
+1. The component is treated as an async function. `const post = await getPost(slug)` suspends the component during SSR.
+2. SvelteKit tracks all suspended components. While a component is suspended, its parent `<svelte:boundary>` renders the `pending` snippet.
+3. The server waits for all awaited values to resolve before sending the HTML for that boundary.
+4. Once resolved, the component renders with the real data. The HTML ships with content, not loading states.
+5. On the client, hydration mounts the component against the already-rendered HTML. No loading flash.
+
+This is conceptually similar to React Suspense but integrated at the Svelte compiler level. The compiler transforms top-level `await` expressions into suspension points that the SSR runtime can track.
+
+### 1.7 The TypeScript angle
+
+The type system behaves identically with both patterns, but the developer experience differs:
+
+```svelte
+<!-- Conservative pattern -->
+<script lang="ts">
+    import { getPost } from './post.remote';
+    let { slug }: { slug: string } = $props();
+    // getPost(slug) returns QueryResult<Post> (awaitable + reactive)
+</script>
+{#await getPost(slug) then post}
+    <!-- post: Post -->
+    <h1>{post.title}</h1>
+{/await}
+```
+
+```svelte
+<!-- Async SSR pattern (experimental) -->
+<script lang="ts">
+    import { getPost } from './post.remote';
+    let { slug }: { slug: string } = $props();
+    const post = await getPost(slug);
+    // post: Post (already resolved)
+</script>
+<h1>{post.title}</h1>
+```
+
+In the async version, `post` is typed as `Post` directly — no wrapping, no nesting. The template reads like synchronous code. Error handling moves from `{:catch}` to `try/catch` in the script or to `<svelte:boundary>`:
+
+```svelte
+<svelte:boundary>
+    {#snippet failed(error)}
+        <p>Error: {error.message}</p>
+    {/snippet}
+    
+    <PostComponent slug={slug} />
+</svelte:boundary>
+```
+
+### 1.8 Comparison: data fetching patterns across frameworks
+
+| Pattern | SvelteKit `load()` | SvelteKit `{#await}` | SvelteKit async SSR | React Server Components | Next.js `getServerSideProps` |
+| --- | --- | --- | --- | --- | --- |
+| Where data is fetched | Separate load file | Inside component | Inside component | Inside component | Separate function |
+| SSR behavior | Blocks render | Pending branch ships | Suspends, waits | Server-only render | Blocks render |
+| Type safety | Via `$types` | Manual | Full (inferred) | Manual | Manual |
+| Syntax | Function export | Template block | `await` in script | `async` component | Function export |
+| Colocation | Separate file | Inline | Inline | Inline | Separate function |
+
+> **In production sidebar.** We experimented with `experimental.async` on a feature branch for three months. The code reduction was meaningful — removing `{#await}` blocks and `{:then}` nesting cut template complexity by about 25% on data-heavy pages. The SSR performance was comparable to `load()` functions. The one issue we hit: error handling is less granular. With `{#await}`, each data source has its own `{:catch}` branch. With async SSR, errors bubble up to the nearest `<svelte:boundary>`, which catches everything — you lose per-source error messages unless you wrap individual awaits in try/catch. We ultimately decided to wait for the stable release before merging, but the syntax is worth learning now.
+
+### 1.9 Common interview question
+
+**Q: "What is the difference between fetching data in a load function and using top-level await in a Svelte component with async SSR? When would you choose each?"**
+
+**Model answer:** A load function runs in a separate file (`+page.ts` or `+page.server.ts`) before the component mounts, and its return value is passed to the component as a typed `data` prop. Top-level `await` with async SSR runs inside the component itself, suspending the component during SSR until the awaited values resolve. The results are similar — both produce SSR'd HTML with real data. The differences: load functions have built-in caching, `depends()` / `invalidate()` support, and are the stable, documented API. Async SSR is experimental and provides better colocation (the data fetch is next to the template that uses it) and cleaner syntax (no `{#await}` nesting). Choose load functions for SSR-critical page data that needs caching and invalidation. Use async SSR (when stable) for component-level data that benefits from colocation — especially for reusable components that need their own data and cannot rely on a parent page's load.
+
+## Deep Dive
+
+**The `<svelte:boundary>` component.** `<svelte:boundary>` is Svelte's error and suspense boundary. It serves two purposes:
+
+1. **Error boundary:** Catches errors thrown by descendant components and renders a `failed` snippet instead of crashing the app (covered in Lesson 12.7).
+2. **Suspense boundary:** When async SSR is enabled, renders a `pending` snippet while any descendant component is suspended (awaiting a promise).
+
+The dual role means one boundary element handles both loading and error states. This is more concise than having separate loading and error wrappers.
+
+**Migration path from `{#await}` to async SSR.** When `experimental.async` becomes stable, the refactoring is mechanical:
+
+1. Move `{#await query() then value}` to `const value = await query()` in `<script>`.
+2. Move the `{:catch}` block to a `<svelte:boundary>` around the component or a `try/catch` in the script.
+3. Move the template out of the `{:then}` block into the top-level markup.
+4. Remove the `{/await}` closing tag.
+
+Each step is a safe, type-preserving transformation.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Async](https://svelte.dev/docs/svelte/async) covers the async SSR experimental feature.
+- **Advanced pattern:** Create a wrapper component `<AsyncData query={getPost} args={[slug]}>` that handles the `{#await}` boilerplate and renders a standardized skeleton/error UI. This pattern makes migration to async SSR even simpler — replace the wrapper with inline `await`.
+- **Challenge:** Enable `experimental.async` in a test branch. Rewrite one page's `{#await}` blocks as top-level `await`. Compare the template line counts. Does the page still SSR correctly? Check by viewing the page source.
+
 ## 2. Style it — A suspense boundary with a skeleton
 
 Per-page brand is a soft lavender. The pending snippet renders a skeleton card with the same shape as the final post card — the UI does not jump when the data arrives. Skeletons respect reduced motion.

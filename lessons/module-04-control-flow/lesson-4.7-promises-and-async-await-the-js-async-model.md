@@ -140,6 +140,58 @@ Lesson 4.8 teaches Svelte's `{#await}` block, which renders different markup for
 
 **Connection to other modules.** Promises appear in Module 9A (load functions), Module 9B (remote functions return Promises), Module 10 (form action submissions), Module 11 (optimistic UI awaits server confirmation), and Module 12 (streaming with Promise returns). Lesson 4.8 uses Promises directly in the `{#await}` template block. Module 9A Lesson 9A.6 covers `Promise.all` for parallel loading. Module 9A Lesson 9A.9 covers streaming with nested Promises. Every interaction between your app and the network passes through the Promise model taught in this lesson.
 
+### 1.10 The TypeScript angle — typing async return values
+
+An un-annotated async function that calls `res.json()` infers `Promise<any>` because `Response.json()` returns `Promise<any>`. This silently kills your type safety:
+
+```ts
+// Bad: infers Promise<any>
+async function loadProducts() {
+    const res = await fetch('/api/products');
+    return res.json();
+}
+
+// Good: explicit return type
+async function loadProducts(): Promise<Product[]> {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+```
+
+The explicit `Promise<Product[]>` annotation ensures every caller gets typed data. A typo like `products[0].nme` becomes a compile error. Lesson 4.10 covers this in depth.
+
+### 1.11 Common interview question
+
+**Q: "You have three independent API calls to make for a page. Should you `await` them sequentially or use `Promise.all`? What is the performance difference?"**
+
+**Model answer:** Use `Promise.all` for independent requests. Sequential `await` takes the *sum* of all request times — three 200ms requests take 600ms. `Promise.all` starts all three concurrently and takes the *maximum* time — three 200ms requests take ~200ms, a 3x improvement. Use sequential `await` only when request B needs the result of request A (a data dependency). For page load functions, this is often the single biggest performance optimisation available: converting a waterfall of sequential awaits into a parallel `Promise.all`. In SvelteKit, the `load` function specifically benefits from this pattern — faster load means faster LCP (Largest Contentful Paint).
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/kit/load](https://svelte.dev/docs/kit/load) — SvelteKit load functions that return Promises.
+- [developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) — the full Promise API reference.
+- [developer.mozilla.org/en-US/docs/Web/API/Fetch_API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) — the Fetch API reference.
+
+**Advanced pattern: `Promise.allSettled` for resilient dashboards.** When loading multiple widgets on a dashboard, you do not want one failing widget to crash the entire page:
+
+```ts
+const results = await Promise.allSettled([
+    loadUserStats(),
+    loadRevenue(),
+    loadNotifications()
+]);
+
+// results[0].status === 'fulfilled' → use results[0].value
+// results[1].status === 'rejected'  → show error in revenue widget
+```
+
+`Promise.allSettled` waits for all promises to settle (fulfilled or rejected) and returns an array of outcome objects. Each widget can independently show its data or its error, without affecting the others.
+
+**Challenge question (combines Lesson 4.7 + Lesson 2.9 + Lesson 2.11):** Write an `$effect` that fetches data from an API whenever a `query` state variable changes. Include: (1) an `AbortController` for cancellation, (2) cleanup that aborts on re-run, (3) error handling that ignores `AbortError`. Explain the race condition this prevents — what happens if the user types "sv" and then quickly types "svelte" without the abort?
+
 ## 2. Style it — A loading skeleton and a data grid
 
 The mini-build renders a "Load products" button. On click, it triggers an async function that fetches a small JSON file from `static/products.json` and displays the result. While the request is in flight, the page shows a PE7-styled skeleton (shimmering placeholder bars). On success, the skeleton is replaced by a real grid. On failure, an error panel appears. All three states are visible; all three are styled with tokens; none of them jank the layout because each has the same padding and radius.

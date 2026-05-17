@@ -71,6 +71,37 @@ If you cannot articulate a specific reason you need to run *before* the DOM upda
 
 Identical to `$effect`: the function is `() => void` (or `() => () => void` if you return cleanup).
 
+### 1.6 The TypeScript angle — typing the scroll measurement pattern
+
+The scroll-anchoring pattern involves reading DOM properties inside `$effect.pre`. TypeScript helps catch mistakes in the DOM API calls:
+
+```ts
+let container: HTMLElement | null = $state(null);
+let wasAtBottom: boolean = $state(true);
+
+$effect.pre(() => {
+    messages.length; // dependency registration
+    if (container) {
+        // TypeScript narrows container to HTMLElement inside the if guard
+        const { scrollHeight, clientHeight, scrollTop } = container;
+        wasAtBottom = scrollHeight - clientHeight - scrollTop < 4;
+    }
+});
+```
+
+Without the `if (container)` guard, TypeScript would refuse `container.scrollHeight` because `container` might be `null`. The guard both satisfies TypeScript and prevents a runtime error if the effect runs before the element is mounted. This is a case where TypeScript's null-checking directly prevents a real bug.
+
+### 1.7 Comparison: `$effect` vs `$effect.pre` timing
+
+| Aspect | `$effect` | `$effect.pre` |
+|---|---|---|
+| Runs relative to DOM update | After | Before |
+| DOM reflects new state? | Yes | No (old DOM) |
+| Common use case | Act on new DOM | Measure old DOM |
+| Cleanup timing | Same (before next run + on destroy) | Same |
+| Dependency tracking | Same | Same |
+| Frequency of use | 95% of effects | 5% of effects |
+
 ## Deep Dive
 
 **Why this matters at scale.** In production apps, scroll-anchoring is not optional — it is an expected UX behaviour. Chat applications, real-time log viewers, notification feeds, and collaborative editors all need to answer the question "was the user at the bottom before the new content arrived?" A 50-component app with even one scrolling feed needs this pattern. Without `$effect.pre`, developers resort to brittle hacks: setTimeout delays hoping the DOM has not painted yet, or double-render patterns that flash content. `$effect.pre` gives you a guaranteed timing window for measurement.

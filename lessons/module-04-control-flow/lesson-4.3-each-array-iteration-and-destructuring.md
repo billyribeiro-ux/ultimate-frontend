@@ -93,7 +93,34 @@ When `products.length === 0`, the `{:else}` block runs instead of any iterations
 
 Because your source array has a type (`Product[]`), the entry variable and every field you destructure are typed. In an editor with TypeScript, you can hover `product.price` and see `number`. A typo like `product.piece` is a red squiggle. The loop is as strict as the rest of your code; you do not have to re-annotate anything.
 
-### 1.7 When the array is reactive
+### 1.7 What the compiler does with `{#each}`
+
+The compiler transforms `{#each}` into a loop that creates one DOM fragment per array element:
+
+```js
+// Simplified compiled output for {#each products as product (product.id)}
+function each_block(anchor, items) {
+    let fragments = new Map();
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const key = item.id;
+        const fragment = create_item_fragment(item, i);
+        fragments.set(key, fragment);
+        insert(anchor, fragment);
+    }
+    
+    // On update: reconcile old fragments with new items using the key map
+}
+```
+
+Each item gets its own DOM fragment. The key (from the `(product.id)` expression) maps each fragment to a data identity. On updates, the reconciler uses this map to efficiently move, create, or destroy fragments. Without a key, the reconciler uses index-based matching, which is correct for appends but wrong for reorders.
+
+### 1.8 "In production" — `{#each}` with `{:else}` saved an empty-state bug
+
+At a 50-developer e-commerce platform, the product search page initially rendered results with a plain `{#each}` loop. When a search returned no results, the page showed nothing — no message, no suggestion, just blank space. The bug went unnoticed for months because developers always tested with data. After adding `{:else}` to the loop, the team realized they had the same empty-state problem on five other pages. The `{:else}` branch on `{#each}` made the empty case visible in the code, prompting developers to handle it everywhere.
+
+### 1.9 When the array is reactive
 
 If the array comes from `$state`, `{#each}` reacts to changes: adding an item renders a new row, removing one destroys its row. In this lesson we use a constant array to keep the focus on the iteration mechanics. The next lesson covers how to do this *correctly* when the array reorders or filters — that is where keys come in.
 
@@ -108,6 +135,39 @@ If the array comes from `$state`, `{#each}` reacts to changes: adding an item re
 **Performance implications.** `{#each}` without keys uses index-based reconciliation. This is fastest for append-only lists (new items at the end) because Svelte only creates new nodes without touching existing ones. For lists that reorder, filter, or insert in the middle, index-based reconciliation is both slower and incorrect — it reuses nodes for the wrong items and must update every node after the insertion point. Keyed `{#each}` (Lesson 4.4) solves both problems. The creation cost per item is one DOM fragment creation — Svelte does not use a virtual DOM, so each item's template compiles to direct `createElement`/`insertBefore` calls.
 
 **Cross-module connections.** `{#each}` is the rendering primitive for every list-based UI in the course. Module 9 renders API results with `{#each}`. Module 11's TanStack Table renders rows with `{#each}`. Module 12 optimises large lists by combining `{#each}` with virtual scrolling and `$state.raw`. Module 6 animates list item transitions using `{#each}` with keys and the `animate:flip` directive. The combination of `{#each}`, keys, and transitions is one of Svelte's most powerful patterns for production list UIs.
+
+### 1.8 Common interview question
+
+**Q: "In Svelte, what is the `{:else}` branch of `{#each}` for, and how is it different from writing `{#if items.length === 0}`?"**
+
+**Model answer:** The `{:else}` branch inside `{#each}` renders when the array is empty. It is functionally equivalent to `{#if items.length === 0}` before the loop plus `{#if items.length > 0}` around the loop, but the `{:else}` form is more concise and communicates intent more clearly — it says "this is the empty state for this list" in one block rather than two separate blocks that the reader must mentally connect. It also prevents a common bug: forgetting to handle the empty case. When the `{:else}` is sitting right inside the `{#each}`, the developer is prompted to write it. With separate `{#if}` blocks, the empty case is easy to overlook.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/each](https://svelte.dev/docs/svelte/each) — the `{#each}` block reference including destructuring and `{:else}`.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — all logic blocks.
+- [developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment) — JavaScript destructuring.
+
+**Advanced pattern: `{#each}` with `{@const}` for per-item derived values.** When each iteration needs a computed value that is used multiple times:
+
+```svelte
+{#each products as product (product.id)}
+    {@const discounted = product.price * (1 - product.discountRate)}
+    {@const savings = product.price - discounted}
+    <li>
+        <strong>{product.name}</strong>
+        <span class="original">${product.price.toFixed(2)}</span>
+        <span class="sale">${discounted.toFixed(2)}</span>
+        <span class="savings">Save ${savings.toFixed(2)}</span>
+    </li>
+{/each}
+```
+
+`{@const}` computes the value once per iteration, not once per reference. Without it, you would either compute the value inline multiple times or declare a helper function.
+
+**Challenge question (combines Lesson 4.3 + Lesson 2.4 + Lesson 1.8):** You have a `$state` array of `Product[]` objects. Use `{#each}` with destructuring to render a product grid. Add a `{:else}` branch for the empty state. Then write a function that uses `products.push(newProduct)` to add an item. Explain why the grid updates automatically, and what TypeScript checks on the destructured fields inside the `{#each}` body.
 
 ## 2. Style it — A clean grid with alternating row backgrounds
 

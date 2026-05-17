@@ -85,6 +85,85 @@ Both buttons share the same `<form>`, the same `FormData`, but they land on diff
 
 After a submit, the component's `form` prop contains the return value of *whichever* action ran. If two forms can both return data, add a discriminator field (`which: 'create' as const`) and branch on it in the component.
 
+### 1.6 What SvelteKit does under the hood
+
+Named actions use the URL query string as the action discriminator. Here is the full lifecycle:
+
+**When the user submits a form with `action="?/create"`:**
+
+1. The browser constructs a POST request to the current page URL with `?/create` appended as a query parameter.
+2. SvelteKit's server receives the request. It reads the query string `?/create` and maps it to the `create` key in the `actions` object.
+3. The `create` handler runs. It receives the full `RequestEvent` with access to `request.formData()`.
+4. The handler returns a plain object (success) or `fail(status, data)` (validation error).
+5. SvelteKit sets the `form` prop on the page component to the handler's return value.
+6. The page re-renders. If `use:enhance` is active, only the `form` prop updates (no full reload). Without `use:enhance`, the page reloads entirely.
+
+**The URL persistence issue:** After a form submission without a redirect, the URL shows `?/create`. This is why named and default actions cannot coexist — if a default action were to submit next, the stale `?/create` query would route to the wrong handler. The Svelte team prevents this by refusing to register both patterns on the same page.
+
+### 1.7 The TypeScript angle
+
+When multiple named actions exist, the `ActionData` type becomes a union of all possible return values:
+
+```ts
+// +page.server.ts
+export const actions: Actions = {
+    create: async () => {
+        return { ok: true, which: 'create' as const, noteId: '123' };
+    },
+    remove: async () => {
+        return { ok: true, which: 'remove' as const };
+    }
+};
+
+// ActionData becomes:
+// | { ok: true; which: 'create'; noteId: string }
+// | { ok: true; which: 'remove' }
+// | { error: string }  (from fail() calls)
+// | null (no submission yet)
+```
+
+In the component, narrow the union with the discriminator:
+
+```svelte
+{#if form?.which === 'create'}
+    <p>Note {form.noteId} created!</p>  <!-- noteId is available here -->
+{:else if form?.which === 'remove'}
+    <p>Note removed.</p>  <!-- noteId does NOT exist here — TypeScript knows -->
+{/if}
+```
+
+This is a textbook discriminated union. The `which` field narrows the type, and TypeScript knows exactly which fields are available in each branch.
+
+> **In production sidebar.** Our admin panel has a page with 4 named actions: create, update, archive, and delete. Each returns a different shape. Without discriminated unions, the component code was a mess of optional chaining and type casts. After adding `which` discriminators to every action return, TypeScript narrowed perfectly and the component became straightforward. The lesson: always add a literal discriminator field to every named action return value. It costs one field and saves hours of type wrangling.
+
+### 1.8 Common interview question
+
+**Q: "You have a page with a 'Create' form and a 'Delete' button on each item. How do you set up the form actions so SvelteKit knows which action to run?"**
+
+**Model answer:** Export named actions from `+page.server.ts`: `create` and `remove` (or `delete` — though `delete` is a reserved word in JavaScript, it works as an object key). The create form uses `action="?/create"` and the delete form (or button with `formaction`) uses `action="?/remove"`. Each form's POST targets a different action by including the name in the query string. The `form` prop in the component receives whichever action's return value was most recent. Add a `which` discriminator field to each return value so the component can tell them apart. Named and default actions cannot coexist on the same page — once you have any named action, all actions must be named.
+
+## Deep Dive
+
+**The `formaction` pattern for inline buttons.** `formaction` on a `<button>` is a native HTML feature that overrides the parent form's `action`. This means one form can submit to different handlers:
+
+```svelte
+<form method="POST">
+    <input name="id" type="hidden" value={note.id} />
+    <button formaction="?/archive">Archive</button>
+    <button formaction="?/remove">Delete</button>
+</form>
+```
+
+Both buttons share the same hidden `id` input but submit to different actions. This is cleaner than having two separate forms side by side, especially when the buttons share form data.
+
+**The URL state after submission.** After a named action runs, the URL changes to include `?/actionName`. This persists until the next navigation. It is harmless for the user (the page renders the same way) but can be surprising in automated tests. If you want a clean URL, redirect after the action: `throw redirect(303, '/notes')`.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Form actions — Named actions](https://svelte.dev/docs/kit/form-actions#Named-actions) covers the `?/name` syntax.
+- **Advanced pattern:** Create a `handleAction` wrapper that standardises the return shape across all named actions, ensuring every action returns `{ which, ok, data?, errors? }` for consistent component handling.
+- **Challenge:** Create a page with three named actions. Use `formaction` on buttons inside a single form so all three share the same input fields. Which action runs when the user presses Enter in the form? (Answer: the first `<button>` in the form's DOM order, because the browser treats it as the default submit button.)
+
 ## 2. Style it — A two-column layout: create on the left, list + delete on the right
 
 Per-page brand is a forest green. The create form is boxed in the brand colour; each note in the list carries its own tiny delete form aligned to the card's inline-end.

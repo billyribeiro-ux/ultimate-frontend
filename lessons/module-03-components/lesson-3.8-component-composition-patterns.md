@@ -71,7 +71,27 @@ Wrapping is the right answer when:
 
 Avoid `[key: string]: unknown`. Extending a Svelte element-attribute type (`HTMLButtonAttributes`, `HTMLInputAttributes`, `HTMLDivAttributes`, …) is strictly better: typos are caught, editor autocomplete works, and the compiler rejects unknown attributes. Svelte exposes these types from `svelte/elements`.
 
-### 1.6 Composition in layout: the Toolbar pattern
+### 1.6 The TypeScript angle — extending element attribute types
+
+Svelte provides typed attribute interfaces for every HTML element via `svelte/elements`. Using them gives your wrapper full type safety:
+
+```ts
+import type { HTMLButtonAttributes } from 'svelte/elements';
+
+interface PrimaryButtonProps extends HTMLButtonAttributes {
+    children: Snippet;
+}
+```
+
+Now a caller writing `<PrimaryButton disbled>` (typo) gets a compile error because `disbled` is not in `HTMLButtonAttributes`. Without extending the element type, rest-props are untyped and the typo silently passes through. This is one of those cases where 30 seconds of type work prevents hours of debugging.
+
+### 1.7 "In production" — wrappers that survived a design system migration
+
+At a 50-developer product company, the design team decided to add a new `size="xs"` variant to every button. In the old codebase, `PrimaryButton`, `DangerButton`, and `GhostButton` were all forks of `Button` — separate files with mostly duplicated code. Adding `xs` meant editing five files and hoping the CSS matched across all of them.
+
+After refactoring to the wrap-and-forward pattern, `PrimaryButton` was 6 lines wrapping `Button`. `DangerButton` was 6 lines. Adding `xs` to the base `Button` component automatically made it available to all wrappers. The design migration that previously took a full sprint took 45 minutes.
+
+### 1.8 Composition in layout: the Toolbar pattern
 
 A second, simpler pattern is a pure *layout* wrapper: a component whose only job is to arrange its children in a row, column, or grid. Our `Toolbar.svelte` is 15 lines and it makes every action group in the app visually identical without knowing anything about what is inside it. Both patterns — decision wrappers and layout containers — are composition.
 

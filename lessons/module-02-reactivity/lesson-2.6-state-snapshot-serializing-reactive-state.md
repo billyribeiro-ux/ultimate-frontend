@@ -49,7 +49,39 @@ The `plain` variable has type `{ name: string; address: { city: string; postcode
 
 Unlike `{ ...obj }` or `Array.from(arr)`, `$state.snapshot` copies every level. Nested objects, nested arrays, everything. You get a tree of plain objects.
 
-### 1.4 When NOT to use a snapshot
+### 1.4 What the compiler does with `$state.snapshot`
+
+`$state.snapshot(value)` is a runtime function (not a compile-time transformation like `$state` and `$derived`). It walks the reactive proxy tree, reads every property through the proxy's `get` trap (without registering subscriptions), and builds a plain JavaScript object with the same shape. The result is a deep copy — nested objects are also plain, not proxied.
+
+```js
+// Roughly equivalent to:
+function snapshot(value) {
+    if (typeof value !== 'object' || value === null) return value;
+    if (Array.isArray(value)) return value.map(snapshot);
+    const result = {};
+    for (const key of Object.keys(value)) {
+        result[key] = snapshot(value[key]);
+    }
+    return result;
+}
+```
+
+The key detail: the snapshot reads through the proxy but does *not* subscribe. This means calling `$state.snapshot` inside a `$derived` expression does not create a dependency on the snapshotted values. The snapshot is a one-time read, not a subscription.
+
+### 1.5 "In production" — snapshots for optimistic UI comparisons
+
+At a 50-developer collaborative editing platform, the team implemented optimistic UI: when a user made a change, the UI updated immediately while a server request saved the change. If the server rejected the change, the UI needed to roll back to the pre-edit state. The team used `$state.snapshot` to capture the state *before* each edit. On server rejection, they restored the snapshot:
+
+```ts
+let lastSaved = $state.snapshot(document);
+// User edits document...
+// Server rejects → restore:
+Object.assign(document, lastSaved);
+```
+
+Without snapshots, the team would have needed to implement a manual deep-clone utility, handle proxy-stripping, and worry about reference sharing. `$state.snapshot` did all of that in one call.
+
+### 1.6 When NOT to use a snapshot
 
 A snapshot is a *copy*. If you mutate it, nothing happens to the reactive original. That is exactly what you want for logging or serialization, and exactly what you do not want if you were hoping to get a "live pointer" to the state. If you need the live value, pass the state itself (or a getter) instead of a snapshot. A common beginner mistake is to snapshot a value, hand it to a child component, and then be surprised that the child cannot see updates.
 

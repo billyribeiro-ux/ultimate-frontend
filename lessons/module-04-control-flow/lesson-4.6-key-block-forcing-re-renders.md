@@ -50,7 +50,25 @@ These are two different features with the unfortunate name collision "key". They
 
 One preserves, the other destroys. Choose based on which behaviour you need.
 
-### 1.5 When `{#key}` is a code smell
+### 1.5 "In production" — `{#key}` for resetting a third-party chart
+
+At a 50-developer analytics company, the dashboard used a third-party charting library that rendered into a `<canvas>` element. The chart accepted a `data` prop, but when the data shape changed dramatically (switching from a bar chart to a line chart), the library's internal update mechanism produced visual glitches — old bars lingering behind new lines. The library did not expose a `reset()` method.
+
+Wrapping the chart component in `{#key chartType}` solved the problem. When `chartType` changed from `'bar'` to `'line'`, Svelte destroyed the old chart instance entirely (including its canvas and internal state) and created a fresh one. The chart library initialised cleanly with the new data shape. This is the canonical `{#key}` use case: forcing a clean re-instantiation of a component whose internal state cannot be reset through its public API.
+
+### 1.6 The TypeScript angle — the key expression is type-checked
+
+The expression inside `{#key}` is a normal TypeScript expression. If you use a typed state variable:
+
+```svelte
+{#key currentPalette.id}
+    <div class="tile" style:--hue={currentPalette.hue}></div>
+{/key}
+```
+
+TypeScript checks that `currentPalette.id` exists on the `Palette` type. A typo like `currentPalette.idd` becomes a compile error. This is a small but valuable safety net — key expressions that reference nonexistent properties would silently evaluate to `undefined`, causing the block to rebuild on every render (because `undefined !== undefined` on every check).
+
+### 1.7 When `{#key}` is a code smell
 
 Every time you reach for `{#key}`, ask yourself: "am I working around a state-management problem?" If a child component holds state that should reset when a prop changes, you can often fix it by making the state derive from the prop instead of being initialised from it. `{#key}` is a hammer that works on every nail, including the ones you should have unscrewed.
 
@@ -77,6 +95,40 @@ Suspect uses:
 **Performance implications.** `{#key}` is expensive by design — it destroys and creates an entire DOM subtree. For a block containing a simple text node, the cost is negligible. For a block containing a complex component tree with 50 nodes, the cost is the full creation time of that tree. Never put a `{#key}` around a large section of your page unless you genuinely need full re-instantiation. If you only need to re-run an effect or reset one piece of state, use a more targeted approach (reassigning a `$state` variable, or calling a reset function).
 
 **Cross-module connections.** `{#key}` appears in Module 7 (forcing GSAP timelines to reinitialise when source data changes), Module 8 (page transitions where the key is the route URL), and Module 12 (as a potential performance anti-pattern to watch for in audits). The `{#key}` block is also the mechanism behind `{#each}` with keys — internally, keyed each blocks track item identity and destroy/recreate items whose keys disappear or appear. Understanding `{#key}` helps you understand why each-block keys matter.
+
+### 1.6 Common interview question
+
+**Q: "What is the `{#key}` block in Svelte, and how is it different from the `(key)` on `{#each}`?"**
+
+**Model answer:** They serve opposite purposes despite sharing the word "key." The `(key)` on `{#each}` *preserves* DOM nodes — it tells Svelte to reuse an existing node when an item with the same key appears in a new position. The `{#key expr}` block *destroys* DOM nodes — it tells Svelte to tear down and rebuild the entire subtree whenever `expr` changes. Use `{#each (key)}` to efficiently reorder lists. Use `{#key expr}` to force a fresh instance when the identity of the content changes — resetting a CSS animation, wiping a component's internal state, or reinitialising a third-party library that does not support prop-driven updates.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/key](https://svelte.dev/docs/svelte/key) — the `{#key}` block reference.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — all logic blocks including `{#key}`.
+- [svelte.dev/docs/svelte/transition](https://svelte.dev/docs/svelte/transition) — how `{#key}` interacts with transitions for content swap animations.
+
+**Advanced pattern: page transitions with `{#key}`.** In a SvelteKit layout, wrapping the page content with `{#key}` on the current URL creates a content-swap animation:
+
+```svelte
+<!-- +layout.svelte -->
+<script>
+    import { page } from '$app/state';
+    import { fade } from 'svelte/transition';
+</script>
+
+{#key page.url.pathname}
+    <main in:fade={{ duration: 200, delay: 200 }} out:fade={{ duration: 200 }}>
+        {@render children()}
+    </main>
+{/key}
+```
+
+Every route change destroys the old page content and creates fresh content, with a cross-fade animation. This is elegant but has a performance cost — the entire page tree is destroyed and recreated. Use it for simple sites; use more targeted transitions for complex apps.
+
+**Challenge question (combines Lesson 4.6 + Lesson 2.9 + Lesson 2.11):** A component wraps a chart library in `{#key chartId}`. When `chartId` changes, the chart reinitialises from scratch. The chart's `$effect` sets up a ResizeObserver. Trace the full lifecycle: (1) What happens to the old chart's ResizeObserver when the key changes? (2) When does the new chart's `$effect` first run? (3) What would happen if the `$effect` forgot to return a cleanup function?
 
 ## 2. Style it — A tile that fades in on every change
 

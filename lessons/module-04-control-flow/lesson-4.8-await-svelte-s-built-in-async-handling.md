@@ -115,6 +115,73 @@ Rule of thumb:
 
 **Cross-module connections.** `{#await}` is the client-side complement to SvelteKit's server-side `load` functions (Module 9). While `load` resolves data before the page renders (no loading state visible), `{#await}` handles data fetched after the initial render — search results, infinite scroll, lazy-loaded panels. Module 9's streaming pattern (`promise` returns from load functions) renders with the same `{#await}` mechanism internally. Module 12 covers when to choose server-side loading vs client-side `{#await}` based on Core Web Vitals implications.
 
+### 1.7 What the compiler does with `{#await}`
+
+The compiler transforms `{#await}` into a state machine that subscribes to the Promise:
+
+```js
+// Simplified compiled output
+let current_branch = null;
+
+function create_pending() { /* DOM for "Loading..." */ }
+function create_then(value) { /* DOM for the data */ }
+function create_catch(error) { /* DOM for the error */ }
+
+// Subscribe to the promise
+$.await_block(promise, {
+    pending: () => { swap(current_branch, create_pending()); },
+    then: (value) => { swap(current_branch, create_then(value)); },
+    catch: (error) => { swap(current_branch, create_catch(error)); }
+});
+```
+
+The `await_block` helper subscribes to the Promise's `.then()` and `.catch()` methods and calls the appropriate branch creator. Each branch swap destroys the old DOM and creates the new DOM — identical to an `{#if}` toggle. When the `promise` variable is reassigned to a new Promise, the block resets to the pending state automatically.
+
+### 1.8 "In production" — `{#await}` replaced 200 lines of boilerplate
+
+At a 50-developer product company, the dashboard had 8 widgets, each fetching data independently. Each widget had its own `isLoading`, `error`, `data` state variables and a `try/catch` block — 25 lines of boilerplate per widget, totalling 200 lines. After refactoring to `{#await}`, each widget needed only a `promise` variable and three template branches — about 8 lines each, totalling 64 lines. The reduction was not just in line count: the boilerplate had inconsistencies. Three widgets swallowed errors silently (`catch { }`). Two widgets forgot to reset `isLoading` on error. `{#await}` made all these bugs structurally impossible because every state transition is handled by the block automatically.
+
+### 1.9 Common interview question
+
+**Q: "When should you use `{#await}` vs SvelteKit's `load()` function for fetching data?"**
+
+**Model answer:** Use `load()` for primary page data — the data the page needs before it can render meaningfully. `load()` runs on the server during SSR, so the user sees fully rendered HTML immediately with no loading spinner. Use `{#await}` for secondary, deferred, or interactive data — data fetched after a user action (search results), data loaded lazily (comments section that loads on scroll), or data that refreshes periodically (live metrics). The key difference: `load()` data is available before the page renders. `{#await}` data loads after the page renders and shows a loading state while pending. For the best user experience, put critical data in `load()` and supplementary data in `{#await}`.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/await](https://svelte.dev/docs/svelte/await) — the `{#await}` block reference.
+- [svelte.dev/docs/svelte/logic-blocks](https://svelte.dev/docs/svelte/logic-blocks) — all logic blocks.
+- [svelte.dev/docs/kit/load](https://svelte.dev/docs/kit/load) — the alternative for server-side data loading.
+
+**Advanced pattern: delayed loading indicator.** To avoid a loading flash for fast responses, delay the loading indicator:
+
+```svelte
+<script lang="ts">
+    let showSpinner = $state(false);
+    
+    $effect(() => {
+        const timer = setTimeout(() => { showSpinner = true; }, 200);
+        return () => { clearTimeout(timer); showSpinner = false; };
+    });
+</script>
+
+{#await promise}
+    {#if showSpinner}
+        <Spinner />
+    {/if}
+{:then data}
+    <DataGrid {data} />
+{:catch error}
+    <ErrorPanel {error} />
+{/await}
+```
+
+If the promise resolves within 200ms, the spinner never appears. The user sees a seamless transition from empty to data. If it takes longer, the spinner appears after the delay, avoiding the "flash of loading state" that makes fast connections feel janky.
+
+**Challenge question (combines Lesson 4.8 + Lesson 4.7 + Lesson 4.2):** Write a component that fetches products using `{#await}`. The pending branch shows a skeleton loader. The `{:then}` branch renders a product grid with `{#each}`. The `{:catch}` branch shows an error with a "Retry" button that reassigns the promise to trigger a refetch. Explain what happens to the old promise's result when the user clicks Retry.
+
 ## 2. Style it — The same four states, rewritten in five lines of markup
 
 The mini-build loads the same products JSON as Lesson 4.7 but with `{#await}` instead of a manual `status` variable. The visual states (skeleton, grid, error panel) are identical to the previous lesson. The difference is in the code: four `$state` variables collapse into one, the `try`/`catch` disappears.

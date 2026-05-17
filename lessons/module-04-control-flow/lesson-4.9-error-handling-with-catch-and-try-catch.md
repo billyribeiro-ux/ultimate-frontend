@@ -136,6 +136,57 @@ The Svelte `{:catch}` branch is a good place for the user-facing message; a `$ef
 
 **Cross-module connections.** Error handling patterns established here carry through Module 9 (load function errors with SvelteKit's `error()` helper), Module 10 (form action validation errors returned as ActionData), Module 12 (error boundaries with `<svelte:boundary>`), and Module 9b (remote function errors). The two-sided approach — user-facing message in the UI, developer-facing details in logs — is the pattern you will implement at every async boundary in the course.
 
+### 1.7 The TypeScript angle — `unknown` forces correctness
+
+In TypeScript strict mode, the `catch` variable is typed `unknown`, not `Error`. This forces you to narrow before accessing any properties:
+
+```ts
+catch (err: unknown) {
+    // err.message  ← Compile error: 'message' does not exist on 'unknown'
+    
+    if (err instanceof Error) {
+        console.error(err.message);  // ← OK, narrowed to Error
+    } else if (typeof err === 'string') {
+        console.error(err);  // ← OK, narrowed to string
+    } else {
+        console.error('Unknown error:', err);
+    }
+}
+```
+
+The `unknown` type is TypeScript's way of saying "I do not know what this is — prove it before you use it." This prevents the common bug of accessing `.message` on a thrown string or number, which would crash at runtime. Older TypeScript versions typed `catch` variables as `any`, which let every access through without checking. The `unknown` approach is strictly safer and is the default in strict mode.
+
+### 1.8 Common interview question
+
+**Q: "Why should you never write an empty `catch { }` block, and what should you do instead?"**
+
+**Model answer:** An empty `catch` block silently swallows errors. The operation failed, but the app continues as if it succeeded — data is missing, state is inconsistent, and the user sees a blank or broken UI with no explanation. Worse, the developer has no telemetry to diagnose the problem. Every `catch` block should do at least one of five things: (1) display a user-facing error message, (2) log the error with `console.error` or an error-reporting service, (3) re-throw the error for a higher-level handler, (4) return a fallback value with a clear comment explaining why silence is intentional, or (5) retry the operation. If you genuinely cannot think of what to do, log and re-throw — at minimum, the error reaches someone who can investigate.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/await](https://svelte.dev/docs/svelte/await) — the `{:catch}` branch in `{#await}`.
+- [svelte.dev/docs/kit/errors](https://svelte.dev/docs/kit/errors) — SvelteKit's error handling system for load functions and routes.
+- [typescriptlang.org/docs/handbook/2/narrowing.html](https://www.typescriptlang.org/docs/handbook/2/narrowing.html) — narrowing `unknown` with `instanceof` and `typeof`.
+
+**Advanced pattern: centralized error reporting.** Instead of duplicating error handling in every component, create a shared reporter:
+
+```ts
+// src/lib/errors.ts
+export function reportError(error: unknown, context: string): string {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[${context}]`, error);
+    // In production: send to Sentry, Datadog, or similar
+    // errorReporter.captureException(error, { tags: { context } });
+    return message;
+}
+```
+
+Every `catch` block calls `reportError(err, 'loadProducts')` and gets back a user-safe message to display. The reporter handles logging, service reporting, and message extraction in one place.
+
+**Challenge question (combines Lesson 4.9 + Lesson 4.8 + Lesson 1.8):** Define three custom error classes: `NetworkError`, `ValidationError`, and `AuthError`. Write a function `loadProfile(id: string)` that throws the appropriate error class for different failure modes (network down, malformed response, 401 status). Then write a `{:catch}` branch that uses `{#if err instanceof NetworkError}` / `{:else if}` to show a different UI for each error type. What type is `err` inside the `{#if err instanceof NetworkError}` branch?
+
 ## 2. Style it — Four error UIs for four error types
 
 The mini-build triggers four different errors — network down, auth required, not found, and a generic failure — and renders a differently-styled panel for each. Each panel uses PE7 tokens but changes the accent colour. The user sees at a glance that the app knows what kind of problem it hit.

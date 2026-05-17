@@ -103,6 +103,38 @@ This algorithm is O(n) in the size of the array, which is optimal — you cannot
 
 **Connection to other modules.** Keys appear in Module 6 (animations — `animate:flip` requires keys to calculate FLIP positions). Module 7 (GSAP) needs keys to avoid animating the wrong element after a reorder. Module 11 (TanStack Table) relies on row keys for selection and expansion state. Module 12 (performance) uses keys to ensure minimal DOM operations in large datasets. Any pattern that involves "this specific item, not this position" depends on keys being correct.
 
+### 1.10 Common interview question
+
+**Q: "Why is using the array index as a key in `{#each}` almost always wrong, and what should you use instead?"**
+
+**Model answer:** The array index changes when items are reordered, inserted, or removed. If item A was at index 0 and moves to index 2, its key changes from 0 to 2. Svelte thinks the item at index 0 was *destroyed* and a new item was *created* at index 2 — so it destroys the old DOM (losing its form state, focus, animations) and creates new DOM. The correct key is a stable identifier intrinsic to the data — typically a database ID, UUID, or slug. This key does not change when the item moves, so Svelte correctly *moves* the existing DOM node instead of *recreating* it. The only safe scenario for index keys is a strictly append-only list that never reorders, filters, or inserts in the middle — which is rare in practice.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/each](https://svelte.dev/docs/svelte/each) — keyed `{#each}` blocks.
+- [svelte.dev/docs/svelte/transition](https://svelte.dev/docs/svelte/transition) — `animate:flip` requires keyed lists.
+- [svelte.dev/docs/svelte/animate](https://svelte.dev/docs/svelte/animate) — the `animate:` directive for smooth list reordering.
+
+**Advanced pattern: keyed `{#each}` with `animate:flip`.** Once keys are in place, adding smooth reorder animations is one attribute:
+
+```svelte
+<script>
+    import { flip } from 'svelte/animate';
+</script>
+
+{#each items as item (item.id)}
+    <li animate:flip={{ duration: 300 }}>
+        {item.name}
+    </li>
+{/each}
+```
+
+When items reorder, Svelte uses the FLIP technique: it records each item's position before the update, records the new position after, computes the delta, and applies a CSS transform animation to smoothly move each item from old to new position. This only works with keys because Svelte needs to know which DOM node corresponds to which data item across the reorder.
+
+**Challenge question (combines Lesson 4.4 + Lesson 4.3 + Lesson 2.4):** You have a list of tasks with `id` and `title` fields. Each task renders an `<input bind:value={task.title}>`. The user types "important" into the second task's input, then clicks a "sort alphabetically" button. Without keys, what happens to the typed text? With keys on `task.id`, what happens? Draw the before/after DOM to illustrate the difference.
+
 ## 2. Style it — Stripes and a focus ring that stays put
 
 The mini-build is a to-do list with alternating row backgrounds and a strong focus ring on the inputs. Both visual cues make the keyed behaviour visible: with keys, the focus ring follows the task you focused on even after you rotate the list.

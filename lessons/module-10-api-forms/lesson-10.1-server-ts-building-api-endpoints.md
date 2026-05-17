@@ -84,6 +84,122 @@ export const GET: RequestHandler = async ({ params }) => {
 };
 ```
 
+### 1.6 What SvelteKit does under the hood
+
+A `+server.ts` file follows a simple HTTP lifecycle with no special framework magic:
+
+1. **Routing.** SvelteKit's router matches the incoming request URL and HTTP method to the correct `+server.ts` file and exported handler. A `GET` request to `/api/greeting` calls the `GET` export. A `POST` to the same URL calls the `POST` export.
+
+2. **Handler invocation.** The handler receives a `RequestEvent` with the full request context: URL, params, headers, cookies, body, locals. The handler returns a standard web `Response` object.
+
+3. **Response delivery.** SvelteKit sends the `Response` to the client. No serialisation, no devalue, no SSR. The response is exactly what your handler returned — headers, status, body.
+
+4. **Content negotiation.** If a route has both `+page.svelte` and `+server.ts`, SvelteKit picks based on the `Accept` header. A browser requesting HTML gets the page. A `fetch` request with `Accept: application/json` gets the API handler. This lets you colocate a page and its API at the same URL.
+
+Unlike load functions (which run before rendering and whose results are embedded in HTML), and unlike remote functions (which generate endpoints automatically), `+server.ts` handlers are raw HTTP. You control the response format, headers, status code, and caching directives completely.
+
+### 1.7 The TypeScript angle
+
+The auto-generated `RequestHandler` type from `./$types` constrains the `params` based on the route pattern:
+
+```ts
+// src/routes/api/post/[slug]/+server.ts
+import type { RequestHandler } from './$types';
+
+export const GET: RequestHandler = async ({ params }) => {
+    // params.slug is typed as `string` (from the [slug] folder)
+    // params.id would be a TypeScript error (no [id] in the route)
+    return json({ slug: params.slug });
+};
+```
+
+If you import `RequestHandler` from `@sveltejs/kit` instead of `./$types`, `params` is typed as `Partial<Record<string, string>>` — you lose the route-specific inference. Always import from `./$types`.
+
+For request body typing, TypeScript cannot help at the type level because `request.json()` returns `Promise<any>`. You must validate at runtime:
+
+```ts
+import * as v from 'valibot';
+
+const CreateGreeting = v.object({
+    name: v.pipe(v.string(), v.minLength(1)),
+    language: v.optional(v.picklist(['en', 'es', 'de']), 'en')
+});
+
+export const POST: RequestHandler = async ({ request }) => {
+    const raw: unknown = await request.json().catch(() => null);
+    const result = v.safeParse(CreateGreeting, raw);
+    if (!result.success) {
+        return json({ errors: result.issues }, { status: 400 });
+    }
+    // result.output is typed as { name: string; language: 'en' | 'es' | 'de' }
+    return json({ greeting: `Hello, ${result.output.name}!` }, { status: 201 });
+};
+```
+
+### 1.8 Comparison: +server.ts vs remote functions vs classic REST frameworks
+
+| Aspect | `+server.ts` | Remote function | Express/Fastify |
+| --- | --- | --- | --- |
+| Type safety | Params auto-typed, body manual | Full (schema + return type) | Fully manual |
+| Validation | Manual (Valibot recommended) | Automatic (Valibot schema) | Manual (middleware) |
+| URL | Explicit (folder path) | Auto-generated (hashed) | Explicit (route definition) |
+| Response format | Any (JSON, text, binary, stream) | JSON/devalue only | Any |
+| Who can call it | Anyone (public URL) | Your SvelteKit UI only | Anyone (public URL) |
+| Middleware | Via hooks.server.ts | N/A (handled by framework) | Via middleware chain |
+| File download support | Full (Content-Disposition, streaming) | No | Full |
+
+> **In production sidebar.** We maintain 8 `+server.ts` endpoints in our SvelteKit app. Five are webhooks (Stripe, GitHub, Sendgrid, Twilio, a CMS), two are file download endpoints (PDF invoice, CSV export), and one is an OAuth callback. All other server communication — about 40 endpoints worth — uses remote functions. The ratio tells the story: `+server.ts` is for external consumers and special HTTP needs. Remote functions handle everything internal. If you find yourself writing more than a handful of `+server.ts` files, ask whether some of them could be remote functions instead.
+
+### 1.9 Common interview question
+
+**Q: "When would you use a `+server.ts` endpoint in SvelteKit instead of a remote function or a form action?"**
+
+**Model answer:** `+server.ts` is the right choice when you need a stable, public HTTP URL that external systems can call. Three concrete scenarios: (1) Webhooks — Stripe, GitHub, and other services POST to a URL you register with them; they cannot call a remote function. (2) OAuth callbacks — identity providers redirect to a URL in your app; that URL must be stable and documented. (3) File downloads — you need full control over `Content-Type`, `Content-Disposition`, and streaming binary data. (4) Cross-platform APIs — if a mobile app or third-party consumer needs to call your server, they use standard HTTP, not SvelteKit's RPC protocol. For any data exchange between your own SvelteKit frontend and your own server, remote functions are more type-safe, less boilerplate, and fewer files.
+
+## Deep Dive
+
+**Content negotiation between pages and API.** A route can have both `+page.svelte` and `+server.ts`. SvelteKit uses the `Accept` header to decide which to serve. A browser navigation (which sends `Accept: text/html`) gets the page. A `fetch('/api/greeting', { headers: { Accept: 'application/json' } })` gets the API. This is elegant but rarely used in practice — most teams put API routes under an `/api/` prefix for clarity.
+
+**Streaming responses.** `+server.ts` handlers can return streaming responses for large payloads:
+
+```ts
+export const GET: RequestHandler = async () => {
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(new TextEncoder().encode('chunk 1'));
+            setTimeout(() => {
+                controller.enqueue(new TextEncoder().encode('chunk 2'));
+                controller.close();
+            }, 1000);
+        }
+    });
+    return new Response(stream, { headers: { 'Content-Type': 'text/plain' } });
+};
+```
+
+This is useful for server-sent events (SSE), large file downloads, or real-time log streaming.
+
+**CORS headers.** If your `+server.ts` endpoint is called from a different origin (cross-origin), you need CORS headers. Add them in the handler or in `hooks.server.ts`:
+
+```ts
+export const GET: RequestHandler = async () => {
+    return json({ data: '...' }, {
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST'
+        }
+    });
+};
+```
+
+For preflight requests, export an `OPTIONS` handler that returns the CORS headers with a 204 status.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Routing — server](https://svelte.dev/docs/kit/routing#server) covers `+server.ts` in detail.
+- **Advanced pattern:** Create a typed API client utility that mirrors your `+server.ts` endpoints. Export response type interfaces from the `+server.ts` file and import them in the client utility for type-safe `fetch` calls.
+- **Challenge:** Create a `+server.ts` endpoint that returns a CSV file with proper `Content-Type: text/csv` and `Content-Disposition: attachment; filename="data.csv"` headers. Visit the URL in a browser — does it download the file? Now call it with `fetch` from a component — can you read the CSV text?
+
 ## 2. Style it — A small API console page
 
 This lesson's mini-build has two parts: a `+server.ts` endpoint at `/api/greeting`, and a `+page.svelte` that calls it with `fetch` and renders the response. Per-page brand is a dusty rose to distinguish Module 10 from Module 9B.

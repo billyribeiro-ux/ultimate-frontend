@@ -51,7 +51,30 @@ Three concrete situations:
 
 If none of these apply, use ordinary `$state`. Raw state is an optimisation, not a default.
 
-### 1.4 Raw state can *contain* reactive state
+### 1.4 What the compiler does differently for `$state.raw`
+
+For deep `$state`, the compiler wraps the value in a `Proxy` with `get`/`set` traps on every nested property. For `$state.raw`, the compiler creates a simple signal — a single reactive cell that tracks the *reference*, not the contents:
+
+```js
+// $state({ name: 'Ada' })  →  proxy(source({ name: 'Ada' }))
+// $state.raw({ name: 'Ada' })  →  source({ name: 'Ada' })
+```
+
+The `source()` call creates one signal node. Reads of the variable register one subscription. Writes to the variable notify that one subscription. No proxy is created. No nested properties are tracked. The inner object is plain JavaScript. This is why `$state.raw` is faster for large objects — it avoids the per-property proxy overhead entirely.
+
+### 1.5 The TypeScript angle — `$state.raw` types identically
+
+TypeScript does not distinguish between proxied and non-proxied values. Both `$state({})` and `$state.raw({})` produce the same type. This means you can swap between them without changing any type annotations. The decision is purely a performance/behaviour choice:
+
+```ts
+// These produce identical TypeScript types:
+let deep: Config = $state(initialConfig);     // Mutate fields
+let raw: Config = $state.raw(initialConfig);  // Reassign wholesale
+```
+
+TypeScript cannot warn you if you try to mutate a `$state.raw` value (the mutation is valid JavaScript — it just will not trigger reactivity). This is a case where the developer must understand the runtime behaviour beyond what the type system checks.
+
+### 1.6 Raw state can *contain* reactive state
 
 A subtle but powerful combination: you can have a raw *outer* array whose *items* are ordinary reactive objects. The outer array is cheap to swap; the inner objects are still deeply reactive. This hybrid is the right tool when you swap the list often and also need fine-grained updates on each row. It is more advanced than Module 2 normally asks for, but worth knowing the shape exists.
 

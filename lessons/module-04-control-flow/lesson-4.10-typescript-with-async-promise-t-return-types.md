@@ -139,6 +139,49 @@ Type errors caught at the async boundary are bugs that never reach the user. Eve
 
 **Cross-module connections.** Typed promises are the foundation for Module 9's load functions (which return typed `PageData`), Module 9b's remote functions (which return typed query results), Module 10's API routes (which return typed JSON responses), and Module 12's testing patterns (which assert on typed async results). The discipline of "every async boundary has a typed contract" is the same principle as "every component boundary has typed props" — contracts at boundaries prevent bugs from propagating across module boundaries.
 
+### 1.8 "In production" — typed promises caught a backend schema change
+
+At a 50-developer travel booking platform, the flight search API changed its response from `{ flights: Flight[] }` to `{ results: { flights: Flight[] } }`. The frontend had `async function searchFlights(): Promise<Flight[]>` with an explicit return type. The old code `return data.flights` stopped compiling because `data` (validated against the new schema) no longer had a `flights` field at the top level. The error lit up in CI within 5 minutes of the backend deployment. The developer changed one line (`return data.results.flights`), and the build passed. Without the typed return value, `data.flights` would have silently returned `undefined`, and the search results page would have rendered an empty list in production — a revenue-losing bug that could have gone unnoticed for hours.
+
+### 1.9 Common interview question
+
+**Q: "Why does `res.json()` return `Promise<any>` in TypeScript, and how do you make it type-safe?"**
+
+**Model answer:** `Response.json()` is defined in the Fetch API specification to return `Promise<any>` because the browser cannot know at compile time what JSON shape the server will return. The `any` propagates through your code unless you intervene. Three approaches to make it type-safe: (1) Annotate the async function's return type explicitly — `async function loadProducts(): Promise<Product[]>`. This does not validate the data at runtime but ensures all consumers handle `Product[]`. (2) Cast the result — `return (await res.json()) as Product[]`. Same compile-time safety, same runtime risk. (3) Validate at the boundary — parse the JSON as `unknown`, run a type guard or a validation library (Valibot, Zod), and return the validated result. Approach 3 is the most robust because it catches schema mismatches at runtime, before the malformed data reaches your components. Use approach 1 as a minimum, approach 3 for production APIs.
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/typescript](https://svelte.dev/docs/svelte/typescript) — TypeScript integration with Svelte.
+- [typescriptlang.org/docs/handbook/2/generics.html](https://www.typescriptlang.org/docs/handbook/2/generics.html) — writing generic functions like `fetchJson<T>()`.
+- [typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates) — user-defined type guards for runtime validation.
+
+**Advanced pattern: schema validation with Valibot at the network boundary.** Instead of hand-writing type guards, use a schema validation library:
+
+```ts
+import * as v from 'valibot';
+
+const ProductSchema = v.object({
+    id: v.string(),
+    name: v.string(),
+    price: v.number()
+});
+
+type Product = v.InferOutput<typeof ProductSchema>;
+
+async function loadProducts(): Promise<Product[]> {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data: unknown = await res.json();
+    return v.parse(v.array(ProductSchema), data);
+}
+```
+
+The `v.parse` call validates the data at runtime against the schema. If the shape does not match, it throws a descriptive error. The `InferOutput` type derives the TypeScript type from the schema, so you never write the type manually — it stays in sync with the validation automatically. Module 10 covers Valibot in depth.
+
+**Challenge question (combines Lesson 4.10 + Lesson 4.8 + Lesson 1.8):** Write a generic `fetchJson<T>()` helper with an explicit `Promise<T>` return type. Use it in a component with `{#await}` to load and render a list of products. Then add a runtime type guard `isProduct(value: unknown): value is Product` that validates the shape. Explain why the `as T` cast in `fetchJson` is a lie at runtime, and how the type guard makes it truthful.
+
 ## 2. Style it — Same grid, invisible improvements
 
 The mini-build looks identical to Lesson 4.8 — a product grid with a skeleton and an error panel. The difference is under the hood: `fetchJson<Product[]>()` is generic, `loadProducts()` has an explicit return type, and a tiny `isProduct` guard validates the payload before trusting it. The user notices nothing. The codebase notices everything.

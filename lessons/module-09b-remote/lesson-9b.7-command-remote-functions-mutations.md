@@ -104,6 +104,121 @@ Network latency makes mutations feel slow. An **optimistic UI** updates the loca
 - **Anything that cascades across many queries.** Use `form` for the automatic invalidation, or call `refresh()` on each query explicitly.
 - **Anything that takes more than a few seconds.** Show a progress state; consider a background job.
 
+### 1.5 What SvelteKit does under the hood — the command RPC mechanism
+
+A `command()` is a remote function optimized for mutations. Here is the full lifecycle:
+
+**Build time:**
+
+1. SvelteKit generates a unique endpoint for each exported command (e.g., `/_remote/addNote-m3n4o5`).
+2. A client stub is generated that wraps the endpoint in a typed async function.
+
+**Runtime — client calls `addNote('Buy milk')`:**
+
+1. The client stub serialises the argument with `devalue` and sends a `POST` to the endpoint.
+2. The server deserialises the argument, runs it through the Valibot schema, and calls the handler.
+3. Inside the handler, `await listNotes().refresh()` triggers a re-run of the `listNotes` query handler on the same server request. The fresh query result is attached to the response.
+4. The response contains **both** the command's return value **and** any refreshed query data. This is the "single-flight mutation" — one HTTP round trip carries the mutation result and the updated read data.
+5. The client receives the response. The command's promise resolves with the return value. The `listNotes` cache is updated with the fresh data from the response.
+6. Every component rendering `listNotes()` re-renders with the new data.
+
+**The `.withOverride()` timeline:**
+
+When optimistic UI is used, the timeline changes:
+
+```
+t=0ms    User clicks "Delete"
+t=0ms    withOverride runs: listNotes cache updated optimistically (item removed)
+t=0ms    UI re-renders — item disappears instantly
+t=0ms    deleteNote(id) request starts
+t=200ms  Server receives, validates, deletes, refreshes listNotes
+t=400ms  Response arrives with real data
+t=400ms  Cache reconciled: if server data matches override, nothing changes
+         If server rejected (e.g., permission error), cache rolls back to pre-override state
+```
+
+The user sees the item disappear at t=0ms. The network latency (400ms) is invisible. If the server disagrees, the item reappears — a brief UI "flash" that is far preferable to a 400ms delay on every delete.
+
+### 1.6 The TypeScript angle
+
+Commands are fully typed from schema to return value:
+
+```ts
+export const addNote = command(
+    v.pipe(v.string(), v.minLength(1)),  // Input type: string
+    async (text) => {                     // text: string (inferred from schema)
+        const note: Note = { id: crypto.randomUUID(), text, createdAt: new Date() };
+        notes = [note, ...notes];
+        await listNotes().refresh();
+        return note;                      // Return type: Note
+    }
+);
+```
+
+On the client:
+
+```ts
+const result = await addNote('Buy milk');
+// result: Note (typed from handler's return)
+// result.id: string
+// result.createdAt: Date (preserved by devalue)
+```
+
+The `withOverride` function is typed against the query's return type:
+
+```ts
+listNotes().withOverride(
+    (current) => current.filter(x => x.id !== id)
+    // current: Note[] (typed from listNotes query's return type)
+    // return: Note[] (must match the query's type)
+);
+```
+
+TypeScript ensures the override function returns the same type as the query. If you accidentally return `string[]` instead of `Note[]`, the compiler catches it.
+
+### 1.7 Comparison: command vs form vs +server.ts POST
+
+| Aspect | `command()` | Remote `form()` | Classic form action | `+server.ts` POST |
+| --- | --- | --- | --- | --- |
+| Progressive enhancement | No (JS required) | Yes | Yes | No (JS required) |
+| Schema validation | Valibot (automatic) | Valibot (automatic) | Manual | Manual |
+| Optimistic UI | `.withOverride()` | Not built-in | Not built-in | Manual |
+| Single-flight mutation | `.refresh()` / `.set()` | Automatic invalidation | `invalidateAll()` | Manual |
+| Best for | Button clicks, menus | HTML forms | Legacy form handling | Public endpoints |
+| Type safety | Full | Full | Via `ActionData` | Manual |
+
+> **In production sidebar.** We use commands for every mutation that does not involve an HTML form: deleting items, toggling favorites, reordering lists, marking notifications as read. The optimistic UI via `withOverride` makes these feel instant even on 3G connections. The single biggest win was our "mark all as read" button: without optimistic UI, the notification badges stayed visible for 300-500ms after clicking. With `withOverride`, all badges clear at t=0ms. Users noticed the difference and commented positively in feedback surveys. Small latency improvements compound into significantly better perceived performance.
+
+### 1.8 Common interview question
+
+**Q: "What is optimistic UI and how does SvelteKit's `command` support it? What happens if the server rejects the mutation?"**
+
+**Model answer:** Optimistic UI updates the local view immediately when the user triggers a mutation, before the server responds. This makes the UI feel instant because the user does not wait for a network round trip. SvelteKit's `command` supports this via `.withOverride()`, which takes a pure function that transforms the current cached query value into the predicted post-mutation value. The override is applied to the cache immediately, causing all components reading that query to re-render with the predicted state. The actual server request runs in the background. When the server responds, the cache is reconciled: if the server's response matches the override, nothing changes. If the server rejected the mutation (e.g., permission denied, constraint violation), the cache rolls back to the pre-override value, and the UI updates to reflect the real state. The user sees a brief "flash" as the item reappears, which is the correct behavior — it communicates that the action failed.
+
+## Deep Dive
+
+**Single-flight mutation in detail.** The `await listNotes().refresh()` call inside a command handler is special. When called on the server, it does not make an HTTP request. It calls the query's handler function directly (in-process), gets the fresh result, and attaches it to the command's HTTP response. The client receives one response containing both the command result and the refreshed query data. This collapses what would normally be two round trips (command + query refresh) into one.
+
+You can refresh multiple queries in a single command:
+
+```ts
+export const moveTask = command(schema, async ({ taskId, targetColumnId }) => {
+    await db.tasks.update({ where: { id: taskId }, data: { columnId: targetColumnId } });
+    await getColumn(sourceColumnId).refresh();
+    await getColumn(targetColumnId).refresh();
+    await getProjectSummary(projectId).refresh();
+    // All three refreshes ride back on one HTTP response
+});
+```
+
+**When NOT to use optimistic UI.** Optimistic UI is wrong when the prediction is unreliable. If there is a meaningful chance the server will reject the mutation (complex permission logic, race conditions with other users, quota limits), the rollback flash confuses users. In those cases, show a loading state instead and wait for the server's confirmation.
+
+## Going Deeper
+
+- **SvelteKit docs:** [Remote functions — command](https://svelte.dev/docs/kit/remote-functions#command) covers the full API.
+- **Advanced pattern:** Create a `createOptimisticCommand` utility that wraps any command with automatic optimistic UI: it takes the command, the affected query, and an override function, and returns a new function that handles the `withOverride` wiring.
+- **Challenge:** Create a command that intentionally fails 50% of the time (using `Math.random()`). Add optimistic UI via `withOverride`. Click the button rapidly and watch the cache reconcile. How many "rollback flashes" do you see? Does the final state always match the server state?
+
 ## 2. Style it — A notes list with fade-out on delete
 
 Per-page brand is a warm amber. Deletion uses the Svelte `fade` transition with `out:fade` respecting reduced motion — the element disappears in sync with the optimistic update.

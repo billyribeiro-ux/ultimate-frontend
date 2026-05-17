@@ -126,6 +126,49 @@ One subtlety: if you set `container-type: inline-size` on the component's own ro
 
 **Connection to other modules.** Container queries first appeared in Module 1 Lesson 1.5 as part of PE7's philosophy. Module 6 Lesson 6.8 teaches them in full depth with the styling vocabulary. This lesson (3.10) is where they merge with the component architecture story — because a truly reusable component must own its own responsiveness. The capstone project combines container queries with the `MediaCard` pattern to build a component that works everywhere from a narrow mobile sidebar to a full-width desktop hero, without the page telling it which layout to use.
 
+### 1.9 Common interview question
+
+**Q: "What is the difference between a CSS media query and a container query, and when should a reusable component use each?"**
+
+**Model answer:** A media query reacts to the *viewport* size — the browser window width. A container query reacts to the *container element's* size — the width of the component's own parent. A reusable component should use container queries for its internal layout decisions because the component does not know where it will be placed. The same card component might appear in a full-width hero (1000px), a sidebar (260px), and a modal (400px) — all on the same viewport. A media query gives all three instances the same layout because the viewport is the same. A container query gives each instance the layout appropriate for its own rendered width. Use media queries for *page-level* decisions (number of grid columns, sidebar visibility). Use container queries for *component-level* decisions (card layout direction, thumbnail size, font scale).
+
+## Going Deeper
+
+**Official docs to read next:**
+
+- [svelte.dev/docs/svelte/styling](https://svelte.dev/docs/svelte/styling) — container queries inside Svelte's scoped styles.
+- [developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment/Container_queries) — the MDN container queries guide.
+- [developer.mozilla.org/en-US/docs/Web/CSS/container-type](https://developer.mozilla.org/en-US/docs/Web/CSS/container-type) — the `container-type` property reference.
+
+**Advanced pattern: container queries combined with custom property knobs.** The most maintainable approach remaps custom-property knobs inside container query breakpoints:
+
+```css
+.card {
+    container-type: inline-size;
+    --card-pad: var(--space-sm);
+    --card-font: var(--text-sm);
+    --card-direction: column;
+}
+
+@container (min-width: 400px) {
+    .card {
+        --card-pad: var(--space-md);
+        --card-font: var(--text-base);
+        --card-direction: row;
+    }
+}
+
+.card__body {
+    padding: var(--card-pad);
+    font-size: var(--card-font);
+    flex-direction: var(--card-direction);
+}
+```
+
+The rules reference variables. The container query only reassigns variables. Adding a new breakpoint means adding a new `@container` block that reassigns the same three variables. The structural rules never change.
+
+**Challenge question (combines Lesson 3.10 + Lesson 3.9 + Lesson 1.6):** Build a `ProfileCard` component that uses `container-type: inline-size` on its root. At `min-width: 300px` it switches from stacked to side-by-side layout. Use PE7 fluid tokens (`--space-md`, `--text-base`) inside the container query breakpoints. Explain how this component would behave if placed in a 250px sidebar column *and* a 600px main content area on the same page, and why a media query could not achieve this.
+
 ## 2. Style it — Three widths, one file
 
 The mini-build places the *same* `MediaCard` component in three containers of widely different widths (a narrow sidebar column, a medium card column, and a wide hero region). Each instance uses a container query on its own root to pick between compact, stacked, and wide layouts. Zero JavaScript.

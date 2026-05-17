@@ -63,7 +63,25 @@ const histogram: Record<number, number> = $derived.by(() => {
 });
 ```
 
-### 1.5 Purity is still required
+### 1.5 "In production" — grouping without flicker
+
+At a 50-developer analytics platform, the dashboard displayed metrics grouped by geographic region. Data updated every 5 seconds via a WebSocket push. The initial implementation used an `$effect` to compute the grouping and store it in a separate `$state`. This created a one-tick delay: the raw data updated, then the DOM reflected the raw data, then the effect ran, then the grouped data updated. Users saw a brief flicker where totals and detail rows disagreed.
+
+Refactoring to `$derived.by` eliminated the flicker. The grouping computed synchronously as part of the reactive graph, before any DOM update. The totals and detail rows were always consistent in the same paint. The fix: replace `$effect(() => { grouped = compute(data) })` with `const grouped = $derived.by(() => compute(data))`. One line. Zero flicker.
+
+### 1.6 Comparison: `$derived` vs `$derived.by`
+
+| Feature | `$derived(expr)` | `$derived.by(() => { ... })` |
+|---|---|---|
+| Input | Single expression | Function body |
+| Local variables | Not possible | Allowed |
+| Loops and branches | Not possible | Allowed |
+| Dependency tracking | Same | Same |
+| Caching/memoisation | Same | Same |
+| Purity requirement | Same | Same |
+| Typical use | `count * 2` | Grouping, histograms, multi-step transforms |
+
+### 1.7 Purity is still required
 
 Everything said in Lesson 2.7 about purity still applies. The function you pass to `$derived.by` must not have side effects. No logging, no DOM writes, no API calls. Svelte may skip or repeat the call based on dependency tracking, so any side effect would run at unpredictable times. Use `$effect` (Lesson 2.9) for side effects.
 

@@ -290,3 +290,58 @@ See [`lessons/capstone/README.md`](./lessons/capstone/README.md) and [`lessons/c
 | 14.8     | Threlte  | Production 3D — lazy load, DPR clamp, demand frameloop     |
 
 All use `@threlte/core` and `@threlte/extras` — installed with `pnpm add three @threlte/core @threlte/extras`. Physics lessons also require `pnpm add @threlte/rapier`.
+
+---
+
+## Module 18 — Advanced Patterns & Architecture
+
+Student masters principal-engineer-level patterns for scalable design systems, tooling, and multi-app architectures.
+
+- 18.1 — Compound components
+- 18.2 — Polymorphic components
+- 18.3 — Headless components
+- 18.4 — State machines with runes
+- 18.5 — Micro-frontends with SvelteKit
+- 18.6 — Custom preprocessors
+- 18.7 — Build-time data with Vite plugins
+- 18.8 — Advanced TypeScript patterns in Svelte
+- 18.9 — Performance profiling and optimization
+- 18.10 — Monorepo architecture
+
+**Module project:** Advanced Design System.
+
+---
+
+## Module 19 — Internationalization (i18n)
+
+Student builds a production-ready multi-language application with locale-aware formatting, RTL layout, and SEO hreflang.
+
+- 19.1 — What i18n means and why it's hard
+- 19.2 — Message extraction and ICU MessageFormat
+- 19.3 — Paraglide.js with SvelteKit
+- 19.4 — Locale routing strategies
+- 19.5 — Formatting dates, numbers, and currencies
+- 19.6 — RTL and bidirectional text
+- 19.7 — Pluralization and gender
+- 19.8 — i18n SEO and performance
+
+**Module project:** Multi-language Marketing Site.
+
+---
+
+## Module 20 — Testing Deep Dive
+
+Student builds a comprehensive testing strategy from unit tests through CI/CD pipelines.
+
+- 20.1 — Testing philosophy (pyramid, behavior vs implementation, coverage lies)
+- 20.2 — Vitest configuration for SvelteKit
+- 20.3 — Unit testing .svelte.ts stores (reactive classes with runes)
+- 20.4 — Component testing with @testing-library/svelte
+- 20.5 — Testing async components ({#await}, load(), streaming)
+- 20.6 — Testing form actions and API routes
+- 20.7 — Playwright fundamentals (locators, auto-waiting, page objects)
+- 20.8 — E2E flows: auth, CRUD, navigation
+- 20.9 — Visual regression testing (screenshots, snapshots)
+- 20.10 — CI/CD testing pipeline (GitHub Actions workflow)
+
+**Module project:** Full-Stack Test Suite.

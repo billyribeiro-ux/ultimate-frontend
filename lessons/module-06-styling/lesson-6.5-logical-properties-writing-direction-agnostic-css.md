@@ -76,6 +76,18 @@ The rule of thumb: *if you would still want the thing to be on the same side of 
 
 Add `dir="rtl"` to the `<html>` element of your page (or to a specific `<section>`) and watch what happens. Everything using logical properties flips. Everything using physical properties stays. Switch back and forth to find places you missed.
 
+
+## Going Deeper
+
+**Official documentation:**
+- [MDN: CSS logical properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_logical_properties_and_values)
+- [web.dev: Logical properties](https://web.dev/articles/learn/css/logical-properties)
+- [Svelte docs: Styling](https://svelte.dev/docs/svelte/styling)
+
+**Advanced pattern:** Build a card component that works in LTR, RTL, and vertical writing mode (`writing-mode: vertical-rl`). Test all three by toggling `dir` and `writing-mode` on the parent.
+
+**Challenge question:** (Combines Lessons 6.5, 6.4, and 6.3) Create a "direction toggle" demo page. Use logical properties for all layout, nesting for state variants, and tokens for all values. Add `dir="rtl"` and `dir="ltr"` buttons. Verify that everything flips correctly except the site logo (which should use physical positioning).
+
 ## 2. Style it — A card that flips
 
 The mini-build is a card with an avatar, text, and a "next" arrow, all laid out with logical properties. A toggle button switches the parent's `dir` attribute between `ltr` and `rtl`. The whole layout flips instantly; no rules change.

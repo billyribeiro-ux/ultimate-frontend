@@ -96,6 +96,131 @@ This is the escape hatch. 90% of the time, `update()` (or no custom callback at 
 - **Forms that must show upload progress.** Use the remote function pattern from Lesson 9B.6 — `enhance` does not expose upload progress.
 - **Forms that do not need progressive enhancement at all.** If your app is a JS-only dashboard behind a login wall, you can pick the remote function pattern (`form()` from Module 9B.5) and skip the classic action entirely.
 
+### 1.6 What SvelteKit does under the hood — the enhance lifecycle
+
+Here is exactly what happens when you add `use:enhance` to a form and the user clicks submit:
+
+**Step 1 — Interception.** The `use:enhance` action attaches a `submit` event listener to the form. When the user submits, the listener calls `event.preventDefault()`, stopping the browser's default full-page POST.
+
+**Step 2 — Pre-submit callback.** If you passed a `SubmitFunction` to `use:enhance`, it runs now. The callback receives `{ formElement, formData, action, cancel, submitter }`. You can modify `formData`, cancel the submission entirely, or set up loading state.
+
+**Step 3 — Fetch.** `use:enhance` sends a `fetch` POST to the action URL. The request includes:
+- The form's `FormData` as the body
+- A `x-sveltekit-action: true` header (so the server knows this is an enhanced submission)
+- The session cookies (standard browser behavior)
+
+**Step 4 — Server processing.** The server runs the action handler identically to a no-JS submission. It returns the action's result (success data or `fail()` data).
+
+**Step 5 — Post-submit callback.** If your `SubmitFunction` returned a callback, it runs now with `{ result, update, formElement, formData }`:
+- `result.type` is `'success'` | `'failure'` | `'redirect'` | `'error'`
+- `update()` runs the default post-submit behavior
+- You can skip `update()` and handle the result yourself
+
+**Step 6 — Default behavior (if `update()` is called):**
+- Form is reset (inputs cleared)
+- `invalidateAll()` is called (all load functions re-run)
+- `applyAction(result)` updates the `form` prop on the component
+- If the result is a redirect, `goto(url)` navigates client-side
+- If the result is an error, the nearest `+error.svelte` renders
+
+**What HTML the user submits without JS vs what enhance does:**
+
+Without JS: Browser sends `Content-Type: application/x-www-form-urlencoded` (or `multipart/form-data` for file uploads), receives a full HTML page response, and replaces the entire document.
+
+With enhance: Browser sends the same data via `fetch`, receives a JSON-like response (the serialised action result), and patches the page in place. Same data, different transport. The server code is identical.
+
+### 1.7 The TypeScript angle
+
+The `SubmitFunction` type is generated per-route in `./$types`:
+
+```ts
+import type { SubmitFunction } from './$types';
+
+const handle: SubmitFunction = ({ formData, cancel }) => {
+    // formData: FormData — the form's data, modifiable
+    // cancel: () => void — call to abort the submission
+    
+    if (!formData.get('title')) {
+        // Client-side validation: cancel if title is empty
+        cancel();
+        return;
+    }
+    
+    submitting = true;
+    
+    return async ({ result, update }) => {
+        // result.type: 'success' | 'failure' | 'redirect' | 'error'
+        if (result.type === 'success') {
+            showToast('Saved!');
+        }
+        await update(); // run default behavior
+        submitting = false;
+    };
+};
+```
+
+The `result` object is typed based on your action's return value. If the action returns `{ ok: true, noteId: string }`, then `result.data` has that type when `result.type === 'success'`.
+
+### 1.8 Comparison: use:enhance vs manual fetch vs remote form()
+
+| Aspect | `use:enhance` | Manual `fetch` in handler | Remote `form()` |
+| --- | --- | --- | --- |
+| Progressive enhancement | Yes (form works without JS) | No (JS required) | Yes (form works without JS) |
+| Automatic invalidation | Yes (`invalidateAll()`) | Manual | Automatic (targeted) |
+| Form reset on success | Yes (automatic) | Manual | Manual |
+| Loading state | Manual (`SubmitFunction`) | Manual | Automatic (`.pending`) |
+| Per-field validation | Manual | Manual | Automatic (`.issues()`) |
+| TypeScript | `SubmitFunction` from `$types` | Manual typing | Full schema inference |
+| Code verbosity | Low | High | Lowest |
+| Best for | Classic form actions | Non-action forms | New projects |
+
+> **In production sidebar.** We have 12 forms across our app. Eight use `use:enhance` with classic form actions. Four were migrated to remote `form()` functions when we adopted remote functions. The `use:enhance` forms work reliably and the code is minimal — the simplest forms are literally `<form method="POST" use:enhance>`. The remote form versions are even shorter and have better per-field error handling. For new forms, we use remote `form()`. For existing forms, we leave `use:enhance` in place — there is no urgency to migrate, and both patterns coexist without conflict.
+
+### 1.9 Common interview question
+
+**Q: "What does `use:enhance` do under the hood, and how does it maintain progressive enhancement?"**
+
+**Model answer:** `use:enhance` is a Svelte action that intercepts form submissions and replaces the browser's default full-page POST with a `fetch` request. When JavaScript is available, it prevents the page reload, sends the form data via fetch to the same action URL, processes the server's response, resets the form, re-runs all load functions via `invalidateAll()`, and updates the `form` prop on the component — all without a page reload. The key to progressive enhancement is that `use:enhance` does not change the form's HTML structure. The form still has `method="POST"` and a valid `action` URL. If JavaScript fails to load (network error, CSP block, user preference), the browser falls back to the standard form submission flow — the same URL receives the same data, the same server handler runs, and the page reloads with the result. The developer writes the form once; `use:enhance` upgrades the experience when possible.
+
+## Deep Dive
+
+**Custom enhance for optimistic UI.** You can use `SubmitFunction` to implement optimistic updates with classic form actions:
+
+```svelte
+<script lang="ts">
+    import { enhance } from '$app/forms';
+    import type { SubmitFunction } from './$types';
+
+    let optimisticNotes = $derived(data.notes);
+
+    const handle: SubmitFunction = ({ formData }) => {
+        // Optimistic: add the note locally before the server responds
+        const title = formData.get('title') as string;
+        optimisticNotes = [...optimisticNotes, { id: 'temp', title, body: '' }];
+
+        return async ({ update }) => {
+            await update(); // Server response replaces the optimistic data
+        };
+    };
+</script>
+```
+
+This is more manual than remote functions' `withOverride`, but it works with classic form actions.
+
+**The `update({ reset: false })` option.** By default, `update()` resets the form (clears all inputs). If you want to keep the form values after submission (e.g., a search form where the user wants to refine their query), pass `{ reset: false }`:
+
+```ts
+return async ({ update }) => {
+    await update({ reset: false });
+};
+```
+
+## Going Deeper
+
+- **SvelteKit docs:** [Form actions — Progressive enhancement](https://svelte.dev/docs/kit/form-actions#Progressive-enhancement) covers `use:enhance` in detail.
+- **Advanced pattern:** Wrap `use:enhance` in a reusable Svelte action that adds standard loading, error, and success toast behaviors across all forms in your app.
+- **Challenge:** Create a form with `use:enhance` and a custom `SubmitFunction` that adds a 2-second artificial delay before calling `update()`. Watch the loading state. Now remove the `return async () => { await update(); }` and just return nothing from the `SubmitFunction`. What happens? (Answer: the default behavior runs, but you lose the ability to control timing or add post-submit logic.)
+
 ## 2. Style it — The same notes form from 10.4, with a pending state
 
 Per-page brand is a dusk purple. The `submitting` state dims the button and shows "Saving…" — tiny UI, but the feel is dramatically different from the full-page reload baseline.
