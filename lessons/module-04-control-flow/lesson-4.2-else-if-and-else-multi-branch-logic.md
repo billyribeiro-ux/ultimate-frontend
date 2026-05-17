@@ -108,6 +108,18 @@ Each branch's expression can use any JavaScript logical operator. A common patte
 
 Put the **more specific** condition first — otherwise the more general `status === 'success'` will swallow it. This is the same "specific before general" rule stated a different way.
 
+## Deep Dive
+
+**Why this matters at scale.** In production UIs, multi-state components are everywhere: a request can be idle, loading, succeeded, or failed. A subscription can be free, trial, active, past-due, or cancelled. A wizard step can be incomplete, current, or completed. Each state needs different markup, different styling, and different accessibility attributes. In a 50-component app, you might have 20+ multi-branch blocks. If developers use nested `{#if}` blocks instead of `{:else if}` chains, the template becomes deeply indented and hard to verify for exhaustiveness. Clean `{:else if}` chains make the state machine visible in the markup and make it obvious when a state is unhandled.
+
+**The mental model.** Think of `{#if}/{:else if}/{:else}` as a railway switch yard. A train (the reactive value) arrives at the yard. The first switch checks "are you condition A?" If yes, the train goes down track A. If no, the next switch checks "are you condition B?" And so on. The final `{:else}` is the catch-all siding. Exactly one track is active at any time. This is a pattern-matching operation, and thinking of it as "which track does this value take?" helps you design conditions that are mutually exclusive and exhaustive.
+
+**Edge cases.** A subtle bug: overlapping conditions. If your first condition is `{#if score > 50}` and your second is `{:else if score > 80}`, the second branch is unreachable because any score above 80 also satisfies the first condition. Order matters — put the most specific condition first. Another edge case: TypeScript narrowing inside branches. If you check `{#if user.role === 'admin'}`, TypeScript narrows `user.role` to `'admin'` inside that branch, enabling safe access to admin-only fields. This works with Svelte 5's template type checking. A third edge case: reactive expressions in conditions. If the condition calls a function that modifies state, the function runs on every re-evaluation, which can cause infinite loops.
+
+**Performance implications.** Svelte compiles `{#if}/{:else if}` chains into conditional checks that short-circuit on the first match. Only the matching branch's DOM is created; other branches contribute zero DOM and zero memory. When the active branch changes, Svelte destroys the old branch and creates the new one — a swap, not a diff. For branches with heavy content, the swap cost is the creation time of the new branch. If you need instant switching between pre-rendered branches (like tabs), consider rendering all branches and toggling visibility with CSS instead.
+
+**Cross-module connections.** Multi-branch rendering is the visual expression of discriminated unions from TypeScript. Module 8 uses it for different layouts based on route data. Module 9 uses `{#if}` chains for load/error/success patterns. Module 12 covers the trade-off between conditional rendering and CSS visibility for tab interfaces. The skill of designing clean, exhaustive condition chains translates to pattern matching in any language.
+
 ## 2. Style it — A single panel whose face changes
 
 The mini-build has one bordered panel whose inner content switches between an idle prompt, a loading spinner, a success list, and an error message. The outer chrome — border, radius, padding — never changes, so the layout stays put. Only the inside swaps. This is what the user sees as a smooth state change rather than the whole layout reshuffling.

@@ -85,6 +85,18 @@ Two rules:
 - **Add, don't remove.** If a new component needs `--space-3xl`, add it. Removing `--space-md` breaks every component that uses it.
 - **Prefer composition over new tokens.** If a component needs "medium space plus a little extra", use `calc(var(--space-md) + var(--space-xs))` before adding a new token. Only promote to a real token if three or more components need the same value.
 
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, raw values are the enemy of consistency. If one developer writes `padding: 16px` and another writes `padding: 1rem` and a third writes `padding: 1.125rem`, the product has three slightly different spacings that look almost-but-not-quite the same. Multiply by 50 components and the UI looks "off" without anyone knowing why. A token system (`--space-md`) forces everyone through the same vocabulary. When the design team decides spacing should be slightly tighter, one token change propagates to every component instantly. Tokens are governance at the CSS level.
+
+**The mental model.** Think of design tokens as a periodic table of visual elements. Each token is a named, stable element that behaves predictably. `--space-md` always means "medium spacing." `--radius-lg` always means "large border radius." You compose these elements into components the way a chemist combines elements into molecules. The table is finite and stable — adding an element is a deliberate, team-wide decision. This constraint is the source of its power: when the vocabulary is small, consistency is automatic.
+
+**Edge cases.** A common trap: creating too many tokens. If your scale has `--space-2xs`, `--space-xs`, `--space-sm`, `--space-md`, `--space-lg`, `--space-xl`, `--space-2xl`, `--space-3xl`, that is 8 levels — probably too many for most teams to use consistently. Four to six levels cover 95% of use cases. Another edge case: tokens for breakpoints. Unlike spacing and colour, breakpoints cannot be CSS custom properties in media queries (custom properties are not evaluated in `@media`). Use Sass variables or hard-coded values for breakpoints, and document them alongside your token table. A third subtlety: motion tokens (duration and easing) must respect `prefers-reduced-motion`. A motion token system should provide both standard and reduced variants, switching automatically via a media query on the `:root`.
+
+**Performance implications.** CSS custom properties are resolved during the cascade — the performance cost is negligible compared to the value lookup the browser already performs. A token system adds zero bytes to the JavaScript bundle (it lives in CSS) and typically 1-2KB to the stylesheet. The indirect performance benefit is significant: tokens prevent the "specificity wars" and "override chains" that bloat stylesheets. A consistent token system produces shorter CSS (fewer overrides, fewer one-off values) which loads faster and is more cacheable.
+
+**Cross-module connections.** The token system established here is referenced in every subsequent module's "Style it" section. Module 6's colour personalities (Lesson 6.9) override token values per-page. Module 7's GSAP animations reference motion tokens for consistent timing. Module 12 audits token usage during performance optimisation. Module 13's SEO lessons note that consistent visual quality (enabled by tokens) contributes to user engagement metrics that indirectly affect search ranking.
+
 ## 2. Style it — The token showcase
 
 The mini-build is a single page that demonstrates every token category with a live example. Colour swatches, spacing bars, type scale, motion samples (tiny animated dots), radii samples, and shadow samples.

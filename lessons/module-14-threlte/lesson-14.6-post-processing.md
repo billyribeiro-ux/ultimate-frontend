@@ -82,6 +82,63 @@ Post-processing parameters are reactive in Threlte. You can bind them to `$state
 
 This reactive binding makes post-processing part of the interaction design, not just a static filter.
 
+### 1.8 The performance cost breakdown
+
+Post-processing is a GPU-bound operation. Each effect reads the entire framebuffer (every pixel), processes it, and writes a new framebuffer. On a 1920x1080 canvas at DPR 2, that is 4,147,200 pixels per pass. Three effects means reading and writing 12.4 million pixels per frame on top of the base render.
+
+The cost varies by effect type:
+- **Vignette** — extremely cheap. One multiplication per pixel. Negligible.
+- **Bloom** — expensive. Requires downsampling, multiple blur passes (typically 5-6 at different radii), and a composite. The blur radius directly affects cost.
+- **Chromatic aberration** — moderate. Three texture samples per pixel instead of one.
+- **Depth of field** — very expensive. Requires the depth buffer, distance calculations, and variable-radius blur. Can halve frame rate on mobile.
+- **SSAO (ambient occlusion)** — expensive. Samples surrounding depth values to estimate shadows in crevices.
+
+For production: start with no effects, add one at a time, and test on your lowest-target device. If frame time exceeds 16ms (drops below 60fps), remove effects or reduce their quality parameters.
+
+### 1.9 Half-resolution rendering for effects
+
+A common optimization: render the bloom pass at half resolution. Since bloom is a blurry effect anyway, the quality difference is imperceptible, but the GPU processes only 25% as many pixels. Threlte's EffectComposer supports this via configuration options:
+
+```svelte
+<Bloom intensity={1.5} mipmapBlur luminanceThreshold={0.8} />
+```
+
+The `mipmapBlur` option uses the GPU's built-in mipmap chain for the blur operation instead of separate full-resolution passes. This is significantly faster on modern GPUs and produces smoother results.
+
+### 1.10 When NOT to use post-processing
+
+Post-processing is tempting — it makes everything look "cinematic" with minimal effort. But it is wrong for:
+
+- **Text-heavy interfaces** — chromatic aberration and bloom make text harder to read. Never apply effects over UI elements.
+- **Performance-constrained mobile experiences** — if your scene already uses most of the GPU budget for geometry and materials, effects will push you below 30fps. Serve a poster image instead.
+- **Accessibility contexts** — heavy vignette reduces the visible area, making peripheral content harder to see. Strong chromatic aberration can trigger visual discomfort in some users.
+
+The professional approach: make effects conditional. Enable them on desktop with powerful GPUs. Disable or reduce them on mobile. Always provide a toggle or respect `prefers-reduced-motion` for animated effects.
+
+### 1.11 Custom effects via shaders
+
+Beyond the built-in effects, you can write custom post-processing shaders. A shader receives the rendered frame as a texture and outputs a modified version. This is advanced territory (GLSL programming), but Threlte makes it accessible by letting you pass custom `Effect` classes to the composer.
+
+Common custom effects in production:
+- Color grading (LUT lookup) for brand-consistent color treatment
+- Film grain for analog aesthetic
+- Custom blur patterns for focus effects
+- Pixelation for retro transitions
+
+Each custom effect is a single GLSL fragment shader that reads `texture2D(inputBuffer, uv)` and writes the modified color. If you know CSS filters, GLSL effects are conceptually similar — just running on the GPU at pixel level.
+
+## Deep Dive
+
+**Why this matters at scale.** Post-processing is the layer that transforms "technically correct rendering" into "visually compelling content." Every AAA game, every high-end product render, every cinematic trailer uses post-processing. On the web, it is the differentiator between a Threlte scene that looks like a tech demo and one that looks like a professional product page. Teams that understand the performance trade-offs deploy effects strategically — bloom on the hero section, nothing on the rest — rather than blanket-applying them and wondering why mobile users bounce.
+
+**The mental model.** Think of post-processing as Instagram filters for your 3D render. The scene is "photographed" into a texture (like taking a picture), then the filters are applied to that picture before showing it to the user. Each filter reads every pixel of the previous result and outputs a new result. Chaining three filters means three passes over every pixel. The photo is never "modified in place" — it is read, processed, and written fresh each time.
+
+**Edge cases.** Bloom with very low `luminanceThreshold` makes the entire scene glow, not just bright objects — everything exceeds the threshold. Transparent objects (glass, particles) interact poorly with some effects — depth-based effects like DOF cannot determine the correct depth for semi-transparent surfaces. Effects that sample neighboring pixels (blur, SSAO) produce artifacts at screen edges because there are no neighbors to sample outside the frame — implementations typically clamp or mirror edge pixels.
+
+**Performance.** On a Retina MacBook (DPR 2, 2560x1600), one post-processing pass processes 8.2 million pixels. At 60fps, that is 492 million pixel operations per second per effect. Mobile GPUs (which share memory bandwidth with the CPU) typically hit their fill-rate ceiling with two to three effects at native DPR. The fix is DPR clamping (Module 14.8) combined with selective effect enabling based on device capability detection (`navigator.gpu` for WebGPU, or frame rate monitoring after enabling effects).
+
+**Cross-module connections.** Post-processing connects to Module 12 (performance — frame budget management, DPR clamping), Module 14.4 (interactivity — hover-triggered bloom changes), Module 14.5 (scroll-driven — scroll-modulated effect intensity), and Module 7 (GSAP — tweening effect parameters for dramatic reveals). The reactive binding pattern is pure Module 2 — `$state` variables driving visual output.
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The mini-build is a product scene with a toggle panel for effects:

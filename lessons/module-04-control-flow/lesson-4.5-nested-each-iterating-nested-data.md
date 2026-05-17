@@ -91,6 +91,18 @@ Because the outer `category` is typed as `Category`, `category.products` is type
 
 If `catalogue` is `$state`, both levels react. Adding a product to a category updates only that category's inner list. Adding a whole new category adds a new outer section. As long as your keys are correct, Svelte does the minimum DOM work.
 
+## Deep Dive
+
+**Why this matters at scale.** In production applications, data is rarely flat. Product catalogues have categories containing products. Org charts have departments containing teams containing people. Navigation menus have sections containing items containing sub-items. A 50-component app dealing with hierarchical data needs nested iteration in at least 5-10 places. If developers flatten the data structure to avoid nested `{#each}` (a common anti-pattern), they lose the structural relationship and must reconstruct it with brittle grouping logic in every template. Nested iteration keeps the template aligned with the data shape, making the code self-documenting.
+
+**The mental model.** Think of nested `{#each}` as reading a book's table of contents. The outer loop iterates over chapters (categories). For each chapter, the inner loop iterates over sections (items). The template indentation mirrors the data nesting — two levels of `{#each}` for two levels of nesting. Each level has its own `as` binding and its own optional key. The key principle is that the outer and inner iterations are independent: adding a section to chapter 3 does not affect chapter 4's rendering at all.
+
+**Edge cases.** Variable shadowing is the most common mistake in nested loops. If both the outer and inner item have a `name` field and you destructure both as `{ name }`, the inner one shadows the outer one. Use renaming (`as { name: categoryName }` in the outer loop) or avoid destructuring the outer item when its fields conflict with the inner item. Another edge case: deeply reactive nested data. If your outer array is `$state` and each item contains a reactive inner array, mutations at any level trigger only the appropriate subscriptions — the outer `{#each}` does not re-render its entire body when an inner item changes. Keys at both levels ensure correct DOM reuse.
+
+**Performance implications.** Nested `{#each}` creates DOM nodes proportional to the product of the outer and inner array lengths. For 10 categories × 20 items = 200 DOM nodes, this is trivial. For 100 × 1000 = 100,000 DOM nodes, you need virtualisation. The important optimisation insight: Svelte's reactivity is granular per-node, so updating one inner item touches only that item's DOM — it does not re-render the entire nested structure. This granularity means nested iteration performs well even with moderately large datasets, as long as updates are localised.
+
+**Cross-module connections.** Nested iteration appears in Module 9 (rendering grouped API results), Module 11 (TanStack Table with grouped rows), and Module 13 (generating nested sitemap XML). The pattern of "outer container provides structure, inner content provides detail" mirrors the snippet-prop pattern from Module 3 — sometimes you combine both, with the outer loop providing the container and a snippet prop providing each item's rendering.
+
 ## 2. Style it — Sticky category headers
 
 The mini-build uses PE7 tokens for section padding and a small `position: sticky` trick for category headers. As you scroll, each category header stays pinned until the next one pushes it off.

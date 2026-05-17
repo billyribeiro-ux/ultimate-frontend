@@ -101,6 +101,68 @@ In Svelte 3/4 era SvelteKit, people used `getSession` to expose session data to 
 
 No stores, no `$session`, no client-side session management. The server is the source of truth.
 
+### 1.6 The SafeUser pattern — never exposing sensitive fields
+
+When you attach the user to `event.locals`, you must strip sensitive fields first. The full database record includes `passwordHash` — a value that must never leave the server process, let alone reach the browser.
+
+```typescript
+interface SafeUser {
+    id: string;
+    name: string;
+    email: string;
+    createdAt: string;
+}
+
+function toSafeUser(user: FullUser): SafeUser {
+    return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt
+    };
+}
+```
+
+By constructing `SafeUser` via an explicit allow-list (only include the fields you name), you guarantee that future fields added to the user table (like `passwordResetToken` or `twoFactorSecret`) do not accidentally leak through the load function chain. This is safer than a deny-list approach (delete the fields you do not want) because forgetting to deny a new field exposes it.
+
+### 1.7 Multiple hooks with the sequence helper
+
+As your application grows, you may need multiple hooks — one for auth, one for logging, one for locale detection. SvelteKit provides the `sequence` helper:
+
+```typescript
+import { sequence } from '@sveltejs/kit/hooks';
+
+const authHook: Handle = async ({ event, resolve }) => { /* ... */ };
+const loggingHook: Handle = async ({ event, resolve }) => { /* ... */ };
+
+export const handle = sequence(authHook, loggingHook);
+```
+
+`sequence` chains hooks: the first runs, calls resolve (which runs the second), which eventually calls the real resolve. Each hook can modify `event.locals` and the next hook sees those modifications. Auth must run first so that logging and other hooks have access to `event.locals.user`.
+
+### 1.8 Performance implications of the hook
+
+The hook runs on every single request — page loads, data fetches, API calls, even asset requests. If your session lookup involves a database query, that query runs thousands of times per minute on a busy site.
+
+Mitigations:
+- **Short-circuit for static assets**: Check `event.url.pathname` and skip the session lookup for paths like `/favicon.ico`, `/_app/`, or `/fonts/`.
+- **Cache session lookups**: For in-memory session stores (Maps), the lookup is already sub-microsecond. For database stores, consider a short-lived LRU cache.
+- **Keep the hook fast**: Never do expensive work (API calls to external services, complex computations) in the hook. Just read the cookie, look up the session, attach the user.
+
+In this course's in-memory implementation, the session lookup is a `Map.get()` call — essentially instant.
+
+## Deep Dive
+
+**Why this matters at scale.** The hook is the single most important file in any authenticated SvelteKit application. It is the security perimeter. Every request passes through it. If the hook has a bug — failing to validate the session, allowing expired sessions, not checking cookie integrity — every route in your app is compromised. In a team, the hook should be reviewed by the most security-conscious engineer. It should have integration tests that verify: expired sessions are rejected, missing cookies produce null users, malformed cookies do not crash the server.
+
+**The mental model.** Think of the hook as an airport security checkpoint. Every passenger (request) passes through. The checkpoint reads their boarding pass (cookie), checks it against the passenger manifest (session store), and stamps their record (event.locals) with their identity. After the checkpoint, everyone inside the terminal (load functions, actions) can trust the stamp without re-checking the boarding pass. The checkpoint is the only place verification happens — this centralization is the strength of the pattern.
+
+**Edge cases.** If the session store is deleted (server restart with in-memory store, Redis flush, database migration), all active cookies now point to non-existent sessions. The hook finds no session record, sets `locals.user = null`, and every logged-in user is effectively logged out simultaneously. This is expected for development but must be planned for in production (persistent session stores, graceful session migration). Another edge case: race conditions where a user logs out (deleting their session) but a concurrent request on a different server instance still has the old session cached. This is inherent to distributed systems and is why session stores need to be shared (Redis, database) rather than per-instance.
+
+**Performance.** The hook adds latency to every request proportional to the session lookup time. For Map lookups: ~0.001ms (negligible). For Redis lookups: ~0.5-2ms (acceptable). For PostgreSQL lookups: ~2-10ms (noticeable on fast pages). The session lookup should be the fastest database operation in your entire application because it runs more often than any other. Index the session table by ID (which any primary key provides automatically).
+
+**Cross-module connections.** Hooks connect to Module 9a (load functions — they consume `event.locals`), Module 10 (form actions — they also consume `event.locals`), Module 8 (routing — route groups use layouts that depend on hook-populated data), and Module 16 (database — production session stores use database tables instead of in-memory Maps). The `App.Locals` typing in `app.d.ts` is part of SvelteKit's type generation system that you first encountered in Module 9a's `$types` imports.
+
 ## 2. Style it — Hook status indicator
 
 The mini-build for this lesson shows a diagnostic panel that displays whether the hook detected a user. We style it as a developer-tools-style panel:

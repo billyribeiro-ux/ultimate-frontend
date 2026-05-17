@@ -103,6 +103,18 @@ Rule of thumb:
 - Primary page data? `load()` or remote functions (Module 9).
 - Secondary, interactive, or lazy data? `{#await}`.
 
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, at least half of the components fetch or depend on asynchronous data. Without a declarative async primitive, every component independently implements the loading/error/success pattern with manual `$state` flags (`isLoading`, `error`, `data`). This leads to inconsistent error handling, forgotten loading states, and race conditions where a slow response arrives after the user has navigated away. `{#await}` standardises the pattern into a single declarative block that is impossible to get wrong structurally — every state is handled, every transition is automatic.
+
+**The mental model.** Think of `{#await promise}` as a progress bar with three positions: pending, resolved, and rejected. The block automatically moves between positions as the promise's lifecycle progresses. You cannot accidentally show "loading" and "data" at the same time because Svelte enforces mutual exclusivity. You cannot accidentally forget the error state because `{:catch}` is right there in the syntax, prompting you to handle it. The block is a state machine with exactly three states, and Svelte manages all transitions.
+
+**Edge cases.** A critical race condition: if you reassign the promise (e.g., the user triggers a new search while the old one is still pending), Svelte drops the old promise's result. The block immediately returns to the `{:then}`/`{:catch}` state of the *new* promise. The old promise's resolution is silently ignored. This is correct behaviour — you want the latest request, not a stale one — but it means you cannot use `{#await}` for fire-and-forget promises where you want to accumulate results. Another edge case: `{#await}` with a synchronously resolved promise (e.g., `Promise.resolve(value)`). Svelte renders the `{:then}` branch immediately without ever showing the pending branch. A third subtlety: the promise itself must be reactive. If you store it in a `$state` variable and reassign it, the block re-evaluates. If you store it in a plain `const`, it never changes and the block resolves once.
+
+**Performance implications.** `{#await}` creates the pending branch's DOM immediately and swaps it for the resolved/rejected branch's DOM when the promise settles. The swap cost is identical to an `{#if}` toggle — old nodes destroyed, new nodes created. There is no virtual DOM diff and no extra memory for "optimistic" pre-rendering of the resolved state. For promises that resolve quickly (under 100ms), the pending state may flash briefly — consider adding a minimum display time or a delay before showing the loading indicator (a common UX pattern covered in Module 12).
+
+**Cross-module connections.** `{#await}` is the client-side complement to SvelteKit's server-side `load` functions (Module 9). While `load` resolves data before the page renders (no loading state visible), `{#await}` handles data fetched after the initial render — search results, infinite scroll, lazy-loaded panels. Module 9's streaming pattern (`promise` returns from load functions) renders with the same `{#await}` mechanism internally. Module 12 covers when to choose server-side loading vs client-side `{#await}` based on Core Web Vitals implications.
+
 ## 2. Style it — The same four states, rewritten in five lines of markup
 
 The mini-build loads the same products JSON as Lesson 4.7 but with `{#await}` instead of a manual `status` variable. The visual states (skeleton, grid, error panel) are identical to the previous lesson. The difference is in the code: four `$state` variables collapse into one, the `try`/`catch` disappears.

@@ -66,6 +66,18 @@ Suspect uses:
 - Forcing a chart to redraw (use `$effect` with the right dependency).
 - Avoiding a bug whose real cause you have not found yet.
 
+## Deep Dive
+
+**Why this matters at scale.** In production apps, you occasionally encounter components or third-party widgets that have internal state which cannot be reset via props alone. A rich text editor, a canvas-based chart, or a map widget might cache internal state that persists even when you change the data prop. In a 50-component app, you might need `{#key}` in 3-5 places where forcing a clean re-instantiation is the only reliable way to reset a component. The alternative — adding `reset()` methods to every stateful component — is fragile and requires cooperation from the component author. `{#key}` works universally.
+
+**The mental model.** Think of `{#key value}` as a kill-and-replace switch. When the key value changes, Svelte destroys everything inside the block (including all component instances and their state) and rebuilds it from scratch. It is the nuclear option for state reset. Unlike `{#if}` which toggles existence based on a boolean, `{#key}` toggles based on *identity* — when the identity value changes, the old instance dies and a new one is born, even though "something should still be rendered."
+
+**Edge cases.** A dangerous pattern: using a rapidly-changing value as the key (like a counter that increments every second). This destroys and recreates the entire DOM subtree every time, which is extremely expensive and causes visual flicker. Only use `{#key}` with values that change infrequently and intentionally (a selected user ID, a step number, a route parameter). Another edge case: `{#key}` combined with transitions. When the key changes, the old content gets an "out" transition and the new content gets an "in" transition — this is a clean way to animate content swaps. A third subtlety: component cleanup (`$effect` return functions) runs when a `{#key}` block destroys its contents, so any subscriptions or timers are properly cleaned up.
+
+**Performance implications.** `{#key}` is expensive by design — it destroys and creates an entire DOM subtree. For a block containing a simple text node, the cost is negligible. For a block containing a complex component tree with 50 nodes, the cost is the full creation time of that tree. Never put a `{#key}` around a large section of your page unless you genuinely need full re-instantiation. If you only need to re-run an effect or reset one piece of state, use a more targeted approach (reassigning a `$state` variable, or calling a reset function).
+
+**Cross-module connections.** `{#key}` appears in Module 7 (forcing GSAP timelines to reinitialise when source data changes), Module 8 (page transitions where the key is the route URL), and Module 12 (as a potential performance anti-pattern to watch for in audits). The `{#key}` block is also the mechanism behind `{#each}` with keys — internally, keyed each blocks track item identity and destroy/recreate items whose keys disappear or appear. Understanding `{#key}` helps you understand why each-block keys matter.
+
 ## 2. Style it — A tile that fades in on every change
 
 The mini-build shows a gradient tile whose hue is driven by a custom property. A button cycles through four palettes. Without `{#key}`, the gradient changes silently. With `{#key current.id}`, the tile fades in from scale 0.96 with a soft animation — respecting `prefers-reduced-motion`.

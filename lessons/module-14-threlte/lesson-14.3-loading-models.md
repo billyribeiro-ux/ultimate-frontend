@@ -71,6 +71,68 @@ Large models impact load time and frame rate. Best practices:
 - Use LOD (level of detail) for models seen at varying distances.
 - Dispose the GLTF when the component unmounts — Threlte handles this automatically.
 
+### 1.7 The GLTF scene hierarchy
+
+A GLTF file is not just a single mesh — it is a tree. A character model might contain hundreds of meshes (body, eyes, clothing, accessories), each with its own material and potentially its own animations. When `useGltf` loads the file, it gives you access to:
+
+- **`scene`** — the root `THREE.Group` containing everything. Drop this directly into your Threlte scene to render the entire model.
+- **`nodes`** — a flat object keyed by the names assigned in Blender. If you named a mesh "LeftHand" in Blender, `gltf.nodes.LeftHand` gives you direct access to that mesh.
+- **`materials`** — all materials used in the model, keyed by name. You can swap or modify them at runtime.
+- **`animations`** — an array of `AnimationClip` objects if the model includes skeletal or morph animations.
+
+Understanding this hierarchy is essential for interactive models. A product configurator, for example, needs to change the material on just the "Shell" mesh while keeping everything else unchanged. You access `gltf.nodes.Shell.material` and swap it.
+
+### 1.8 Draco compression in detail
+
+Draco is a compression algorithm developed by Google that reduces geometry data (vertices, normals, UVs, indices) to a fraction of their original size. A 5MB GLB can become 500KB after Draco compression.
+
+The trade-off: the browser must decompress the data before rendering, which takes 50-200ms depending on model complexity and device speed. This decompression runs on the main thread by default, though a Web Worker-based decoder exists.
+
+In Threlte, Draco-compressed models require you to configure the `DRACOLoader` path when using `useGltf`:
+
+```typescript
+import { useDraco } from '@threlte/extras';
+useDraco(); // configures the Draco decoder path
+```
+
+For production, always Draco-compress models intended for the web. The network savings far outweigh the decompression cost, especially on mobile networks where bandwidth is the bottleneck.
+
+### 1.9 Texture optimization
+
+Models often include large textures (albedo, normal map, roughness map, metalness map). A single 4K texture is 16MB uncompressed in GPU memory. Best practices:
+
+- Use power-of-two texture sizes (512, 1024, 2048) for GPU compatibility.
+- Compress textures with KTX2/Basis Universal format — these decompress on the GPU, saving both network transfer and CPU time.
+- For web, 1024x1024 is usually sufficient for most product models. Reserve 2048x2048 for hero objects viewed up close.
+- Consider that each texture channel (R, G, B, A) occupies GPU memory. Combine metalness and roughness into a single texture using different channels (a common GLTF convention).
+
+### 1.10 Error boundaries for model loading
+
+Network requests fail. CDNs go down. URLs get typos. Your model loading must handle failure gracefully:
+
+```svelte
+<svelte:boundary>
+    <ModelViewer url="/models/product.glb" />
+    {#snippet failed(error)}
+        <FallbackImage src="/images/product-poster.webp" alt="Product" />
+    {/snippet}
+</svelte:boundary>
+```
+
+This pattern uses Svelte 5's error boundaries to catch any error thrown during model loading and render a fallback. The fallback should be a static image that communicates the same information the 3D model would have — a pre-rendered product shot at the most informative angle.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production e-commerce site, model loading is a critical path operation. Users waiting for a 3D product viewer will abandon the page if loading takes more than 3 seconds on mobile. Every optimization — Draco compression, texture compression, progressive loading, placeholder strategies — directly impacts conversion rates. A team that ships unoptimized 20MB GLB files will see their 3D feature disabled by performance-conscious engineering leads within weeks.
+
+**The mental model.** Think of a GLTF file as a zipped project folder. Inside is a scene graph (like a component tree), materials (like CSS), textures (like images), and animations (like keyframe definitions). The browser downloads this folder, unpacks it, uploads textures to the GPU, builds the scene graph in memory, and then renders it. Each step takes time and resources. Your job is to minimize what gets downloaded and maximize what gets cached.
+
+**Edge cases.** Models exported from Blender with "Apply Modifiers" disabled retain their modifier stack, which Three.js ignores — the model appears as its base mesh without subdivision, booleans, or array modifiers applied. Models with negative scale (mirrored in Blender) can produce inverted normals in Three.js, making surfaces appear inside-out. Models with multiple UV maps may not render textures correctly if the GLTF exporter did not map them to the right channels. Always test exports in a web viewer (like the official gltf-viewer) before integrating into your app.
+
+**Performance.** Model loading blocks the main thread during the parsing phase. For models over 5MB, consider using a Web Worker for parsing (Three.js supports this via `GLTFLoader.setWorkerLoader`). GPU memory is finite and varies dramatically by device — a desktop with 8GB VRAM can hold dozens of 4K textures; a mobile device with shared memory may crash after three. Monitor GPU memory usage in Chrome's `chrome://gpu` page during development.
+
+**Cross-module connections.** Model loading connects to Module 12 (performance — lazy loading with IntersectionObserver, code splitting), Module 9a (async data loading patterns — the same suspense/loading-state concepts apply), and Module 4 (`{#await}` blocks for managing async states in templates). The error boundary pattern connects to Module 4's error handling concepts.
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The loading state uses PE7 tokens for a branded experience:

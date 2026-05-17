@@ -97,6 +97,75 @@ When an unauthenticated user hits a protected route:
 
 The user sees the login page. No flash of private content, no loading spinner, no JavaScript-dependent check. This works even with JS disabled because the redirect happens on the server before any HTML is sent.
 
+### 1.6 Preserving the intended destination (redirect back after login)
+
+When an unauthenticated user tries to access `/dashboard/settings`, they are bounced to `/login`. After they log in, they should be sent to `/dashboard/settings` — not just `/dashboard`. The pattern:
+
+1. In the protected load function, include the current URL as a query parameter:
+   ```typescript
+   redirect(302, `/login?redirectTo=${encodeURIComponent(event.url.pathname)}`);
+   ```
+2. In the login action, after successful authentication, check for the `redirectTo` parameter:
+   ```typescript
+   const redirectTo = event.url.searchParams.get('redirectTo') || '/dashboard';
+   redirect(302, redirectTo);
+   ```
+
+This is a small UX detail that makes a large difference. Without it, users who bookmark protected pages or follow deep links from emails must navigate manually after login.
+
+Security note: always validate that `redirectTo` is a relative path on your own domain. An attacker could craft a link like `/login?redirectTo=https://evil.com` to redirect users to a phishing site after login. Check that the URL starts with `/` and does not contain `//`.
+
+### 1.7 Layered protection: layouts vs pages vs hooks
+
+You have three places to check authentication:
+
+1. **In the hook** — you could redirect in the hook itself based on the URL path. This is the most centralized but hardest to maintain (you need a list of protected paths as strings).
+2. **In a layout load function** — protects an entire route group. Any route inside the group is automatically guarded.
+3. **In a page load function** — protects a single specific page.
+
+The recommended approach for most applications is the **layout strategy**: create a `(protected)` route group with a layout that checks auth. Pages that need different access levels (admin-only, owner-only) add their own page-level checks on top.
+
+```
+src/routes/
+├── (public)/          ← no auth check
+│   ├── +page.svelte   ← home page
+│   └── login/
+├── (protected)/       ← layout checks auth
+│   ├── +layout.server.ts  ← redirects if !user
+│   ├── dashboard/
+│   ├── settings/
+│   └── admin/
+│       └── +page.server.ts  ← additional role check
+```
+
+### 1.8 Authorization beyond authentication
+
+This lesson proves identity (authentication). But knowing who someone is does not mean they can do everything. A regular user should not access admin pages. A user should not edit another user's profile.
+
+Authorization checks happen after the auth guard:
+
+```typescript
+export const load: PageServerLoad = async ({ locals }) => {
+    if (!locals.user) redirect(302, '/login');
+    if (locals.user.role !== 'admin') error(403, 'Admin access required');
+    return { user: locals.user };
+};
+```
+
+The `403 Forbidden` response (via SvelteKit's `error()`) is different from the `302 Redirect` for unauthenticated users. A 403 means "I know who you are, but you are not allowed here." A 302 to login means "I do not know who you are yet."
+
+## Deep Dive
+
+**Why this matters at scale.** In a real application with dozens of routes, forgetting to protect a single page is a data breach waiting to happen. The layout-based approach makes protection structural rather than manual — you cannot accidentally forget because new pages inside the protected group inherit the guard automatically. Code review only needs to verify that new routes are placed in the correct group, not that each individual page has auth logic.
+
+**The mental model.** Think of route protection as building security zones in a physical building. The `(public)` zone is the lobby — anyone can enter. The `(protected)` zone is behind a badge reader — only people with valid badges (session cookies) pass through. The `admin/` area is behind a second badge reader that checks your badge level. Each zone inherits the restrictions of its parent. You never have to post a guard at every individual office door because the zone entrance handles it.
+
+**Edge cases.** A user's session expires while they are actively using a protected page. Their next navigation (clicking a link inside the app) triggers a load function that finds `locals.user = null` and redirects to login. This is correct behavior but can be jarring. Some applications detect "session about to expire" and show a warning toast, giving the user time to save work before being bounced. Another edge case: server-side vs client-side navigation. During SSR (first page load), the redirect is a proper 302 HTTP response — the browser never sees the protected HTML. During client-side navigation (SvelteKit's router), the redirect happens in JavaScript after the load function returns — there is no flash because SvelteKit does not render the page until load completes.
+
+**Performance.** Route protection via load functions adds zero latency beyond the session lookup (which already happened in the hook). The `if (!locals.user)` check is a single null comparison — nanoseconds. The `redirect()` call short-circuits the load function, so no unnecessary database queries run for unauthenticated users. This is efficient by design: unauthenticated requests to protected routes are the cheapest possible requests because they bail out immediately.
+
+**Cross-module connections.** Protected routes connect to Module 8 (routing — route groups and layout inheritance), Module 9a (load functions — the load/redirect pattern), Module 15.2 (hooks — `event.locals.user` is populated before load runs), and Module 1 (TypeScript — type narrowing via `redirect`'s `never` return type). The `$derived` usage in the mini-build for formatting the date connects back to Module 2's derived state concepts.
+
 ## 2. Style it — The protected dashboard card
 
 Protected pages get a slightly different visual treatment to signal "you are inside the authenticated area":

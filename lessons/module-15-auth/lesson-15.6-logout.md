@@ -98,6 +98,63 @@ In practice, if your logout action redirects (which it should), `use:enhance` ha
 6. Action calls `redirect(302, '/login')` — user lands on login page
 7. Next request: hook finds no cookie, sets `locals.user = null`
 
+### 1.6 Logout from all devices
+
+In the simple implementation, `deleteSession(sessionId)` removes one session. But a user might be logged in from their phone, their work laptop, and their home desktop — three separate sessions, three separate cookies.
+
+To implement "log out everywhere," you need to find and delete ALL sessions for a given user:
+
+```typescript
+function deleteAllSessionsForUser(userId: string): void {
+    for (const [id, session] of sessions) {
+        if (session.userId === userId) {
+            sessions.delete(id);
+        }
+    }
+}
+```
+
+After this, all devices holding session cookies for this user will find their sessions invalid on the next request. The hook returns `locals.user = null`, and they are effectively logged out everywhere.
+
+This is a security feature — if a user suspects their account is compromised, "log out all devices" invalidates every session immediately. The compromised session (wherever it is) stops working.
+
+### 1.7 Client-side state after logout
+
+When `use:enhance` handles the form submission, the page data in memory still shows the user as logged in until the redirect completes or `invalidateAll()` re-runs load functions. For a brief moment, the UI might show stale auth state.
+
+In practice, the redirect makes this invisible — the user is sent to the login page (which shows no user state) before any staleness is apparent. But if you build a logout that stays on the same page (rare, but possible for multi-tenant dashboards), you need `invalidateAll()` to force-refresh the layout data:
+
+```svelte
+<form method="POST" action="?/logout" use:enhance={() => {
+    return async ({ update }) => {
+        await update();
+        await invalidateAll(); // force all load functions to re-run
+    };
+}}>
+```
+
+### 1.8 Session expiry versus explicit logout
+
+Sessions can end in two ways:
+1. **Explicit logout** — the user clicks "Log out." Both the cookie and server record are deleted.
+2. **Expiry** — the cookie's `maxAge` passes and the browser deletes it, or the server session reaches its TTL and is cleaned up.
+
+Both achieve the same result (user is no longer authenticated), but from different triggers. Explicit logout is immediate and user-initiated. Expiry is automatic and time-based.
+
+For security-sensitive applications (banking, healthcare), sessions should have short expiry (15-30 minutes of inactivity) AND require explicit logout. For convenience applications (social media, notes), longer expiry (24 hours to 30 days) is acceptable with "remember me" options.
+
+## Deep Dive
+
+**Why this matters at scale.** Logout is the most underestimated auth operation. Teams build login carefully but treat logout as an afterthought — a GET link, no server-side cleanup, no invalidation. This leaves orphaned sessions that attackers can exploit. In regulated industries (healthcare, finance), incomplete logout is a compliance violation. Audit logs must prove that when a user logged out, their session was truly invalidated on the server, not just forgotten in the browser.
+
+**The mental model.** Logout is the reverse of login — you are revoking the trust token. In the concert wristband analogy, logout is having security cut the wristband. The concert-goer can no longer re-enter VIP. Just removing the wristband yourself (deleting only the cookie) means someone who finds the discarded wristband can put it on and walk in. You must also tell security to reject that wristband ID (delete the server record).
+
+**Edge cases.** What happens if the user's network drops mid-logout? The form was submitted, the server deleted the session, but the redirect response never reached the browser. The cookie is still in the browser (the delete response was lost). On the next request, the browser sends the old cookie, the hook looks it up, finds no record, and treats the user as unauthenticated — correct behavior, just achieved via a different path. The user sees the login page on their next interaction, which is the right outcome.
+
+**Performance.** Logout is a single Map deletion and a cookie deletion — effectively instant (sub-millisecond). The redirect response is tiny. Logout should never be slow. If it is, you have a bug (perhaps deleting from a database without an index, or performing a network call to an external service synchronously).
+
+**Cross-module connections.** Logout connects to Module 10 (form actions — the mechanical pattern), Module 15.4 (login — reversing what login created), Module 15.5 (protected routes — after logout, attempting to access protected routes triggers the redirect to login), and Module 9a (load functions — `invalidateAll` forces re-execution of all active load functions, refreshing the entire page state).
+
 ## 2. Style it — The logout confirmation page
 
 The logout page is minimal — a confirmation message and a link back to login. We style the logout button as a destructive action:

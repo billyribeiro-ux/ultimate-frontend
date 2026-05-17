@@ -124,6 +124,18 @@ A good error message is two things at once:
 
 The Svelte `{:catch}` branch is a good place for the user-facing message; a `$effect` or a dedicated logger service is the place for the developer side.
 
+## Deep Dive
+
+**Why this matters at scale.** In production apps, errors are not edge cases — they are certainties. Networks fail, APIs return 500s, users submit invalid data, third-party scripts crash. A 50-component app without a systematic error-handling strategy shows blank screens, frozen UIs, or cryptic console messages that users cannot act on. Structured error handling — catching at the right level, displaying the right message, logging the right context — is what separates a professional app from a prototype. This lesson establishes the pattern that carries through every async operation in the course.
+
+**The mental model.** Think of error handling as a safety net system in a circus. The performer (your async operation) might fall at any point. The net (try/catch or `{:catch}`) catches the fall and converts it into a safe landing (an error UI the user can understand). Without the net, the fall crashes the entire show (unhandled promise rejection, blank screen). The key design decision is *where* to place the net: too high (catching at the page level) and you lose context about which operation failed; too low (catching inside every function) and you drown in error-handling code. The right level is usually the component that initiated the operation.
+
+**Edge cases.** A common mistake: catching an error and swallowing it silently (`catch (e) { /* do nothing */ }`). The user sees no feedback and assumes the operation succeeded. Always either display an error UI or re-throw. Another edge case: the `catch` block in `{#await}` receives `unknown`, not `Error`. Network failures might throw `TypeError`, API errors might throw a custom object, and some libraries throw strings. Always narrow the caught value before accessing `.message`. A third subtlety: errors thrown during rendering (inside a component's `$derived` or template expression) are not caught by `{:catch}` — they are component-level errors that need Svelte's `<svelte:boundary>` (Module 12). `{:catch}` only catches promise rejections.
+
+**Performance implications.** Try/catch itself has negligible performance cost in modern JavaScript engines — the "try/catch is slow" myth comes from very old engines (pre-2015). The real performance consideration is *recovery*: when an error occurs, what does the UI do? If it destroys a complex component tree and shows an error message, the user loses scroll position, form state, and context. Consider partial error boundaries (Module 12) that isolate the failure to a small section of the page while keeping the rest functional. This localised failure pattern is critical for dashboards where one failing widget should not take down the entire page.
+
+**Cross-module connections.** Error handling patterns established here carry through Module 9 (load function errors with SvelteKit's `error()` helper), Module 10 (form action validation errors returned as ActionData), Module 12 (error boundaries with `<svelte:boundary>`), and Module 9b (remote function errors). The two-sided approach — user-facing message in the UI, developer-facing details in logs — is the pattern you will implement at every async boundary in the course.
+
 ## 2. Style it — Four error UIs for four error types
 
 The mini-build triggers four different errors — network down, auth required, not found, and a generic failure — and renders a differently-styled panel for each. Each panel uses PE7 tokens but changes the accent colour. The user sees at a glance that the app knows what kind of problem it hit.

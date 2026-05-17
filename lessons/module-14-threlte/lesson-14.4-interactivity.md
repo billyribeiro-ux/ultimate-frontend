@@ -83,6 +83,81 @@ Raycasting runs on every pointer move event. With hundreds of meshes, this gets 
 
 Threlte optimizes internally by only raycasting against meshes that have event handlers attached. Meshes without handlers are skipped entirely.
 
+### 1.7 How raycasting actually works
+
+Raycasting is a mathematical operation. Given the camera's position and the 2D pointer coordinates on screen, the system constructs a 3D ray (a line extending from the camera through the pointer position into the scene). It then checks every candidate mesh to see if the ray intersects its geometry.
+
+For each candidate mesh, the test proceeds in stages:
+
+1. **Bounding sphere test** — does the ray intersect the mesh's bounding sphere? This is a fast check (one distance calculation) that eliminates most meshes instantly.
+2. **Bounding box test** — does the ray intersect the mesh's axis-aligned bounding box? Slightly more expensive but still fast, eliminates more candidates.
+3. **Triangle intersection** — for meshes that pass the bounding checks, the ray is tested against every triangle in the geometry. This is O(n) in the triangle count.
+
+The result is a list of intersections sorted by distance. The closest one is the "hit." Threlte delivers this information through the event object — `event.point` is where the ray hit the surface, `event.distance` is how far from the camera, and `event.object` is which mesh was hit.
+
+### 1.8 The event propagation model
+
+In the DOM, events bubble up from child to parent. Threlte's interactivity plugin implements a similar model for 3D:
+
+- A click event fires on the most specific (closest) intersected mesh.
+- If that mesh does not have an `onclick` handler, the event propagates up the scene graph to parent groups.
+- You can stop propagation with `event.stopPropagation()` just like in DOM events.
+
+This means you can attach a single click handler on a parent `<T.Group>` and it will catch clicks on any child mesh within that group — useful for complex multi-mesh models where you want one handler for the entire object.
+
+### 1.9 Pointer event types available
+
+Threlte supports a rich set of pointer events that mirror the DOM:
+
+- `onclick` — pointer down + up on the same object
+- `onpointerdown` — pointer button pressed while over the object
+- `onpointerup` — pointer button released while over the object
+- `onpointerenter` — pointer enters the object (does not bubble)
+- `onpointerleave` — pointer leaves the object (does not bubble)
+- `onpointermove` — pointer moves while over the object (fires frequently)
+- `onpointerover` — like enter but bubbles
+- `onpointerout` — like leave but bubbles
+
+Choosing between `onpointerenter`/`onpointerleave` (no bubble) and `onpointerover`/`onpointerout` (bubbles) follows the same logic as DOM events. For most hover effects, use `onpointerenter`/`onpointerleave`.
+
+### 1.10 Interaction with reactive state
+
+The power of Threlte's interactivity comes from combining pointer events with Svelte's reactive state. Here is the complete pattern for an interactive product selector:
+
+```typescript
+let selectedId: string | null = $state(null);
+let hoveredId: string | null = $state(null);
+```
+
+Each mesh reads these values to determine its visual state:
+
+```svelte
+<T.Mesh
+    onclick={() => { selectedId = mesh.id; }}
+    onpointerenter={() => { hoveredId = mesh.id; }}
+    onpointerleave={() => { hoveredId = null; }}
+>
+    <T.MeshStandardMaterial
+        color={selectedId === mesh.id ? 'gold' : 'white'}
+        emissive={hoveredId === mesh.id ? '#333333' : '#000000'}
+    />
+</T.Mesh>
+```
+
+The reactive material props update instantly when state changes. No manual material updating is needed. This is the same pattern you use for highlighting list items in 2D — selected item gets a different background. In 3D, the "background" is the material color.
+
+## Deep Dive
+
+**Why this matters at scale.** Interactive 3D is what separates a static showcase from a product configurator, a data visualization, or an explorable portfolio. Production applications need reliable interaction that works on touch devices, with keyboard accessibility, and without frame rate drops. Teams that understand raycasting performance can build configurators with hundreds of interactive parts. Teams that do not understand it ship products that become unresponsive the moment complexity increases.
+
+**The mental model.** Think of raycasting as "asking the scene a question." Every time the pointer moves, you ask: "What is under the cursor right now?" The scene answers with the closest object. This is fundamentally different from DOM events where the browser tracks which element the cursor is over continuously. In 3D, the answer must be recomputed because objects move, cameras rotate, and perspective changes what is "under" a given screen coordinate.
+
+**Edge cases.** Transparent objects can be hit by raycasts even in their transparent regions — the raycast tests geometry, not visual opacity. If you have a mesh with a texture that has transparent areas (like a leaf shape on a plane), clicks on the transparent part still register as hits on that mesh. The workaround is to use a custom raycasting target (a smaller collision mesh) or to check the UV coordinates in the hit callback and reject transparent regions. Another edge case: overlapping meshes where a large background mesh "steals" clicks from smaller foreground meshes. Set `renderOrder` or adjust the scene hierarchy to control which mesh wins.
+
+**Performance.** On a page with 50 interactive meshes, raycasting typically takes 0.1-0.5ms per frame — negligible. But with 500 meshes at 100K+ triangles each, the triangle intersection phase dominates. The solution is to use simplified collision meshes (invisible low-poly versions) for raycasting while displaying the high-poly version visually. Threlte does not do this automatically — you must create a separate invisible mesh with simpler geometry and attach the event handlers to it.
+
+**Cross-module connections.** Interactivity connects to Module 5 (event handlers — same naming convention with `onclick`, `onpointerenter`), Module 2 (reactivity — `$state` drives material properties based on interaction), Module 6 (transitions — hover/select states can trigger CSS transitions on 2D overlays), and Module 7 (GSAP — click events can trigger GSAP animations on meshes or the camera).
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The interactive scene includes an info panel that appears on click:

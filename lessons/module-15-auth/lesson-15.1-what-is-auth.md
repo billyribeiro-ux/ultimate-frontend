@@ -83,6 +83,38 @@ Older SvelteKit tutorials (pre-2024) often demonstrated auth with `getSession` a
 
 If you find a tutorial using `getSession`, `$session`, or `handle` returning a body, it is outdated.
 
+### 1.6 The threat model — what you are defending against
+
+Security is not abstract — it defends against specific attackers with specific capabilities. For authentication, the primary threats are:
+
+1. **Credential stuffing** — automated scripts trying leaked username/password pairs from other breached sites against your login form. Defense: rate limiting (Lesson 15.8), password hashing, and encouraging unique passwords.
+2. **Cross-Site Scripting (XSS)** — an attacker injects JavaScript into your page that steals credentials or session tokens. Defense: httpOnly cookies (invisible to JS), Content Security Policy headers, Svelte's default output escaping.
+3. **Cross-Site Request Forgery (CSRF)** — a malicious site tricks the user's browser into submitting a form to your app while authenticated. Defense: SvelteKit's Origin header check, sameSite cookie attribute.
+4. **Session hijacking** — an attacker captures a session cookie (via network sniffing, physical access, or XSS) and uses it. Defense: `secure` flag (HTTPS only), short session lifetimes, session invalidation on logout.
+5. **Brute force** — trying every possible password until one works. Defense: rate limiting, account lockout, strong password requirements, PBKDF2/Argon2 hashing (makes each guess expensive).
+
+Understanding these threats helps you evaluate whether a security measure is necessary or paranoid. Every attribute on your session cookie (`httpOnly`, `secure`, `sameSite`, `maxAge`) exists to block a specific attack. Nothing is arbitrary.
+
+### 1.7 Why this module teaches from scratch instead of using a library
+
+Many SvelteKit projects use libraries like Lucia, Auth.js (NextAuth), or Supabase Auth. These are excellent for production. But this module implements auth from scratch for a critical reason: you need to understand what the library does so you can debug it when it breaks, audit it for security, and extend it for your specific needs.
+
+A library is an opaque box until you understand its internals. After building session-based auth by hand — reading cookies, hashing passwords, managing sessions, protecting routes — you will understand exactly what Lucia or Auth.js does under the hood. You will know why certain configuration options exist, what the library's cookies look like, and where to look when authentication mysteriously fails.
+
+The progression is: build it by hand (this module) → understand the concepts deeply → use a library in production with confidence and competence.
+
+## Deep Dive
+
+**Why this matters at scale.** Authentication bugs are not like UI bugs. A misaligned button costs aesthetics. A broken auth system costs user data, legal liability, and company reputation. In a team of ten developers, if any one of them misunderstands how sessions work, they can introduce a vulnerability — leaking session tokens in URL parameters, storing them in localStorage, or creating CSRF-vulnerable endpoints. A deep understanding of auth fundamentals across the team prevents these mistakes at the architectural level rather than catching them in code review after the damage is done.
+
+**The mental model.** Authentication is a three-party trust relationship: the **user** (proves identity), the **server** (verifies and remembers), and the **browser** (stores and transmits the proof). The session cookie is a "hall pass" — it proves the user already showed ID at the front desk (login). Every subsequent request presents the hall pass. The server checks if the hall pass is valid (not expired, not revoked). The browser's job is to present the hall pass automatically on every request (which cookies do) while keeping it safe from theft (which httpOnly does).
+
+**Edge cases.** Cookies set with `sameSite: 'lax'` are sent on top-level GET navigations from other sites — this is by design (otherwise every link to your site from Google would be unauthenticated). But it means a CSRF attack via GET request is theoretically possible. SvelteKit mitigates this by never performing state mutations on GET requests (load functions are read-only). Another edge case: users with cookies disabled. Your auth system must detect this (the session cookie will never arrive) and show a helpful message rather than an infinite redirect loop between login and protected routes.
+
+**Performance.** Session lookups happen on every single request (the hook runs before every load function). If your session store is a database table, that is one extra database query per page load. For most applications this is negligible (sub-millisecond for in-memory stores, 1-5ms for database lookups). At extreme scale (millions of requests per minute), teams use Redis as a session store because its sub-millisecond response time keeps the per-request overhead minimal. For this course, an in-memory Map is sufficient and avoids infrastructure complexity.
+
+**Cross-module connections.** Authentication connects to Module 10 (form actions — login/register are form actions), Module 8 (routing — protected route groups), Module 9a (load functions — passing user data to components), and Module 16 (database — storing users and sessions in SQLite instead of in-memory). The cookie-based approach works identically whether your session store is a Map, Redis, or a database table — only the lookup implementation changes.
+
 ## 2. Style it — the auth page personality
 
 Authentication pages benefit from a distinct visual personality that signals "you are at a security boundary." We override the brand token to a protective green:

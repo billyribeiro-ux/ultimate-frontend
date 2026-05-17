@@ -129,6 +129,90 @@ The server renders the `{:else}` branch (the poster image). Hydration replaces i
 7. Error boundary: Graceful fallback on WebGL failure.
 8. Loading state: Placeholder while model downloads.
 
+### 1.9 WebGL context loss recovery
+
+WebGL contexts can be "lost" by the browser — typically when the GPU is under memory pressure, when the device sleeps and wakes, or when another application claims exclusive GPU access. When context is lost, all textures, buffers, and programs are destroyed. Your scene goes blank.
+
+Three.js partially handles context restoration: it recreates buffers and programs automatically. But textures loaded from URLs may not be reloaded unless you handle the `webglcontextrestored` event:
+
+```typescript
+$effect(() => {
+    const canvas = canvasRef?.querySelector('canvas');
+    if (!canvas) return;
+
+    const handleLost = (e: Event) => { e.preventDefault(); };
+    const handleRestored = () => { /* reload textures, invalidate */ };
+
+    canvas.addEventListener('webglcontextlost', handleLost);
+    canvas.addEventListener('webglcontextrestored', handleRestored);
+
+    return () => {
+        canvas.removeEventListener('webglcontextlost', handleLost);
+        canvas.removeEventListener('webglcontextrestored', handleRestored);
+    };
+});
+```
+
+In most applications, the simplest recovery is to unmount and remount the entire `<Canvas>` component, which rebuilds the WebGL context from scratch. For applications where state must persist across context loss (complex editors), manual texture re-upload is required.
+
+### 1.10 Error boundaries for WebGL failure
+
+Not all browsers and devices support WebGL. Old phones, locked-down corporate machines, and browsers with WebGL disabled for security will fail to create the rendering context. Your 3D feature must degrade gracefully:
+
+```svelte
+<svelte:boundary>
+    {#if browser}
+        <Canvas><!-- your scene --></Canvas>
+    {/if}
+    {#snippet failed(error)}
+        <div class="poster-fallback">
+            <img src="/hero-poster.webp" alt="Product showcase" />
+            <p>3D view is not available on this device.</p>
+        </div>
+    {/snippet}
+</svelte:boundary>
+```
+
+The error boundary catches the WebGL creation failure and renders the poster fallback. The user still sees the product — just not in 3D. This is progressive enhancement in its purest form.
+
+### 1.11 Measuring real performance
+
+Do not guess whether your 3D scene is fast enough. Measure it. Threlte exposes frame timing that you can monitor during development:
+
+1. **Chrome DevTools Performance tab** — Record 5 seconds of interaction. Look for frames exceeding 16.6ms (the budget for 60fps). Long frames indicate your render or physics step is too expensive.
+2. **`stats.js`** — A small FPS counter overlay. Import it and add to your dev scene for constant monitoring.
+3. **`renderer.info`** — Access via `bind:ref` on the canvas or Threlte's context. Shows draw calls, triangles, and textures per frame. High draw call counts (>100) suggest you need instancing or geometry merging.
+
+In production, consider logging frame rate percentiles (p50, p95) to your analytics to understand real-world performance across your user base's devices.
+
+### 1.12 Bundle splitting strategy
+
+Three.js is ~600KB minified. With Rapier WASM (~400KB), extras, and your own scene code, the 3D portion of your app can easily exceed 1.5MB. The key insight: users who never scroll to the 3D section should never download this code.
+
+SvelteKit's dynamic imports handle this automatically:
+
+```svelte
+{#await import('./ProductScene.svelte') then { default: Scene }}
+    <Scene />
+{/await}
+```
+
+Vite splits the imported module (and all its dependencies, including Three.js) into a separate chunk. The chunk downloads only when the `import()` executes. Combined with IntersectionObserver triggering, Three.js stays out of the critical rendering path entirely.
+
+Verify this in the Network tab: on initial page load, no `three` chunks appear. Scroll to the 3D section: the chunks download on demand.
+
+## Deep Dive
+
+**Why this matters at scale.** Every production 3D deployment eventually hits a performance crisis. A stakeholder adds a higher-poly model. A designer wants more post-processing effects. A product manager requests 3D on the mobile landing page. Without the optimization toolkit from this lesson, each of these requests creates a performance regression that takes days to debug. Teams that internalize the production checklist can say "yes" to new 3D features because they know how to pay for them with optimization — lazy loading, DPR clamping, demand rendering, and graceful degradation.
+
+**The mental model.** Think of production 3D as a budget. You have a frame budget (16.6ms), a download budget (aim for under 500KB for 3D-related code on initial paint), and a GPU memory budget (varies by device, but 256MB is a safe floor for mobile). Every feature you add — a model, an effect, a physics body — spends from these budgets. The checklist in this lesson is your accounting system. DPR clamping trades visual resolution for GPU budget. Lazy loading trades initial download for on-demand download. `frameloop="demand"` trades continuous rendering for on-change rendering. Every optimization is a trade-off, and the skill is knowing which trade-offs your users will never notice.
+
+**Edge cases.** DPR clamping can produce blurry text if you render 2D text inside the 3D canvas (using Three.js text geometry or Troika text). The fix is to render 2D UI outside the canvas with CSS. `frameloop="demand"` breaks GSAP animations that run outside Threlte's reactivity — GSAP directly mutates Three.js objects without triggering Svelte's reactive system, so Threlte does not know it needs to re-render. The fix is to call `invalidate()` from GSAP's `onUpdate` callback. Lazy-loading with IntersectionObserver can flash a layout shift if the poster image and canvas have different intrinsic sizes — always match their CSS dimensions exactly.
+
+**Performance.** The single biggest production performance gain for most 3D pages is DPR clamping. Going from DPR 3 to DPR 2 reduces pixel count by 44%. The second biggest is `frameloop="demand"` — idle scenes drop from 60 render calls per second to 0, saving battery and GPU thermal throttling on mobile. The third is lazy loading — keeping Three.js out of the initial bundle means your LCP (Largest Contentful Paint) is not blocked by parsing 600KB of JavaScript.
+
+**Cross-module connections.** This lesson synthesizes every previous Module 14 lesson into a production-ready package. It connects to Module 12 (performance fundamentals — Core Web Vitals, LCP, CLS), Module 1 (project setup — `.gitignore` for model files, Vite config for chunk splitting), and Module 6 (CSS — poster-to-canvas transition, aspect-ratio matching, reduced-motion media queries). The IntersectionObserver pattern for lazy loading is the same one used in Module 12 for lazy-loading images and route-level code splitting.
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The production scene uses a poster-to-canvas transition:

@@ -102,6 +102,82 @@ cookies.set('session_id', session.id, {
 
 Some older tutorials implement CSRF protection with custom tokens (hidden form fields). This is unnecessary in SvelteKit 2 — the Origin check is automatic and sufficient. If you see a tutorial adding `csrfToken` to forms, it is either outdated or targeting a framework that does not have built-in protection.
 
+### 1.7 Sliding sessions — extending on activity
+
+A sliding session extends its expiry every time the user makes a request. An active user never gets logged out; an inactive user is logged out after the timeout period.
+
+Implementation in the hook:
+
+```typescript
+export const handle: Handle = async ({ event, resolve }) => {
+    const sessionId = event.cookies.get('session_id');
+    if (sessionId) {
+        const session = getSession(sessionId);
+        if (session && !isExpired(session)) {
+            event.locals.user = toSafeUser(findUserById(session.userId));
+
+            // Extend the session
+            session.expiresAt = Date.now() + SESSION_DURATION;
+            event.cookies.set('session_id', sessionId, {
+                path: '/',
+                httpOnly: true,
+                secure: true,
+                sameSite: 'lax',
+                maxAge: SESSION_DURATION / 1000 // seconds
+            });
+        }
+    }
+    return resolve(event);
+};
+```
+
+The trade-off: sliding sessions mean a stolen session token remains valid indefinitely as long as the attacker uses it periodically. Fixed sessions force re-authentication at known intervals. High-security applications (banking) use fixed sessions. Convenience applications (social media) use sliding sessions. The choice depends on your threat model.
+
+### 1.8 Account lockout strategies
+
+Rate limiting blocks an IP after too many failures. Account lockout blocks the account itself regardless of source IP. The implementation is similar but keyed by email rather than IP:
+
+```typescript
+const accountLockouts: Map<string, { failedAttempts: number; lockedUntil: number }> = new Map();
+```
+
+The danger of account lockout: an attacker who knows a user's email can intentionally lock them out by sending failed login attempts (a denial-of-service attack on specific accounts). Mitigations:
+- Only lock temporarily (15-30 minutes, not permanently)
+- Send an email to the account owner when lockout triggers
+- Allow unlock via a link in the notification email
+
+For this course's implementation, IP-based rate limiting is sufficient. Account lockout is mentioned as a production consideration.
+
+### 1.9 Security headers for auth pages
+
+Auth pages benefit from additional HTTP response headers that harden the browser's behavior:
+
+```typescript
+// In your hook or middleware
+const response = await resolve(event);
+response.headers.set('X-Frame-Options', 'DENY');
+response.headers.set('X-Content-Type-Options', 'nosniff');
+response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+```
+
+- **X-Frame-Options: DENY** — prevents your login page from being embedded in an iframe (clickjacking defense).
+- **X-Content-Type-Options: nosniff** — prevents browsers from MIME-sniffing response content, which can lead to XSS in edge cases.
+- **Referrer-Policy** — prevents the full URL (which might contain sensitive query parameters like `redirectTo` or `code`) from leaking to external sites via the Referer header.
+
+These headers are defense-in-depth — each blocks a specific, documented attack vector. They cost nothing to add and provide free security.
+
+## Deep Dive
+
+**Why this matters at scale.** The difference between a hobby-project auth system and a production auth system is these hardening layers. Basic auth works until the first attacker finds it. Rate limiting, CSRF protection, session sliding, security headers, and monitoring are what allow an auth system to withstand real-world attack traffic — automated bots, credential stuffing, and targeted exploitation. Every security incident at a tech company traces back to one of these layers being missing or misconfigured. Teams that implement all layers from the start never make headline news for a breach.
+
+**The mental model.** Production auth is defense in depth — multiple independent layers, each blocking a different attack. Like a medieval castle: the moat (HTTPS/secure cookies) stops casual intruders. The wall (rate limiting) stops brute force. The gate (password hashing) stops database thieves. The inner keep (CSRF protection) stops sneaky social engineering. No single layer is perfect, but together they make the cost of attack exceed the value of success.
+
+**Edge cases.** Rate limiting by IP fails when attackers use distributed botnets (thousands of IPs, each sending one request). The defense is rate limiting by account as well — even if each IP sends only one request, the same email seeing 1000 failures across different IPs indicates an attack. IP-based rate limiting also punishes shared IPs (corporate NATs, university networks) where hundreds of legitimate users share one address. Consider using a more granular identifier (IP + email combination) or CAPTCHA after N failures rather than hard blocking.
+
+**Performance.** Rate limiting with an in-memory Map adds nanoseconds per request (a single Map.get() lookup). Session sliding adds one cookie-set operation per request (writing the Set-Cookie header). Security headers add bytes to the response but no computation. These production patterns have negligible performance cost — the only concern is memory for the rate-limit Map, which should be bounded (periodic cleanup of old entries) to prevent unbounded growth in long-running servers.
+
+**Cross-module connections.** Production auth connects to every previous lesson in Module 15 — it hardens registration (rate limit creation), login (rate limit attempts), sessions (sliding expiry), and the hook (security headers). It also connects to Module 12 (performance — monitoring frame rate is analogous to monitoring auth health metrics) and Module 16 (database — production session stores and rate limit stores belong in persistent storage).
+
 ## 2. Style it — The production auth dashboard
 
 The mini-build for this lesson is a comprehensive auth status panel:

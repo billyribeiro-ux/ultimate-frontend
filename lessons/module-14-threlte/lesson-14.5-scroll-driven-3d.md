@@ -78,6 +78,103 @@ Without cleanup, navigating away and back creates duplicate ScrollTriggers that 
 
 Users with `prefers-reduced-motion: reduce` should not experience scroll-driven animations. Check `prefersReducedMotion` from `svelte/motion` and skip the GSAP setup entirely. Show the model at its final resting state (e.g., rotation already at the "revealed" angle).
 
+```typescript
+import { prefersReducedMotion } from 'svelte/motion';
+
+$effect(() => {
+    if (prefersReducedMotion.current) {
+        // Set final state directly, no animation
+        meshRef.rotation.y = Math.PI * 0.75;
+        cameraRef.position.z = 8;
+        return;
+    }
+
+    // Set up ScrollTrigger animation
+    const ctx = gsap.context(() => { /* ... */ });
+    return () => ctx.revert();
+});
+```
+
+This is not optional. It is both an accessibility requirement and a legal obligation in many jurisdictions. Users with vestibular disorders experience physical discomfort from unexpected motion, especially scroll-driven motion that they cannot predict.
+
+### 1.7 The scrub parameter in depth
+
+`scrub` is the parameter that converts a timeline animation into a scroll-driven one. Without it, ScrollTrigger acts as a trigger point — the animation plays forward when you scroll past the start and reverses when you scroll back. With scrub, the animation's progress is directly tied to scroll position.
+
+The numeric value controls the "smoothing" duration:
+- `scrub: true` (equivalent to `scrub: 0`) — zero smoothing. The animation position tracks scroll exactly. This feels responsive but can look jittery because scroll events arrive in discrete steps.
+- `scrub: 0.5` — 0.5 seconds of catch-up easing. The animation smoothly interpolates to match the current scroll position. This feels cinematic and polished.
+- `scrub: 1` — 1 second of catch-up. Very smooth but can feel laggy if the user scrolls quickly.
+- `scrub: 2+` — too much lag for most applications. The animation visibly trails behind the scroll.
+
+For 3D product reveals, `scrub: 0.5` to `scrub: 1` is the sweet spot. It hides the discrete nature of scroll events while feeling responsive enough that users perceive direct control.
+
+### 1.8 Multiple animated properties
+
+A single ScrollTrigger can drive multiple properties simultaneously:
+
+```typescript
+const tl = gsap.timeline({
+    scrollTrigger: {
+        trigger: sectionRef,
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: 0.5
+    }
+});
+
+tl.to(meshRef.rotation, { y: Math.PI * 2 }, 0)       // rotate mesh
+  .to(cameraRef.position, { z: 10, y: 3 }, 0)         // pull camera back
+  .to(meshRef.position, { y: 0.5 }, 0)                 // lift mesh
+  .to(meshRef.material, { opacity: 1 }, 0);            // fade in
+```
+
+The `0` at the end of each `.to()` call means "start at position 0 in the timeline" — all animations run simultaneously, progressing together as the user scrolls. This creates a choreographed reveal: the product rotates, the camera pulls back for a wider view, the model lifts slightly, and its opacity goes from transparent to fully visible — all in sync with scroll.
+
+### 1.9 Pin patterns for scroll-driven 3D
+
+The `pin` option in ScrollTrigger fixes an element in place while scroll progress advances. For 3D scenes, this creates the classic "sticky canvas" effect:
+
+```typescript
+ScrollTrigger.create({
+    trigger: canvasContainer,
+    start: 'top top',
+    end: '+=200%', // pin for 2x viewport heights of scroll
+    pin: true,
+    scrub: 0.5,
+    animation: tl
+});
+```
+
+While pinned, the canvas stays visible and the 3D animation plays as the user scrolls through the "pinned" region. Text sections scroll past the pinned canvas, creating a parallax-like storytelling effect where 3D content responds to scroll while prose content flows past it.
+
+### 1.10 Debugging ScrollTrigger with markers
+
+During development, enable `markers: true` on your ScrollTrigger configuration:
+
+```typescript
+scrollTrigger: {
+    trigger: sectionRef,
+    start: 'top 80%',
+    end: 'bottom 20%',
+    markers: true, // remove before production!
+}
+```
+
+This renders visible start/end indicators on the page — colored lines showing exactly where the trigger region begins and ends relative to the viewport. This eliminates guesswork when debugging "why doesn't my animation start/end where I expect?" Remove markers before deploying.
+
+## Deep Dive
+
+**Why this matters at scale.** Scroll-driven 3D is the differentiating feature of premium marketing sites. Apple, Nike, and Tesla use exactly this pattern — a 3D product responding to scroll to reveal features, angles, and details. The technique communicates "this product is premium" at a subconscious level. In a production context, the challenge is maintaining 60fps on mobile while the GPU renders 3D and GSAP computes tween values 60 times per second. Teams that master this pattern build portfolio-grade experiences; teams that fail ship janky, battery-draining pages that get killed by performance audits.
+
+**The mental model.** Think of scroll position as a playback scrubber on a video timeline. The user's thumb controls where in the "video" they are. Scrolling forward advances the playback; scrolling backward rewinds it. The "video" is your GSAP timeline animating 3D properties. This analogy makes it intuitive why `scrub` works the way it does — it is literally scrubbing through a timeline.
+
+**Edge cases.** On iOS Safari, the elastic scroll-bounce at the top and bottom of the page can push ScrollTrigger progress beyond 0 and 1, causing animations to overshoot. Clamp your values. Rapid scroll (via keyboard PageDown or trackpad momentum) can create large frame-to-frame jumps in progress, making animations appear to skip. The `scrub` smoothing helps, but very fast scroll still looks choppy. Dynamic content that changes page height after ScrollTrigger initializes invalidates its cached measurements — always call `ScrollTrigger.refresh()` after content loads (images, fonts) or after SvelteKit navigation.
+
+**Performance.** ScrollTrigger itself is lightweight — it reads `scrollY` once per frame via `requestAnimationFrame` and computes progress as a simple ratio. The cost is in what you animate. Animating `mesh.rotation.y` is cheap (one property assignment). Animating `material.opacity` on a mesh requires `transparent: true` which changes the render order and may cost an additional draw call. Animating camera `fov` requires `camera.updateProjectionMatrix()` on every frame — slightly more expensive. Keep animated properties to transforms (position, rotation, scale) where possible.
+
+**Cross-module connections.** This lesson connects directly to Module 7 (GSAP fundamentals — ScrollTrigger, gsap.context, timeline composition), Module 12 (performance — `frameloop="demand"` with explicit invalidation during scroll), Module 14.8 (production 3D — DPR clamping while scroll-animating), and Module 6 (CSS — the sticky positioning and section layout are CSS fundamentals applied to a 3D context).
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The scroll-driven page uses tall sections to create scroll distance:

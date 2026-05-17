@@ -99,6 +99,18 @@ There is one subtlety. Compound selectors inside nesting are calculated as `:is(
 
 The single most common nesting mistake is going too deep. Four levels of nesting (`.page .section .card .title:hover`) mean four coupled levels of structure. Moving `.title` out of `.card` means editing the nest. Keep rules at most 2 levels deep; prefer to flatten when you can.
 
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component app, every component's style block benefits from nesting: hover states, focus states, responsive overrides, and child-element rules all group logically under their parent selector. Without nesting, a card component with hover, focus, disabled, and responsive variants requires four separate top-level selectors that repeat `.card` — increasing the chance of typos and making it harder to see which rules belong together. Nesting makes the style block read like an outline of the component's visual states, which speeds up both writing and code review.
+
+**The mental model.** Think of CSS nesting as an indented outline. The top-level selector is the heading; nested rules are sub-points that only apply within that context. `& :hover` means "when this thing is hovered." `@media (min-width: 768px) { ... }` means "when the viewport is wide." The ampersand `&` is "this element" — the nearest enclosing selector. Reading nested CSS from top to bottom should tell you a story: "this card has a title, which on hover changes colour, and on wide screens grows larger." The story is self-contained within the nesting block.
+
+**Edge cases.** A subtle behaviour: when you nest a selector without `&`, the browser prepends `& ` implicitly — so `h2 { color: red }` inside `.card { }` becomes `.card h2 { color: red }`. This is a *descendant* selector, not a direct-child selector. If you want direct children only, write `> h2 { }`. Another edge case: nesting `@media` inside a rule. Native CSS nesting allows this, and Svelte processes it correctly, but the specificity of the media query does not change — it is still a conditional wrapper, not a specificity increaser. A third subtlety: combining multiple `&` references in one nested selector (like `& + &` for adjacent siblings) works in native CSS nesting and is a powerful pattern for spacing between repeated elements.
+
+**Performance implications.** Native CSS nesting compiles to standard selectors in the browser — there is no runtime cost. The browser's style engine processes `.card:hover` and `& :hover` nested inside `.card` identically. Svelte's scoping hash is applied after nesting is resolved, so nested selectors get the same `.svelte-hash` suffix as flat ones. The only performance consideration is selector complexity: deeply nested selectors (4+ levels) force the browser to match against a longer chain, which is marginally slower. Keep nesting shallow (2-3 levels) for both readability and style-engine performance.
+
+**Cross-module connections.** Nesting is used in every style block throughout the course. Module 6 continues with responsive patterns (nesting `@media` queries inside component rules). Module 7 uses nesting for GSAP-related animation classes. Module 12 audits nesting depth as part of CSS performance optimisation. The principle "group related rules under their parent, but never nest more than 2-3 levels" applies universally.
+
 ## 2. Style it — A card with state-ful nested rules
 
 The mini-build is a card that expands on click, has hover, focus, and aria-expanded states, and responds to a media query. All styles for the card live in a single nested rule. Per-page colour: `oklch(70% 0.18 100)` (lime).

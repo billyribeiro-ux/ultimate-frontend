@@ -69,6 +69,93 @@ Real OAuth requires registering with Google/GitHub and configuring credentials. 
 
 In production, you would replace the mock URLs with real provider URLs and add proper error handling for network failures, revoked tokens, and rate limits.
 
+### 1.6 Linking OAuth accounts to existing users
+
+A user registers with email/password, then later clicks "Log in with Google." Their Google email matches their existing account. What happens?
+
+Two strategies:
+1. **Auto-link** — if the OAuth email matches an existing user, link the OAuth identity to that user. They can now log in with either method. This is convenient but has a security risk: if the attacker controls a Google account with the victim's email, they can hijack the account.
+2. **Explicit link** — require the user to log in with their existing credentials first, then link the OAuth identity from their settings page. This is more secure but adds friction.
+
+Most consumer applications use auto-linking because the risk is low (email providers verify ownership). Security-sensitive applications require explicit linking.
+
+In our data model, this means a user can have multiple authentication methods. The `users` table holds the user identity; a separate `auth_methods` or `oauth_accounts` table holds the provider-specific data (provider name, provider user ID, access token).
+
+### 1.7 The callback route in detail
+
+The OAuth callback is a SvelteKit `+server.ts` GET handler (because the provider redirects back via a GET request with query parameters):
+
+```typescript
+// src/routes/auth/callback/+server.ts
+export const GET: RequestHandler = async ({ url, cookies }) => {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const error = url.searchParams.get('error');
+
+    // 1. Check for error (user denied consent)
+    if (error) redirect(302, '/login?error=oauth_denied');
+
+    // 2. Verify state
+    const savedState = cookies.get('oauth_state');
+    if (!state || state !== savedState) error(403, 'Invalid state');
+
+    // 3. Exchange code for token (server-to-server)
+    const tokenResponse = await fetch(PROVIDER_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: CALLBACK_URL,
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET
+        })
+    });
+
+    // 4. Fetch user info
+    const { access_token } = await tokenResponse.json();
+    const userInfo = await fetch(PROVIDER_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${access_token}` }
+    }).then(r => r.json());
+
+    // 5. Find or create user, create session
+    const user = findOrCreateUser(userInfo);
+    const session = createSession(user.id);
+    cookies.set('session_id', session.id, { /* ... */ });
+
+    // 6. Clean up OAuth state cookie
+    cookies.delete('oauth_state', { path: '/' });
+
+    redirect(302, '/dashboard');
+};
+```
+
+Every step can fail: the provider might return an error, the state might not match, the token exchange might fail (expired code, revoked client), or the user-info endpoint might be down. Production code needs `try/catch` around each network call with appropriate error responses.
+
+### 1.8 Access tokens versus session cookies
+
+After OAuth completes, you have two tokens: the **access token** from the provider (used to call the provider's API) and the **session cookie** from your app (used to authenticate with your server).
+
+These serve different purposes:
+- The **access token** lets your server call Google/GitHub APIs on behalf of the user (read their repos, access their calendar). It has a short lifetime (1 hour) and can be refreshed.
+- The **session cookie** authenticates the user with YOUR app. It has your configured lifetime and is independent of the provider.
+
+A common mistake: using the access token as your session token. This is wrong because (1) it expires quickly, forcing constant re-authentication, (2) revoking it requires calling the provider's revocation endpoint, and (3) you lose control over your own session management.
+
+The correct flow: use OAuth to verify identity, then create your own session — exactly as you do with password login. The access token is stored server-side (in the user record or a separate table) for when you need to call the provider's API.
+
+## Deep Dive
+
+**Why this matters at scale.** OAuth is how most users expect to log in to modern applications. Implementing it incorrectly can result in account takeover vulnerabilities (missing state validation), token leakage (exposing client secret), or poor UX (broken flows that leave users stranded on error pages). At scale, you also need to handle provider outages gracefully — if Google's auth servers are down, your "Login with Google" button should display a helpful message, not crash.
+
+**The mental model.** OAuth is a trust delegation chain: Your user trusts Google. You trust Google to verify identity. Google trusts you (verified by client secret) to handle the user's data responsibly. The authorization code is the "handshake" — a short-lived voucher that proves the user approved the connection. The token exchange is you redeeming that voucher with Google. The resulting access token is your permission slip to act on the user's behalf.
+
+**Edge cases.** The authorization code is single-use and short-lived (typically 10 minutes). If the callback takes too long (server hangs, user pauses mid-flow), the code expires. The token exchange fails with "invalid_grant." Your callback must handle this gracefully and redirect to login with a "session expired, try again" message. Another edge case: the user's provider account email changes between logins. If you link accounts by email, the user cannot log in after changing their email. Linking by provider user ID (a stable identifier) is more robust.
+
+**Performance.** OAuth login is inherently slower than credential login because it involves multiple network round-trips: redirect to provider (browser hop), user authenticates with provider, redirect back (browser hop), server exchanges code for token (server-to-server HTTP), server fetches user info (server-to-server HTTP). Total latency: 2-5 seconds for a typical flow. This is acceptable because login happens infrequently. Caching the user-info response server-side avoids re-fetching on every session refresh.
+
+**Cross-module connections.** OAuth connects to Module 15.4 (login — after OAuth, you create a session identically to credential login), Module 10 (API endpoints — the callback is a `+server.ts` handler), Module 9b (server-to-server fetch — the token exchange is a `fetch` call from your server to the provider), and Module 15.8 (production patterns — refresh token rotation and token storage). The URL construction pattern with `URLSearchParams` connects to Module 1's TypeScript fundamentals.
+
 ## 2. Style it — The social login button
 
 Social login buttons have distinct visual conventions:

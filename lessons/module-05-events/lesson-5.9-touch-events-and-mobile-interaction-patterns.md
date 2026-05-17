@@ -82,6 +82,18 @@ function onDown(event: PointerEvent): void {
 
 After `setPointerCapture`, all future pointer events for that `pointerId` go to `target` no matter where the pointer moves on the page. Release it automatically on `pointerup` or `pointercancel` (the browser does this for you).
 
+## Deep Dive
+
+**Why this matters at scale.** In production apps, over 60% of traffic comes from mobile devices. A 50-component app that only handles click events is broken for touch users: drag interactions do not work, swipe gestures are ignored, and 300ms click delays make the app feel sluggish. Understanding pointer and touch events deeply — how they relate to click events, how multitouch works, how to capture pointers for drag — is what separates a desktop-only prototype from a production-grade mobile experience.
+
+**The mental model.** Think of the pointer events API as a universal translator. Mouse, touch, and pen all speak different languages (MouseEvent, TouchEvent), but PointerEvent translates them into a single interface. One `pointerdown` handler covers mouse clicks, finger taps, and pen touches. One `pointermove` handler covers mouse drags, finger swipes, and pen strokes. The `pointerId` identifies which finger (or which pen tip) is active, enabling multitouch tracking without the complexity of the raw TouchEvent API.
+
+**Edge cases.** A critical mobile gotcha: browsers on iOS fire a 300ms delay between `touchend` and the synthesized `click` event (to detect double-tap zoom). Using `pointerdown`/`pointerup` instead of `click` avoids this delay entirely for custom interactions. However, for links and buttons, keep using native click — the browser handles the delay correctly and accessibility tools rely on it. Another edge case: `touch-action: none` on an element prevents the browser's default touch behaviours (scrolling, pinch-zoom) on that element. Forget it on a draggable element and the page scrolls instead of dragging. Apply it too broadly and you break scrolling for the entire page. A third subtlety: `pointercancel` fires when the browser takes over a gesture (e.g., the user starts scrolling). Always handle it as equivalent to `pointerup` to avoid stuck drag states.
+
+**Performance implications.** Pointer events fire at the device's refresh rate — 60-120 times per second on modern phones. Moving DOM elements in `pointermove` can cause jank if the handler is expensive. For smooth drag interactions, use CSS `transform` (which runs on the compositor thread) rather than `top`/`left` (which trigger layout). With GSAP (Module 7), use `gsap.set()` inside the pointer handler for GPU-accelerated updates. For complex calculations during drag, `requestAnimationFrame`-throttle the expensive work and apply the latest pointer position on each frame.
+
+**Cross-module connections.** Touch interactions are foundational for Module 7 (GSAP-powered drag and gesture animations), Module 6 (swipe-to-dismiss transitions), and Module 12 (touch-friendly accessible components). The `setPointerCapture` pattern introduced here is the same mechanism Module 7 uses for custom drag actions. Mobile-first event handling also connects to Module 13's SEO considerations — Google's mobile-first indexing penalises pages that are not fully functional on touch devices.
+
 ## 2. Style it — A draggable card
 
 Per-page colour: `oklch(70% 0.18 30)` (peach). The card has `touch-action: none`, a visible "drag me" affordance, and smooth `translateX` based on the pointer delta. Under `prefers-reduced-motion`, the card snaps instead of sliding.

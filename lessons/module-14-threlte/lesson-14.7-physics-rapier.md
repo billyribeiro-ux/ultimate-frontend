@@ -108,6 +108,71 @@ Rapier in WASM is fast, but physics still has a cost:
 - The physics world steps at a fixed rate (default 60 Hz) regardless of frame rate.
 - For scenes where physics is only occasionally needed, instantiate the `<World>` conditionally.
 
+### 1.8 Fixed timestep versus frame rate
+
+Physics simulations must be deterministic — the same inputs should produce the same outputs regardless of frame rate. If you step the simulation once per rendered frame, a user at 30fps sees different behavior from a user at 120fps (the 30fps user has larger time steps, which can cause objects to pass through thin walls or behave differently on collision).
+
+Rapier solves this with a **fixed timestep**: the physics world advances in fixed increments (1/60th of a second by default), regardless of how many frames the renderer draws. If the frame rate drops to 30fps, the physics engine runs two steps per frame to keep up. If the frame rate is 120fps, the physics engine only runs every other frame. The visual interpolation between physics states makes motion appear smooth at any frame rate.
+
+You do not configure this manually in `@threlte/rapier` — it is handled automatically. But understanding it explains why physics behavior is consistent across devices with different refresh rates.
+
+### 1.9 Compound colliders
+
+A complex model (like a car) cannot be approximated by a single box or sphere. You need multiple colliders combined:
+
+```svelte
+<RigidBody type="dynamic">
+    <Collider shape="cuboid" args={[1, 0.2, 2]} position={[0, 0.2, 0]} />  <!-- chassis -->
+    <Collider shape="ball" args={[0.3]} position={[-0.7, 0, 1.2]} />       <!-- front-left wheel -->
+    <Collider shape="ball" args={[0.3]} position={[0.7, 0, 1.2]} />        <!-- front-right wheel -->
+    <Collider shape="ball" args={[0.3]} position={[-0.7, 0, -1.2]} />      <!-- rear-left wheel -->
+    <Collider shape="ball" args={[0.3]} position={[0.7, 0, -1.2]} />       <!-- rear-right wheel -->
+    <T.Mesh><!-- your car model here --></T.Mesh>
+</RigidBody>
+```
+
+Multiple colliders on one rigid body form a single physical entity — they move and rotate together. This gives you a complex collision shape from cheap primitive checks.
+
+### 1.10 Sensors — trigger zones without physical collision
+
+A **sensor** is a collider that detects overlap but does not create physical forces. Objects pass through it instead of bouncing off. Use sensors for trigger zones: "the product entered the display area" or "the ball crossed the goal line."
+
+```svelte
+<Collider shape="cuboid" args={[2, 2, 2]} sensor
+    on:sensorenter={() => { inZone = true; }}
+    on:sensorexit={() => { inZone = false; }}
+/>
+```
+
+Sensors are lightweight — they only check overlap, not calculate collision response — making them ideal for detection without physical interaction.
+
+### 1.11 Debugging physics with wireframes
+
+Rapier provides a debug renderer that draws wireframe shapes over your meshes, showing exactly where the physics engine thinks your colliders are. In `@threlte/rapier`, enable it with:
+
+```svelte
+<World gravity={[0, -9.81, 0]}>
+    <Debug />
+    <!-- your physics bodies -->
+</World>
+```
+
+The wireframes are invaluable during development. They reveal misaligned colliders (the physics box is bigger than the visual mesh, causing "floating"), too-small colliders (objects clip through surfaces), and missing colliders (objects fall through the ground).
+
+Remove `<Debug />` before production — the wireframe rendering has a non-trivial performance cost when many bodies are present.
+
+## Deep Dive
+
+**Why this matters at scale.** Physics transforms 3D from a static display into a tangible, believable experience. Product drops, material demonstrations, interactive toys, and educational simulations all use physics to communicate physical properties without requiring the user to hold the actual object. In production, physics is typically used sparingly — one section of a marketing page, a product "stress test" demo, or an interactive onboarding sequence. The key challenge is loading the Rapier WASM module (400KB+) only when needed, and disposing the physics world when the user scrolls past.
+
+**The mental model.** Think of the physics world as a parallel universe that runs alongside your visual scene. Every frame, the physics universe advances one tick: forces are applied, collisions are detected, positions are updated. Then your visual meshes "sync" their positions from their physics counterparts. The visual mesh is a puppet; the rigid body is the puppeteer. You control the puppeteer (apply forces, change type), and the puppet follows.
+
+**Edge cases.** Objects moving very fast (bullets, fast-thrown objects) can pass through thin walls entirely in a single timestep — this is called "tunneling." Rapier uses CCD (Continuous Collision Detection) to prevent this, but it must be enabled per-body: `ccd={true}`. Stacking many bodies on top of each other (like a tower of blocks) can create "jitter" as the physics solver struggles to maintain constraints — increasing solver iterations helps but costs performance. Gravity at exactly 0 can cause floating-point drift where objects slowly move in random directions — use a very small damping value to counteract this.
+
+**Performance.** Rapier in WASM runs the simulation at near-native speed, but each rigid body adds work: force integration, broadphase collision candidate detection, narrowphase collision testing, and constraint solving. For web applications, 50-100 active rigid bodies is comfortable. Beyond 500, simulation time per frame becomes measurable. The biggest cost is usually narrowphase collision — complex collider shapes (convex hulls with many vertices) are dramatically more expensive than primitives. A cuboid vs cuboid test is about 20x faster than a convex hull vs convex hull test.
+
+**Cross-module connections.** Physics connects to Module 14.5 (scroll-driven 3D — switching from kinematic to dynamic at a scroll trigger point), Module 14.4 (interactivity — click-to-drop, drag-to-throw), Module 2 (reactivity — `$state` controlling body type and forces), and Module 12 (performance — conditional loading of the Rapier WASM module, lazy `<World>` instantiation).
+
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
 The mini-build has a "Drop test" button and a physics playground:

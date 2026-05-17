@@ -88,6 +88,50 @@ return fail(400, {
 
 The `fail()` helper sets the HTTP status and makes the data available to the page via `form` — a prop that contains the action's return value after submission.
 
+### 1.6 Progressive enhancement with use:enhance
+
+The form works without JavaScript because it uses a standard `<form method="POST">`. The browser submits it natively — full page reload, the server processes the action, and SvelteKit re-renders the page with the action result.
+
+Adding `use:enhance` layers JavaScript on top: the form is submitted via `fetch` instead, the page updates without a full reload, and transitions feel smoother. But the important point is that the auth flow never depends on client-side JavaScript. Users with JavaScript disabled (corporate environments, privacy-focused users, flaky mobile connections) can still register.
+
+This is not just a progressive-enhancement nicety — it is a security feature. If your registration only works via JavaScript, a bug in your client bundle (a dependency error, a CSP violation, a stale cache) can prevent users from creating accounts entirely. The native form submission is the unbreakable fallback.
+
+### 1.7 Why PBKDF2 over bcrypt or scrypt
+
+The Node.js ecosystem offers many hashing libraries: bcrypt (via `bcryptjs`), scrypt (built into `crypto`), Argon2 (via `@node-rs/argon2`), and PBKDF2 (via `crypto.subtle`). We use PBKDF2 because:
+
+1. **Zero native dependencies.** `crypto.subtle` is built into every Node.js version and every browser. No compilation step, no platform-specific binaries, no Docker headaches.
+2. **Standard Web Crypto API.** The same code works in Node.js, Deno, Cloudflare Workers, and browsers. This portability matters if you ever move to a different deployment platform.
+3. **Sufficient security with proper parameters.** At 100,000+ iterations with a random salt, PBKDF2 makes brute force impractical for realistic password lengths.
+
+In production, Argon2 is stronger because it is memory-hard (requires significant RAM per hash computation, making GPU attacks impractical). But Argon2 requires a native Rust addon (`@node-rs/argon2`), which adds build complexity. For learning, PBKDF2's built-in availability removes an entire category of "it does not compile on my machine" problems.
+
+### 1.8 The registration action in full
+
+Here is the complete flow inside a registration form action:
+
+1. Read form data with `request.formData()`
+2. Extract and validate fields (not empty, email format, password length)
+3. Check if email already exists in the user store
+4. If duplicate, return `fail(409, { error: 'Email already registered', ... })`
+5. Hash the password with PBKDF2 (async — must await)
+6. Create the user record with the hashed password
+7. Return `{ success: true }` so the page shows a success message
+
+Each step can fail. Each failure mode returns a specific error. The form component handles all error shapes via conditional rendering (`{#if form?.error}`, `{#if form?.errors?.email}`).
+
+## Deep Dive
+
+**Why this matters at scale.** Registration is often the highest-friction point in a user journey. Users abandon registration forms that are confusing, that lose their input on error, or that provide unclear error messages. At scale, a poorly implemented registration flow directly impacts user acquisition metrics. Additionally, registration is where security bugs have the most catastrophic impact — storing plain-text passwords or failing to validate input creates liability that grows linearly with your user base.
+
+**The mental model.** Think of registration as a contract-signing ceremony. The user offers their credentials (identity claim). The server validates the claim (checks format, uniqueness), secures the secret (hashes the password), and creates a record (the user account). If anything goes wrong during the ceremony — invalid claim, duplicate identity, weak secret — the ceremony fails gracefully with clear feedback and the user tries again. The contract is only signed when every step succeeds.
+
+**Edge cases.** Race condition: two users register with the same email simultaneously. Both pass the "check for duplicate" step because neither has been created yet. Then both try to insert, and the second one hits the unique constraint. Your action must catch this database error and return a friendly "email already registered" message rather than an unhandled 500. Another edge case: unicode email normalization. The emails `user@example.com` and `USER@example.com` should be treated as the same (email local parts are technically case-sensitive per RFC, but no major provider enforces this). Normalize to lowercase before storing and comparing.
+
+**Performance.** Password hashing is intentionally slow — that is the point (making brute force expensive). PBKDF2 with 100,000 iterations takes approximately 50-200ms per hash depending on hardware. This means your registration endpoint has a built-in 50-200ms latency floor. For normal registration volume (tens per second), this is fine. Under a credential-stuffing attack (thousands per second), each request occupies CPU for 200ms, which can overwhelm a server. Rate limiting (Lesson 15.8) is the defense.
+
+**Cross-module connections.** Registration connects to Module 10 (form actions — the mechanical pattern is identical to the Notes app CRUD forms), Module 1 (TypeScript — typed error responses, interface definitions), and Module 16 (database — in production, users are stored in a database table, not an in-memory Map). The validation pattern here previews the Valibot schemas used more formally in Module 9B.
+
 ## 2. Style it — The registration form card
 
 The registration form uses a centered card layout:

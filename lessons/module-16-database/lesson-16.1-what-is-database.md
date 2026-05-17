@@ -79,6 +79,57 @@ For writes, the same pattern applies but inside form actions or remote functions
 
 All database code lives inside `$lib/server/` or in `+page.server.ts` files. It never runs in the browser. Drizzle and better-sqlite3 are server-only packages — SvelteKit's `$lib/server/` convention enforces this at build time.
 
+### 1.6 The spectrum of persistence options
+
+Before committing to a SQL database, it helps to see where it sits among the alternatives:
+
+| Storage | Persistence | Structure | Best for |
+|---------|-------------|-----------|----------|
+| JavaScript variable | Process lifetime only | None | Caching, ephemeral state |
+| File system (JSON) | Disk — survives restarts | Weak (whole file read/write) | Config, simple key-value |
+| SQLite | Disk — survives everything | Strong (tables, constraints) | Apps with < 1M daily requests |
+| PostgreSQL | Disk + replication | Strong + advanced features | Multi-server, high concurrency |
+| Redis | Memory + optional disk | Key-value / data structures | Caching, sessions, queues |
+
+SQLite occupies a sweet spot: it provides full ACID guarantees, SQL query power, and TypeScript type safety (via Drizzle), with zero infrastructure overhead. You do not outgrow it until you need concurrent writes from multiple server processes — at which point you graduate to PostgreSQL, keeping the same Drizzle code with a different dialect configuration.
+
+### 1.7 How a database query actually executes
+
+When your SvelteKit load function calls `db.select().from(notes).all()`, here is what happens at each layer:
+
+1. **Drizzle** builds a SQL string: `SELECT * FROM notes`
+2. **better-sqlite3** passes this string to the SQLite C library (compiled as a native Node.js addon)
+3. **SQLite** parses the SQL, creates a query plan (which index to use, how to scan), and executes it against the B-tree data structures in the `.db` file
+4. **SQLite** returns rows as C structures
+5. **better-sqlite3** converts C structures to JavaScript objects
+6. **Drizzle** maps the result to your TypeScript types (column names, type conversions)
+7. **Your load function** receives a typed array like `{ id: number; title: string; ... }[]`
+
+This entire process completes in microseconds for typical queries on a local SQLite file. There is no network hop, no connection pooling, no authentication — the database is a file on the same disk.
+
+### 1.8 When NOT to use a database
+
+Not every piece of state belongs in a database:
+
+- **UI state** (which tab is active, whether a modal is open) — belongs in `$state`
+- **Ephemeral server state** (rate limit counters, active WebSocket connections) — belongs in memory (acceptable to lose on restart)
+- **Configuration** (environment variables, feature flags) — belongs in `.env` files or a config service
+- **Large binary files** (images, videos, documents) — belong in object storage (S3, R2), with the database storing only the URL/path reference
+
+The database is for **structured data that must survive process restarts and be queryable**. User accounts, notes, orders, relationships — these are database records. Transient counters, connection pools, and UI preferences are not.
+
+## Deep Dive
+
+**Why this matters at scale.** The decision of "what goes in the database versus what stays in memory" affects every aspect of your application's reliability. Data in the database survives crashes, deploys, scaling events, and hardware failures. Data in memory vanishes the moment anything goes wrong. Teams that put the wrong things in the database (ephemeral state, rendering cache) pay with unnecessary latency. Teams that keep the wrong things out of the database (user sessions, important counters) pay with data loss on every deploy.
+
+**The mental model.** Think of the database as a filing cabinet and in-memory state as a whiteboard. The whiteboard is fast and convenient — you can sketch, erase, and rearrange instantly. But when you leave the office (server restarts), the whiteboard is wiped clean. The filing cabinet is slower to access (you must open drawers, flip through folders) but everything you put there stays permanently. Smart workers keep their current task on the whiteboard and their completed work in the cabinet.
+
+**Edge cases.** SQLite's single-writer limitation means that if two requests try to write simultaneously, one must wait. For read-heavy workloads (typical of web applications), this is never a problem — WAL mode allows concurrent reads. For write-heavy workloads (e.g., logging every page view to the database), you may see "SQLITE_BUSY" errors under load. The solution is either write-batching (queue writes and flush periodically) or graduating to PostgreSQL. Another edge case: the `.db` file can become corrupted if the process is killed with `SIGKILL` during a write on a filesystem without journaling. WAL mode provides crash safety on modern filesystems.
+
+**Performance.** SQLite reads complete in 5-50 microseconds for indexed lookups. That is 0.005-0.05 milliseconds — effectively instant compared to the 50-200ms network round-trips that dominate web response times. Even complex queries with JOINs across multiple tables typically complete in under 1ms for datasets under 100,000 rows. The performance ceiling you will hit first is write throughput (SQLite allows approximately 10,000-50,000 writes per second depending on transaction size), not read speed.
+
+**Cross-module connections.** This lesson connects to Module 10 (in-memory stores — understanding why they are insufficient), Module 15 (auth — sessions and users need persistence), Module 9a (load functions — the database query lives inside load), and Module 17 (realtime — change notifications from the database can trigger SSE events to connected clients).
+
 ## 2. Style it — The database status card
 
 For this lesson's mini-build we create a status card that shows whether the database is connected and how many records exist. The card uses PE7 tokens:

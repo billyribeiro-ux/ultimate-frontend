@@ -97,6 +97,18 @@ You can still pass a callback prop for a *local* event (e.g., a `<Modal>` tellin
 - **Callback prop** when one specific parent needs to know.
 - **Reactive store** when many places might need to know.
 
+## Deep Dive
+
+**Why this matters at scale.** In a 50-component production app, components communicate upward for dozens of reasons: a search bar reports a query, a pagination control reports a page change, a date picker reports a selection, a modal reports dismissal. Without a consistent pattern for upward communication, you get a mix of overused bindings, over-global stores, and undocumented DOM events. The callback prop pattern establishes one clear, typed, discoverable mechanism: "if a child needs to tell a parent something, it accepts a function prop and calls it." This is the same pattern React, Vue, and Angular settled on, making it transferable across frameworks.
+
+**The mental model.** Think of callback props as order forms. The parent hands the child a blank form (the callback function). When the child needs to communicate, it fills in the form (calls the function with arguments) and submits it. The form's structure (the function's type signature) is agreed upon in advance via the Props interface. The child cannot send data the parent did not agree to receive, and the parent cannot be surprised by an unexpected shape. This contract makes communication explicit, typed, and traceable in code review.
+
+**Edge cases.** A common mistake: passing inline arrow functions that create a new reference on every render. In Svelte this is harmless (unlike React where it can trigger child re-renders), but it makes debugging harder because the function has no name in stack traces. Prefer named functions defined in the script block. Another edge case: callback props that return a value. A `shouldClose: () => boolean` callback lets the parent veto an action — the child calls it and proceeds only if it returns true. This request/response pattern is powerful but should be used sparingly. A third subtlety: if the parent's callback throws, the error propagates through the child's call stack. Keep callbacks simple and move complex logic to the parent's scope.
+
+**Performance implications.** Callback props are standard function references — the performance characteristics are identical to any function call (nanoseconds). There is no event system overhead, no serialization, no async dispatch. For high-frequency events (scroll, mousemove, drag), callbacks fire synchronously and the parent handler runs immediately. If the parent's handler is expensive, the parent is responsible for debouncing (Lesson 5.7). The callback pattern itself adds zero overhead beyond the function call.
+
+**Cross-module connections.** The callback prop pattern replaces Svelte 3/4's `createEventDispatcher` entirely. Module 7 uses it for GSAP animation lifecycle callbacks. Module 9b uses it for remote function completion notifications. Module 10 uses it for form action feedback. Module 11 uses it in hierarchical component APIs. The pattern "typed function in, typed data out" is the cleanest upward communication pattern in component architecture.
+
 ## 2. Style it — A toast container in the corner
 
 Use `position: fixed` + `inset-block-end: var(--space-md)` + `inset-inline-end: var(--space-md)`. Give each toast variant a distinct colour drawn from tokens: `var(--color-success)`, `var(--color-error)`, `var(--color-brand)`. Slide in with a subtle transform + opacity transition that collapses to zero under `prefers-reduced-motion`.

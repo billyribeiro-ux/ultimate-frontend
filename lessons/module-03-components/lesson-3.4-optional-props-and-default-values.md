@@ -82,6 +82,18 @@ When a parent writes `<Avatar name="Lee" />`, Svelte's compiled code passes `{ n
 
 This is the "sensible default" pattern in action: the caller stays short, the component stays safe, and the user sees something reasonable in every scenario including the scenario the parent forgot to consider.
 
+## Deep Dive
+
+**Why this matters at scale.** In a production component library used across 50+ pages, the number of required props directly determines developer velocity. Every required prop is a decision the caller must make. A Button with 8 required props means every developer writing a button stops to think 8 times. A Button with 2 required props and 6 optional defaults means most developers write one line and move on. At enterprise scale, multiplied across hundreds of call sites and dozens of developers, the difference between a well-defaulted API and an over-required one is hours of productivity per sprint.
+
+**The mental model.** Think of optional props as knobs on an appliance. A microwave has one required input (what you put inside) and many optional knobs (power level defaults to high, time defaults to 30 seconds, mode defaults to heat). Most users press Start without touching any knob. Power users tune every setting. A well-designed component is the same: the common case requires minimal input, and the advanced cases expose more knobs. If you find yourself always passing the same value for a prop, it should be the default.
+
+**Edge cases.** A common TypeScript trap: destructuring an optional prop without a default leaves it typed as `T | undefined`, and you must handle the undefined case everywhere you use it. Providing a default in the destructure narrows the type to just `T`, eliminating the need for null checks in the rest of the component. Another edge case: `undefined` vs not-passed. In JavaScript, `{ a: undefined }` and `{}` are different — `'a' in obj` returns true for the first and false for the second. Svelte's `$props()` treats both as "the prop was not given a value," so your default kicks in either way. A third edge case: passing `null` explicitly does *not* trigger the default — defaults only apply for `undefined`. If a caller writes `<Avatar src={null} />`, the component receives `null`, not the default.
+
+**Performance implications.** Defaults are evaluated once at component creation time and have negligible cost. However, default values that are *objects* or *arrays* (`items = []`) create a new instance per component mount. For primitives this is irrelevant. For complex defaults, be aware that each instance gets its own copy — which is usually correct (you do not want components sharing a mutable default array) but worth knowing when profiling memory in apps with thousands of instances.
+
+**Cross-module connections.** Optional props with defaults are the backbone of every component API in this course. Module 6's transition components use defaults for duration and easing. Module 7's GSAP action components default animation parameters. Module 12's performance-optimised components use defaults to enable lazy behaviour without opt-in. The principle "require the minimum, default the rest" is a design philosophy that extends beyond props — it applies to function parameters, configuration objects, and API designs throughout the course.
+
 ## 2. Style it — Avatar sizes via remapped custom property
 
 The mini-build's `Avatar` component exposes a `size` prop whose only job is to swap the value of `--avatar-size` (a custom property) between `2rem`, `2.75rem`, and `4rem`. Everything else — padding, typography scaling, border radius — is derived from that one variable. Three sizes, one knob.
