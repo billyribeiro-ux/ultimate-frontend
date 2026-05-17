@@ -85,6 +85,29 @@ In the module project you will build a site where the home page is SSG, a dashbo
 
 SvelteKit 2.50+ supports ISR-like behaviour on some adapters (Vercel, Netlify) where a prerendered page is revalidated on a schedule. Setting `prerender = true` + an adapter-specific revalidate option gives you the speed of SSG with the freshness of SSR. This is adapter territory and beyond the scope of this lesson, but it is good to know it exists.
 
+### 1.8 Choosing modes for real projects
+
+In practice, most SvelteKit apps end up with this distribution:
+
+- **5-15 SSG pages**: marketing, about, pricing, blog posts, docs. Changed rarely, high traffic, SEO-critical.
+- **5-10 SSR pages**: authenticated dashboards, user profiles, search results. Fresh data per request, moderate traffic.
+- **1-3 CSR pages**: admin editors, 3D configurators, canvas-heavy tools. No SEO value, high interactivity.
+- **0-2 SSR-only pages** (`csr=false`): printable invoices, email templates, policy pages. Zero JS shipped.
+
+The hybrid model means you optimize each route individually. You do not have to accept the worst-case performance of your heaviest page across the entire site.
+
+## Deep Dive
+
+**Why this matters at scale.** In a production app with 20+ routes, rendering mode choice determines both user experience and infrastructure cost. An SSG marketing page served from a CDN costs $0 per million requests. The same page rendered with SSR costs $10-50 per million requests (compute time). Over a year, that difference compounds into thousands of dollars. Conversely, an SSG dashboard that shows stale data loses user trust immediately. The ability to mix modes per route — which SvelteKit uniquely makes trivial with a single `export const` — is a significant architectural advantage over frameworks that force a single mode globally.
+
+**The mental model.** Think of rendering modes as cooking strategies. SSG is meal prep on Sunday — you cook everything in advance and grab it from the fridge all week. Fast to serve, but it can get stale. SSR is made-to-order — fresh for every customer, but takes time and kitchen capacity. CSR is a DIY meal kit — you ship ingredients to the customer and they cook it themselves. Each strategy fits different dishes: meal prep works for lunch salads (marketing pages), made-to-order works for restaurant dinners (dashboards), DIY kits work for cooking enthusiasts (power users who want interactivity over speed).
+
+**Edge cases.** The `prerender` option in a layout cascades to all child routes. If you set `prerender = true` in a `+layout.ts` for your marketing section, and then add a dynamic route (e.g., a search page) under that layout, the search page inherits `prerender = true` and will fail at build time because SvelteKit cannot prerender a page with dynamic query parameters. The fix: override with `export const prerender = false` in the child's `+page.ts`. Another edge case: `csr = false` pages cannot use `$state`, `$effect`, or any interactive features — because there is no JavaScript to run them. They are pure server-rendered HTML. If you accidentally add interactivity to a `csr = false` page, it silently does not work with no error.
+
+**Performance implications.** SSG produces the best possible LCP (static file from CDN, no server computation). SSR produces good LCP (server renders quickly) but adds TTFB latency (the server must compute before responding). CSR produces the worst LCP (browser must download JS, execute it, then render). For INP, the mode matters less — once the page is interactive, interaction speed depends on your code, not the rendering mode. For CLS, SSR and SSG are better because the initial HTML has correct dimensions; CSR often shows loading skeletons that shift when real content arrives.
+
+**Connection to other modules.** Rendering modes build on Module 8 Lessons 8.2-8.3 (SSR and hydration). Module 9A uses SSG for prerendered data pages. Module 12 optimizes each mode for Core Web Vitals. Module 13 depends on SSR/SSG for SEO (CSR pages are poorly indexed). The module project demonstrates all four modes in a single codebase — the definitive proof that SvelteKit's per-route flexibility works in practice.
+
 ## 2. Style it — PE7 for a mode comparison
 
 The mini-build shows a table of the four modes with PE7 styling and per-mode color coding. We use a neutral brand (`oklch(70% 0.1 200)`) and assign each mode its own accent color via CSS variables scoped to the row.

@@ -54,7 +54,7 @@
 			<dt>Tables</dt>
 			<dd>
 				<ul class="table-list">
-					{#each data.dbInfo.tables as table}
+					{#each data.dbInfo.tables as table (table)}
 						<li><code>{table}</code></li>
 					{/each}
 				</ul>

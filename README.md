@@ -32,7 +32,7 @@ ultimate-frontend/
 ├── lessons/                 # written curriculum — one .md per lesson
 │   ├── module-01-foundation/
 │   ├── module-02-reactivity/
-│   ├── ... through module-13-seo/
+│   ├── ... through module-14-threlte/
 │   └── capstone/
 │       ├── README.md
 │       ├── platform-spec.md # editor + reveal + scoring design doc

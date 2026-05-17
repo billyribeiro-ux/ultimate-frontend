@@ -73,7 +73,16 @@ export const getPosts = query(async (): Promise<Post[]> => { ... });
 
 then in any component that imports `getPosts`, the expression `await getPosts()` has type `Post[]` — not `unknown`, not `any`, not a hand-typed interface you have to keep in sync. Change the server's return type and every call site immediately has the new type. Delete a field and every component that used it immediately fails to compile. This is what "end-to-end type safety" means in practice.
 
-### 1.5 What changed in April 2026
+### 1.5 How the compiler splits the file
+
+The `.remote.ts` suffix is not just a naming convention — it is a build-time instruction. When SvelteKit's Vite plugin encounters a file ending in `.remote.ts`, it performs a code transform:
+
+1. **Server bundle**: The original file is included as-is. All your database calls, environment variable reads, and node-only imports remain intact.
+2. **Client bundle**: The original file is *replaced* with an auto-generated stub. Each exported function becomes a thin wrapper that serializes its arguments, sends a `fetch` request to a generated endpoint, deserializes the response, and returns the result. The stub has the exact same TypeScript signature as the original — so the client code compiles with the same types — but contains zero server logic.
+
+This split is the magic that makes "import a server function and call it from a component" safe. The client never sees your database query. It only sees a function that returns a typed Promise.
+
+### 1.6 What changed in April 2026
 
 Remote Functions landed as a stable feature of SvelteKit 2.27 in late 2025 and have been iterated on through 2026. As of April 2026 they are still behind an experimental flag — not because they are unstable in the "might crash your site" sense, but because the Svelte team reserves the right to change the fine details (method names, option shapes) until they feel the API is perfect. In this course we embrace them wholeheartedly: they are the direction of travel, they are more type-safe than anything that came before, and by the time you finish the course they will be the default.
 
@@ -88,6 +97,28 @@ kit: {
 ```
 
 This project already has that flag set. You do not need to touch it.
+
+### 1.7 Security model
+
+A critical point: every remote function becomes a publicly accessible HTTP endpoint. The compiler generates a URL for it, and anyone who discovers that URL can call the function with arbitrary arguments. This means:
+
+- **Always validate inputs.** Use Valibot schemas (introduced in Lesson 9B.5) to validate every argument.
+- **Always check authorization.** Read the user's session from cookies or headers and verify they have permission to perform the operation.
+- **Never trust the client.** The typed arguments give you TypeScript safety at compile time, but at runtime the request could come from a malicious actor sending crafted JSON.
+
+Remote functions do not magically make your server secure — they make the type-safe *happy path* effortless, while still requiring the same security discipline as any other endpoint.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 20-route production app, the traditional pattern (manual `+server.ts` endpoints, manual `fetch` calls, manual type duplication) produces approximately 3x more code than remote functions for the same functionality. More code means more maintenance, more places for types to drift, and more surface area for bugs. A team that adopts remote functions from day one saves hundreds of lines per feature and eliminates the entire category of "client type does not match server type" bugs. The ROI is immediate and compounds with every new endpoint.
+
+**The mental model.** Remote functions are like a telephone. When you call a friend (invoke the function), you do not care about the telephone infrastructure (HTTP, serialization, routing). You speak words (pass typed arguments), your friend hears them (the server receives them), thinks (executes logic), and speaks back (returns a typed result). The telephone company (SvelteKit's compiler) handles everything in between — dialing, routing, encoding, decoding. You just talk. If the phone system were transparent (like a direct function call), you would forget it existed. That is the developer experience remote functions provide.
+
+**Edge cases.** Remote functions serialize arguments and return values using `devalue`, which handles `Date`, `Map`, `Set`, `BigInt`, regular expressions, and cyclic references — but not class instances, functions, DOM nodes, or `Symbol`. If you try to return a class instance, `devalue` strips the prototype and you receive a plain object on the client. The fix: return plain data interfaces, and reconstruct class instances on the client if needed. Another edge case: if a remote function throws, the error is serialized and rethrown on the client. The stack trace points to the server code, which can be confusing in production — wrap critical calls in try/catch and return structured error objects instead of throwing.
+
+**Performance implications.** Each remote function call is an HTTP request. Unlike load functions (which benefit from SvelteKit's internal routing and caching during SSR), remote function calls always go over the network when called from the client. This means each call has a minimum latency of one round trip (typically 20-100ms locally, 50-300ms in production). For this reason, `query.batch()` (Lesson 9B.4) is essential for list pages — it collapses N per-item calls into a single request. For mutations, the single-call model is fine because mutations are infrequent.
+
+**Connection to other modules.** Remote functions complement Module 9A's load functions: loads run before the page renders (blocking), while remote functions run after the page is interactive (non-blocking). Module 10's form actions are the HTML-form equivalent. Module 11's optimistic UI wraps remote function calls with local state management. The capstone project uses all three patterns: load functions for initial page data, remote queries for dynamic widget updates, and remote commands for mutations. Understanding when to use each pattern is a principal-engineer-level architecture decision.
 
 ## 2. Style it — The lesson card that introduces Module 9B
 

@@ -95,6 +95,22 @@ For a strict dashboard where every piece is required, `Promise.all` with a caugh
 
 Nothing at the `Promise.all` level — it has been in JavaScript since ES2015. What has changed is that SvelteKit's streaming feature (Lesson 9A.9) lets you send the **fast** parts of a load to the browser immediately and stream the slow parts in later, which is an even better pattern for some dashboards. Streaming is complementary to parallelism, not a replacement for it.
 
+### 1.8 Measuring the improvement in DevTools
+
+The Network panel's waterfall column is your proof. Sequential fetches appear as stair-steps: each request starts only after the previous one finishes. Parallel fetches appear as a vertical stack: all requests start at the same horizontal position. The total duration is the height of the tallest bar, not the sum of all bars. Train yourself to look for stair-steps in the waterfall — every stair-step on independent data sources is a parallelization opportunity.
+
+## Deep Dive
+
+**Why this matters at scale.** In a dashboard with 5 data widgets, sequential loading means the page takes the *sum* of all widget data fetches to render. If each takes 200ms, that is 1 second of load time. With `Promise.all`, it is 200ms — a 5x improvement. This directly affects LCP, which Google uses for search ranking. At scale (thousands of daily visitors), the compounding impact is enormous: every visitor gets a faster page, bounce rates drop, and the Lighthouse score goes from amber to green without any other optimization. Parallel loading is the highest-ROI performance fix available in most data-heavy applications.
+
+**The mental model.** Sequential loading is like ordering from a restaurant one dish at a time — you order the appetizer, wait for it to arrive, then order the main course, wait for it, then order dessert. Parallel loading is like ordering everything at once — the kitchen prepares all three simultaneously and delivers them together when the slowest one is ready. The total wait is the slowest dish, not the sum of all dishes. You would never order sequentially at a restaurant; do not fetch sequentially in your load functions.
+
+**Edge cases.** `Promise.all` rejects on the first rejection. If you have five parallel fetches and one fails, you lose all five results — even the four that succeeded. If partial data is acceptable (e.g., a widget that can show "unavailable"), use `Promise.allSettled` instead and handle each result individually. Another edge case: if parallel fetches share a common sub-dependency (both need a user session token), make sure the token is available before starting the parallel group, or both fetches will fail. Structure as: get token first (sequential), then parallel fetches with the token.
+
+**Performance implications.** The time saved by parallelization equals `(sum of all durations) - (max of all durations)`. For three 200ms requests, you save 400ms. For five 100ms requests, you save 400ms. The savings scale linearly with the number of independent requests. There is no meaningful CPU overhead to `Promise.all` — it simply starts all promises without awaiting and collects their results. The only consideration: very many parallel requests (50+) might overwhelm the server or hit HTTP/2 connection limits. For typical load functions (2-8 parallel fetches), there is zero downside.
+
+**Connection to other modules.** Parallel loading connects to Module 4 Lesson 4.7 (Promise fundamentals), Module 9A Lesson 9A.9 (streaming as a complementary technique), Module 12 Lesson 12.1 (LCP optimization — faster load = better LCP), and the module project (a dashboard with multiple data sources loaded in parallel). Module 9B's `query.batch()` is the remote-function equivalent: instead of parallelizing separate calls, you batch them into one. Both techniques fight the same enemy: network waterfalls.
+
 ## 2. Style it — PE7 for a three-city forecast
 
 The mini-build fetches weather for three European cities in parallel from Open-Meteo and displays them as three cards. We use a cool blue brand (`oklch(70% 0.16 210)`) and a mobile-first grid that becomes three columns at 480px.

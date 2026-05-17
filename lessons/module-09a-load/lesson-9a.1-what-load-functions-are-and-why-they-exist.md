@@ -105,6 +105,40 @@ Four concrete wins:
 
 In pre-SvelteKit-1.0 tutorials you may see `export async function load()` as a module-level function without the `PageLoad` type, returning `{ props: { ... } }`. That was the legacy API. The April 2026 shape is `export const load: PageLoad = async (event) => { return { ... }; }` — a typed arrow function returning a plain object. If a tutorial uses `return { props: { post } }`, it is outdated.
 
+### 1.7 The load function event object
+
+The `event` parameter passed to load functions is rich with context. For a universal `+page.ts`, it includes:
+
+- `fetch` — SvelteKit's enhanced fetch (deduplicates, uses credentials, works on both server and client).
+- `params` — the route parameters (e.g., `{ slug: 'hello' }` for `/blog/[slug]`).
+- `url` — the full URL object with `searchParams` for query strings.
+- `depends(key)` — registers a dependency for `invalidate()` (Lesson 9A.7).
+- `parent()` — awaits the parent layout's load data.
+
+For a server-only `+page.server.ts`, the event additionally includes:
+
+- `cookies` — read and write HTTP cookies.
+- `locals` — data set by hooks (Lesson 8.9).
+- `platform` �� adapter-specific context.
+
+Understanding this event object is essential. It is the single interface between your data-fetching logic and SvelteKit's infrastructure.
+
+### 1.8 Load functions and caching
+
+SvelteKit caches load function results during a client-side navigation session. If you navigate from page A to page B and back to page A, the second visit to A uses the cached result from the first visit — load does not re-run. This is why the page feels instant on "back" navigations. If you need to force a re-run (because data has changed), you call `invalidate()` or `invalidateAll()` (Lesson 9A.7). This caching behavior is one of the key performance advantages of load functions over manual `fetch` in `onMount` — the framework handles the caching strategy for you.
+
+## Deep Dive
+
+**Why this matters at scale.** In a 20-route production app, load functions are the backbone of data architecture. Every page depends on them for initial data. A poorly-structured load function — one that fetches too much data, one that creates a waterfall, one that is not typed — compounds into a slow, fragile, hard-to-maintain application. Conversely, a well-structured load function — parallel fetches, minimal data, typed return, proper `depends()` registration — gives you a fast, type-safe, cache-friendly data layer with zero boilerplate. The difference between a senior engineer's load functions and a junior's load functions is typically 3-5x performance improvement and complete type coverage.
+
+**The mental model.** Think of a load function as a waiter at a restaurant. Before you sit down (before the page component mounts), the waiter goes to the kitchen (server), gets your order (fetches data), and brings it to your table (passes it as the `data` prop). You never have to go to the kitchen yourself (no `fetch` in `onMount`). You never see an empty plate that slowly fills (no loading spinner). The food is there when you sit down. The waiter also remembers what you ordered — if you leave and come back (navigate away and back), the same plate reappears instantly from memory (caching).
+
+**Edge cases.** A universal load function (`+page.ts`) runs on both server and client. If it uses `Date.now()` or `Math.random()`, the server produces one value and the client re-runs and produces a different value — causing a hydration mismatch. Put non-deterministic work in `+page.server.ts` instead, where it runs only once (on the server) and the result is serialized to the client. Another edge case: if a load function throws, SvelteKit renders the nearest `+error.svelte` page. If it throws `redirect(303, '/login')`, the user is redirected before the page renders. If it calls `error(404, 'Not found')`, the 404 page renders. These are part of the load function's control flow, not exceptional failures.
+
+**Performance implications.** Load functions run before the page renders, so their duration directly affects Time to First Byte (TTFB) and LCP. A load function that takes 500ms means the user waits 500ms before seeing anything (in SSR). The optimizations available: `Promise.all` for parallel fetches (Lesson 9A.6), streaming for slow data sources (Lesson 9A.9), caching with `depends` and `invalidate` (Lesson 9A.7), and SSG for static content (Lesson 9A.10). Every millisecond you shave from load function execution directly improves LCP.
+
+**Connection to other modules.** Load functions were previewed in Module 8 (how SvelteKit works). This lesson is the full introduction. The rest of Module 9A covers typing (9A.3), enhanced fetch (9A.4), layout data (9A.5), parallel loading (9A.6), cache control (9A.7), error handling (9A.8), streaming (9A.9), and SSG (9A.10). Module 9B's remote functions are an alternative data-fetching pattern that complements load functions. Module 10's form actions are the mutation counterpart. Module 12 optimizes load function performance. Module 13 uses load functions to inject SEO data into pages. Load functions are the data spine of the entire application.
+
 ## 2. Style it — PE7 for a data card
 
 The mini-build displays a single fetched "post" from a local inline data source. No real HTTP yet — that is Lesson 9A.4. We style it as a content card with PE7 tokens and a brand-blue personality (`oklch(68% 0.18 250)`).

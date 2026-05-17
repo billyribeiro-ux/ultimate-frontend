@@ -22,7 +22,8 @@
 		{ id: '10', number: '10', title: 'API Routes & Forms', href: '/modules/10-api-forms' },
 		{ id: '11', number: '11', title: 'State at Scale', href: '/modules/11-state' },
 		{ id: '12', number: '12', title: 'Performance & Production', href: '/modules/12-performance' },
-		{ id: '13', number: '13', title: 'SEO', href: '/modules/13-seo' }
+		{ id: '13', number: '13', title: 'SEO', href: '/modules/13-seo' },
+		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte' }
 	];
 </script>
 

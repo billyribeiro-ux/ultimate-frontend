@@ -88,7 +88,7 @@
 						<li>
 							<span class="col-name">{col.name}</span>
 							<span class="col-type {typeColor(col.type)}">{col.type}</span>
-							{#each col.constraints as constraint}
+							{#each col.constraints as constraint, i (i)}
 								<span class="col-constraint">{constraint}</span>
 							{/each}
 						</li>
