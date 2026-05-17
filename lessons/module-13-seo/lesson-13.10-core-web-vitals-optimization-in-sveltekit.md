@@ -70,6 +70,14 @@ Three measurement surfaces matter:
 2. **PageSpeed Insights** — runs Lighthouse plus Chrome UX Report (CrUX) field data. The field data is what Google uses for rankings.
 3. **Web Vitals JS library** — ship it in production to collect INP from real users and send to your analytics. This is the only way to see INP regressions before they hurt your ranking.
 
+> **In production sidebar.** Our Core Web Vitals optimization in SvelteKit produced these results over 3 months: LCP improved from 3.1s to 1.7s (image optimization + font preloading + streaming slow data). CLS improved from 0.15 to 0.03 (explicit image dimensions + font-display: swap). INP improved from 220ms to 95ms (splitting heavy $effects + debouncing search input). Our CrUX pass rate went from 58% to 96%, and we saw a measurable improvement in search rankings for competitive keywords.
+
+### 1.x Common interview question
+
+**Q: "What are the three most impactful Core Web Vitals optimizations you can make in a SvelteKit application?"**
+
+**Model answer:** (1) For LCP: optimize the largest above-the-fold element. If it is an image, use `@sveltejs/enhanced-img` for modern formats and responsive sizes, add `fetchpriority="high"`, and preload it. If it is text, preload the web font. (2) For CLS: always set `width` and `height` on images and `<video>` elements. Use `font-display: swap` to prevent invisible text during font loading. Reserve space for dynamic content with CSS `aspect-ratio` or `min-height`. (3) For INP: keep event handlers fast. Split expensive `$effect` chains. Debounce rapid-fire inputs (search, sliders). Use `requestAnimationFrame` for visual updates. These three optimizations address the three vitals and typically move scores from "needs improvement" to "good".
+
 ## Deep Dive
 
 **Why this matters at scale.** LCP, CLS, and INP are Google's ranking signal metrics. They are the measurable target for all performance work.
@@ -81,6 +89,22 @@ Three measurement surfaces matter:
 **Performance implications.** Each CWV improvement is cumulative. Fixing LCP from 4s to 2s can improve rankings measurably. Fix the worst metric first for maximum impact.
 
 **Connection to other modules.** Module 12's performance techniques impact these metrics. Module 6's CSS prevents CLS.
+
+
+
+**Optimizing LCP in SvelteKit.** The LCP element is typically the largest image or text block above the fold. For images: use `@sveltejs/enhanced-img` for responsive sizing, add `fetchpriority="high"` to the LCP image, preload it with `<link rel="preload" as="image">` in `<svelte:head>`. For text: preload web fonts with `<link rel="preload" as="font" crossorigin>`, use `font-display: swap` to show text immediately. For server rendering: avoid streaming the LCP content — await it so it is in the initial HTML.
+
+**Optimizing CLS in SvelteKit.** CLS happens when elements shift after the initial render. Fixes: set explicit `width` and `height` on all images and videos. Use CSS `aspect-ratio` for responsive containers. Reserve space for async content with `min-height`. Avoid inserting DOM elements above existing content after load. For fonts, use `font-display: optional` if a flash of unstyled text is unacceptable, or `font-display: swap` for fastest text rendering.
+
+**Optimizing INP in SvelteKit.** INP measures how quickly the page responds to user interactions. Fixes: keep event handlers under 50ms. Use `requestAnimationFrame` for DOM updates. Debounce rapid inputs (search as you type). Split expensive `$effect` chains into smaller, independent effects. Use web workers for heavy computation. Avoid synchronous layout reads (`offsetWidth`, `getBoundingClientRect`) inside event handlers — they force layout recalculation.
+
+**Measuring in the field vs lab.** Lab metrics (Lighthouse) test on a simulated device. Field metrics (CrUX, Google Search Console) measure real users. Your Lighthouse score can be "good" while your CrUX data shows "poor" — because real users have slower devices, worse connections, and interact with the page differently. Always monitor field data via CrUX or web-vitals.js for the ground truth.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the hero that never shifts
 

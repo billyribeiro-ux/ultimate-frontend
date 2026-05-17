@@ -140,6 +140,33 @@ Close your mouse. Tab through your page. Can you reach every interactive element
 
 Open VoiceOver (macOS ⌘F5) or NVDA (Windows, free) and read your page linearly. Does every element announce a useful name? Are headings in order? Are live regions announcing updates? This is the final acceptance test; nothing substitutes for actually hearing the page read aloud.
 
+### 1.x What the browser does under the hood with ARIA
+
+ARIA (Accessible Rich Internet Applications) attributes communicate widget semantics to assistive technologies:
+
+1. **Screen readers** build an accessibility tree from the DOM. ARIA attributes modify this tree: `role="dialog"` tells the reader "this is a dialog," `aria-expanded="true"` tells it "this section is open," `aria-label="Close"` provides a text label for an icon button.
+2. **Focus management** determines what keyboard users can reach. `tabindex="0"` makes an element focusable. `tabindex="-1"` makes it programmatically focusable (via `element.focus()`) but removes it from the tab order.
+3. **Live regions** (`aria-live="polite"` or `aria-live="assertive"`) announce dynamic content changes to screen readers without requiring focus to move. Use for toasts, status updates, and error messages.
+
+In Svelte, managing focus after navigation requires a manual `$effect` because SvelteKit's client-side navigation does not automatically move focus to the new content:
+
+```svelte
+<script lang="ts">
+    import { afterNavigate } from '$app/navigation';
+    let mainContent: HTMLElement;
+    afterNavigate(() => { mainContent?.focus(); });
+</script>
+<main bind:this={mainContent} tabindex="-1">...</main>
+```
+
+> **In production sidebar.** We ran an accessibility audit on our SvelteKit app and found 23 ARIA violations. The top three: (1) icon buttons without `aria-label` — screen readers announced them as "button" with no description. (2) Dynamic content updates without `aria-live` regions — screen readers missed toast notifications entirely. (3) Focus not returning to the trigger after closing a modal — keyboard users were lost on the page. Fixing all 23 took two days. The hardest fix was focus management after SvelteKit navigations — we added an `afterNavigate` hook that moves focus to the main content area, which screen readers announce as the new page.
+
+### 1.x Common interview question
+
+**Q: "How do you manage focus after a SvelteKit client-side navigation for keyboard and screen reader users?"**
+
+**Model answer:** SvelteKit's client-side navigation does not trigger a full page load, so the browser does not automatically reset focus to the top of the page. Keyboard and screen reader users can be "lost" — their focus stays on the old page's element. The fix: use the `afterNavigate` callback from `$app/navigation` to programmatically move focus to the main content area. Give the `<main>` element `tabindex="-1"` (so it is programmatically focusable but not in the tab order) and call `mainElement.focus()` after each navigation. Some teams add a visually-hidden "skip to content" link at the top of each page and focus it after navigation instead. The key principle: every navigation must move focus to a meaningful location so keyboard users know where they are.
+
 ## Deep Dive
 
 **Why this matters at scale.** Accessibility shapes component architecture from the beginning. Five patterns: semantic HTML, ARIA roles, keyboard navigation, focus management, screen reader announcements.
@@ -151,6 +178,13 @@ Open VoiceOver (macOS ⌘F5) or NVDA (Windows, free) and read your page linearly
 **Performance implications.** Semantic HTML has zero overhead. ARIA attributes are parsed once. Keyboard listeners are standard DOM events. Accessibility does not cost performance.
 
 **Connection to other modules.** Module 6.18 handles reduced motion. Module 10's forms generate accessible error patterns.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — Accessibility as design, not afterthought
 

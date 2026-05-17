@@ -55,6 +55,42 @@ A canonical URL tells search engines "this is the one true URL for this page" �
 
 A wrong title on a button makes one user frown. A wrong `og:image` URL breaks link previews on every share of the page. SEO mistakes are load-bearing in ways regular UI bugs are not. A strict TypeScript interface is the cheapest insurance policy you can buy. If you try to pass `ogImage` as a relative URL, the type system should catch it. If you forget `description`, the build should fail. Write the interface, then let the compiler hold your page to it.
 
+### 1.x The TypeScript angle — typed SEO component props
+
+A reusable SEO component with full TypeScript typing:
+
+```ts
+interface SEOProps {
+    title: string;
+    description: string;
+    canonical?: string;
+    ogImage?: string;
+    ogType?: 'website' | 'article' | 'product';
+    twitterCard?: 'summary' | 'summary_large_image';
+    noindex?: boolean;
+    jsonLd?: Record<string, unknown>;
+}
+```
+
+Using this interface with `$props()`:
+
+```svelte
+<script lang="ts">
+    let { title, description, canonical, ogImage, ogType = 'website', 
+          twitterCard = 'summary_large_image', noindex = false, jsonLd }: SEOProps = $props();
+</script>
+```
+
+Every page passes typed SEO data. If a required field is missing, TypeScript catches it at compile time.
+
+> **In production sidebar.** Our reusable `<SEO>` component is used on all 42 routes. It accepts typed props for title, description, Open Graph, Twitter Card, canonical URL, and JSON-LD. Before this component, each page had 15-20 lines of duplicated `<svelte:head>` markup. After, each page passes 3-5 props to `<SEO>`. The component also handles edge cases: truncating descriptions to 160 characters, falling back to site-wide defaults for missing OG images, and adding `noindex` for draft pages. Total effort to build: 2 hours. Ongoing maintenance: near zero.
+
+### 1.x Common interview question
+
+**Q: "Why would you build a reusable SEO component instead of using `<svelte:head>` directly in each page?"**
+
+**Model answer:** A reusable SEO component enforces consistency and reduces duplication. Without it, every page has 15-20 lines of near-identical head tags, and any change (adding a new meta tag, fixing a format) requires editing every page. A component centralizes the logic: defaults for missing values, proper formatting (title truncation, description length), correct attribute names (it is easy to typo `og:title` as `og:Title`), and TypeScript enforcement of required fields. The component becomes the single source of truth for SEO markup across the entire site.
+
 ## Deep Dive
 
 **Why this matters at scale.** A typed SEO component enforces required meta tags. Missing title or description is a compile error, not a runtime discovery.
@@ -66,6 +102,13 @@ A wrong title on a button makes one user frown. A wrong `og:image` URL breaks li
 **Performance implications.** Zero DOM overhead — the component renders only <head> elements. TypeScript checking is build-time only.
 
 **Connection to other modules.** Module 13.2 teaches the <svelte:head> foundation. Module 13.4 extends with social tags.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the SEO component emits no DOM
 

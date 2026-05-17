@@ -81,6 +81,38 @@ For each URL, produce a `{ loc, lastmod, changefreq, priority }` object, then fo
 
 A single sitemap file can contain at most **50,000 URLs** and must be under **50 MB uncompressed**. Past that, Google requires you to split into multiple sitemaps and publish a **sitemap index** at `sitemap.xml` that references the child sitemaps. For a course marketing site this is never a concern; for an e-commerce site with a million SKUs it is a hard requirement. The mini-build below produces a single sitemap — extending to an index is a one-file refactor.
 
+### 1.x What Google does under the hood with sitemaps
+
+Google's sitemap processing:
+
+1. **Discovery:** Google finds your sitemap via `robots.txt` (`Sitemap: https://example.com/sitemap.xml`) or via Google Search Console submission.
+2. **Fetch:** Googlebot fetches the sitemap URL.
+3. **Parse:** Google parses the XML and extracts all `<url>` entries with their `<loc>`, `<lastmod>`, `<changefreq>`, and `<priority>` values.
+4. **Crawl queue:** Each URL is added to Google's crawl queue. `<lastmod>` influences crawl priority — recently modified pages are crawled sooner. `<changefreq>` and `<priority>` are treated as hints, not directives.
+5. **Limits:** A single sitemap file can contain up to 50,000 URLs or 50 MB uncompressed. For larger sites, use a sitemap index file that references multiple sitemap files.
+
+In SvelteKit, generate sitemaps dynamically from a `+server.ts` endpoint that queries your database for all published URLs:
+
+```ts
+// src/routes/sitemap.xml/+server.ts
+export const GET: RequestHandler = async () => {
+    const posts = await db.posts.findMany({ select: { slug: true, updatedAt: true } });
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        ${posts.map(p => `<url><loc>https://example.com/blog/${p.slug}</loc><lastmod>${p.updatedAt.toISOString()}</lastmod></url>`).join('')}
+    </urlset>`;
+    return new Response(xml, { headers: { 'Content-Type': 'application/xml' } });
+};
+```
+
+> **In production sidebar.** Our dynamic sitemap generates 340 URLs from the database. We submit it to Google Search Console and Bing Webmaster Tools. Within 48 hours of adding a new blog post, Google discovers and indexes it via the sitemap — compared to 1-2 weeks without a sitemap (relying on Google to discover the page via links). The `<lastmod>` dates are accurate because they come from the database's `updatedAt` column, which encourages Google to re-crawl updated content promptly.
+
+### 1.x Common interview question
+
+**Q: "How do you generate a dynamic sitemap in SvelteKit?"**
+
+**Model answer:** Create a `+server.ts` file at `src/routes/sitemap.xml/+server.ts`. Export a `GET` handler that queries your database for all published pages, generates XML following the Sitemaps protocol, and returns it with `Content-Type: application/xml`. Each `<url>` entry includes a `<loc>` (the full URL), `<lastmod>` (when the page was last updated), and optionally `<changefreq>` and `<priority>`. Reference the sitemap in `robots.txt` with `Sitemap: https://example.com/sitemap.xml`. For sites with more than 50,000 URLs, use a sitemap index that references multiple sitemap files. The sitemap is dynamic — it always reflects the current database state, so new pages are discovered automatically.
+
 ## Deep Dive
 
 **Why this matters at scale.** Sitemaps tell crawlers which pages exist, how often they change, and which are important. Dynamic generation ensures coverage of all routes.
@@ -92,6 +124,48 @@ A single sitemap file can contain at most **50,000 URLs** and must be under **50
 **Performance implications.** Sitemap generation runs once per request. For large sites, cache aggressively. The XML serialization cost scales linearly with URL count.
 
 **Connection to other modules.** Module 10.1's endpoint pattern provides the foundation. Module 9A.10's entries() enumerates dynamic routes.
+
+
+
+**Sitemap best practices:**
+
+1. **Only include indexable pages.** Do not include pages with `noindex`, pages behind authentication, or redirect URLs. Google will waste crawl budget on them.
+2. **Use accurate `lastmod` dates.** Only update `lastmod` when the page content actually changes. Updating it on every build (even without content changes) trains Google to ignore it.
+3. **Include all content types.** Blog posts, product pages, category pages, author pages — anything that should appear in search results belongs in the sitemap.
+4. **Exclude low-value pages.** Paginated archive pages, tag pages with few posts, and parameter variations typically do not need to be in the sitemap.
+5. **Submit via Search Console.** After deploying, submit your sitemap URL in Google Search Console. Monitor the "Sitemaps" section for processing errors.
+
+**Sitemap index for large sites.** If your site has more than 50,000 URLs, create a sitemap index that references multiple sitemap files:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <sitemap><loc>https://example.com/sitemap-blog.xml</loc></sitemap>
+    <sitemap><loc>https://example.com/sitemap-products.xml</loc></sitemap>
+</sitemapindex>
+```
+
+Each sub-sitemap can contain up to 50,000 URLs. Google processes them independently.
+
+**Image sitemaps.** For image-heavy sites, include image information in the sitemap:
+
+```xml
+<url>
+    <loc>https://example.com/product/widget</loc>
+    <image:image>
+        <image:loc>https://example.com/images/widget.jpg</image:loc>
+        <image:title>Widget product photo</image:title>
+    </image:image>
+</url>
+```
+
+This helps Google discover and index images that might not be found via HTML crawling.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the sitemap has no UI, but the preview page does
 

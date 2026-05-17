@@ -114,6 +114,26 @@ A common mistake: the fallback UI is a single paragraph that is 40px tall, repla
 - **Be clearly labeled** as an error state, not empty content. Users should understand that something failed, not that the section is intentionally blank.
 - **Provide an action** when one makes sense (retry button, link to support).
 
+### 1.x What Svelte does under the hood — boundary catches vs uncaught errors
+
+`<svelte:boundary>` works differently depending on where the error occurs:
+
+**During SSR:** If a component inside a boundary throws during server-side rendering, Svelte catches the error and renders the `failed` snippet instead. The boundary acts as a try/catch around the component tree during the render pass.
+
+**During hydration:** If a component throws during client-side hydration, the boundary catches it and renders the `failed` snippet. The rest of the page stays interactive.
+
+**During a reactive update:** If an error occurs inside a `$effect` or event handler within a bounded component, the boundary catches it. The component's subtree is replaced with the `failed` snippet.
+
+**Without a boundary:** Uncaught errors during SSR crash the request and SvelteKit renders the `+error.svelte` page. Uncaught errors during client-side updates crash the component tree — the page may become partially or fully unresponsive.
+
+The boundary prevents cascading failures: a broken widget does not take down the entire page.
+
+### 1.x Common interview question
+
+**Q: "What is `<svelte:boundary>` and how does it differ from `+error.svelte`?"**
+
+**Model answer:** `<svelte:boundary>` is a component-level error boundary that catches errors within its subtree and renders a fallback snippet instead of crashing. `+error.svelte` is a route-level error page that renders when a load function throws or a page-level error occurs. The key differences: `<svelte:boundary>` is inline — it wraps specific components and the rest of the page stays intact. `+error.svelte` replaces the entire page content. Use `<svelte:boundary>` for isolating risky components (third-party widgets, user-generated content renderers) so a failure in one does not crash the page. Use `+error.svelte` for route-level errors (404, 500) where the entire page cannot render. `<svelte:boundary>` also supports a `pending` snippet for async SSR loading states, giving it double duty as both error and suspense boundary.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 50-component production app that serves thousands of users, any single component can fail at any time — a network timeout, a null reference on unexpected data, a third-party script that corrupts the DOM. Without boundaries, one broken widget crashes the entire page. Users see a blank white screen or the nearest `+error.svelte` page. With per-widget boundaries, 49 out of 50 widgets continue working, and the user can still accomplish their task. This is the difference between "the app is down" and "one widget is temporarily unavailable." For revenue-generating pages, this difference can be worth thousands of dollars per hour of degraded service.
@@ -125,6 +145,13 @@ A common mistake: the fallback UI is a single paragraph that is 40px tall, repla
 **Performance implications.** Error boundaries have zero performance cost when no error occurs. The boundary adds a thin wrapper in the component tree and a try-catch at the render level, but modern JavaScript engines optimize try-catch in the no-throw path to zero overhead. The only cost is during an actual error: the boundary must tear down the failed subtree, run cleanup functions, and mount the fallback UI. This is a one-time cost per error occurrence and is negligible compared to the alternative (the entire page crashing and requiring a full reload).
 
 **Connection to other modules.** Error boundaries connect to Module 4 (try/catch fundamentals), Module 8 Lesson 8.3 (hydration errors caught by boundaries), Module 9A (load function errors handled by `+error.svelte` complement), and Module 13 (SEO — a crashed page produces no indexable content; a gracefully degraded page still has content for crawlers). The capstone project wraps every third-party integration (analytics, chat widget, 3D scene) in boundaries, ensuring that a failure in any external dependency never takes down the core application.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — A card that fails gracefully
 

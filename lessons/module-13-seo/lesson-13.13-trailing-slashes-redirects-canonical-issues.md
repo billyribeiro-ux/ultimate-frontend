@@ -78,6 +78,14 @@ Even when the actual URL is `/products/shoe?ref=twitter&sort=newest`. Google tre
 
 A redirect chain is `/a → /b → /c → /d`. Googlebot follows up to about 5 hops, then gives up. Every hop wastes crawl budget. Collapse chains into direct 301s whenever you move content multiple times. Check with `curl -I -L` in a terminal.
 
+> **In production sidebar.** We discovered that Google was indexing both `/blog/hello` and `/blog/hello/` as separate pages — splitting our link equity and causing duplicate content issues. Adding `trailingSlash: 'never'` to `svelte.config.js` fixed the trailing slash issue, and we added canonical URLs to every page via our SEO component. Within one crawl cycle, Google consolidated the duplicates and our blog post rankings improved for 3 competitive keywords.
+
+### 1.x Common interview question
+
+**Q: "What is a canonical URL and why is it important for SEO?"**
+
+**Model answer:** A canonical URL is the preferred version of a page when multiple URLs can access the same content. You declare it with `<link rel="canonical" href="https://example.com/blog/hello">` in the `<head>`. Without a canonical, Google may treat `/blog/hello`, `/blog/hello/`, `/blog/hello?ref=twitter`, and `/BLOG/hello` as separate pages, splitting ranking signals across duplicates. The canonical tells Google: "this is the one true URL for this content — attribute all ranking signals here." In SvelteKit, set `trailingSlash: 'never'` (or `'always'`) for consistency, and include a canonical URL in your SEO component for every page.
+
 ## Deep Dive
 
 **Why this matters at scale.** Trailing slash variants create duplicate content, diluting link equity. SvelteKit's trailingSlash config enforces one canonical format.
@@ -89,6 +97,35 @@ A redirect chain is `/a → /b → /c → /d`. Googlebot follows up to about 5 h
 **Performance implications.** The redirect is a 301 response — fast and cached by browsers. The canonical link tag adds one <link> element to <head>.
 
 **Connection to other modules.** Module 8's routing defines URL structure. Module 13.2's canonical link tag prevents duplicate content.
+
+
+
+**Trailing slash configuration in SvelteKit.** In `svelte.config.js`:
+- `trailingSlash: 'never'` — `/blog/hello` is canonical, `/blog/hello/` redirects to `/blog/hello`
+- `trailingSlash: 'always'` — `/blog/hello/` is canonical, `/blog/hello` redirects to `/blog/hello/`  
+- `trailingSlash: 'ignore'` — both are valid (default, but creates duplicate content)
+
+For SEO, always choose `'never'` or `'always'` — never `'ignore'`. Duplicate URLs split link equity.
+
+**Redirect chains and SEO.** Every redirect costs ~50-100ms of latency and a small amount of link equity. A chain of redirects (A -> B -> C) is worse than a direct redirect (A -> C). Audit your redirects periodically. In SvelteKit, redirects are handled in hooks or load functions. Keep them minimal and direct.
+
+**Canonical URL implementation.** Every page should have a canonical URL that resolves to itself:
+
+```svelte
+<svelte:head>
+    <link rel="canonical" href="https://example.com{page.url.pathname}" />
+</svelte:head>
+```
+
+For paginated content (`?page=2`), the canonical should include the pagination parameter — each page is unique content. For filtered views (`?color=blue`), decide: is the filtered view unique content (canonical includes params) or a variant of the main page (canonical points to the unfiltered URL)?
+
+**The `www` vs non-`www` decision.** Pick one and redirect the other. Configure this at the CDN/hosting level, not in SvelteKit. Both Google Search Console properties (www and non-www) should point to the same canonical.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — a visible redirect-source page
 

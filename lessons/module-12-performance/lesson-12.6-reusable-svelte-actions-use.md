@@ -180,6 +180,40 @@ If the parameter object is reactive (for example, a `$state` that changes over t
 
 Actions are *the* right place to touch the DOM directly. They run once per element, clean up on unmount, and do not need to be wrapped in an effect that competes with the component's other reactive work. An `IntersectionObserver` inside an action is vastly cheaper than a scroll listener on `window` that measures every element on every frame. A `clickOutside` with a single document listener shared across many nodes is cheaper than one listener per node. Every action you write is a small performance win because it uses a lower-level DOM API than a naive effect would.
 
+### 1.x What Svelte does under the hood with actions
+
+A Svelte action is a function that receives a DOM element and optional parameters. The lifecycle:
+
+1. **Mount:** Svelte calls `action(node, params)` when the element is added to the DOM. The function can set up event listeners, observers, or any imperative DOM logic.
+2. **Update:** If the action returns an object with an `update(newParams)` method, Svelte calls it whenever the parameters change reactively.
+3. **Destroy:** If the action returns an object with a `destroy()` method, Svelte calls it when the element is removed from the DOM.
+
+```ts
+function tooltip(node: HTMLElement, text: string) {
+    // Setup: add event listeners
+    const show = () => { /* show tooltip */ };
+    const hide = () => { /* hide tooltip */ };
+    node.addEventListener('mouseenter', show);
+    node.addEventListener('mouseleave', hide);
+    
+    return {
+        update(newText: string) { text = newText; },
+        destroy() {
+            node.removeEventListener('mouseenter', show);
+            node.removeEventListener('mouseleave', hide);
+        }
+    };
+}
+```
+
+> **In production sidebar.** We have 8 reusable actions in our SvelteKit app: `clickOutside` (close dropdowns), `tooltip` (hover text), `autoFocus` (focus on mount), `longPress` (touch hold), `intersectionObserver` (lazy loading), `clipboard` (copy to clipboard), `resizeObserver` (responsive components), and `trapFocus` (modal focus trapping). Each is 15-40 lines. They are imported across 30+ components. Without actions, each component would implement these behaviors inline, duplicating imperative DOM logic throughout the codebase.
+
+### 1.x Common interview question
+
+**Q: "What is a Svelte action, and how does it differ from a component?"**
+
+**Model answer:** A Svelte action is a function applied to a DOM element with the `use:` directive. It receives the element and optional parameters, and can set up imperative DOM behavior (event listeners, observers, third-party library integration). Unlike a component, an action does not render markup — it enhances an existing element. Actions have a lifecycle: they run on mount, can update when parameters change, and clean up on destroy. Use actions for cross-cutting DOM concerns (tooltips, click-outside detection, focus trapping) that apply to any element regardless of what component renders it. Use components for rendering new DOM structure with encapsulated state and markup.
+
 ## Deep Dive
 
 **Why this matters at scale.** Actions are the most underutilized Svelte feature. They encapsulate DOM-level behavior: click-outside, intersection, tooltip positioning, focus trap.
@@ -191,6 +225,13 @@ Actions are *the* right place to touch the DOM directly. They run once per eleme
 **Performance implications.** Actions add zero overhead when not active. Each action is one DOM listener setup on mount and one cleanup on unmount. No per-frame cost.
 
 **Connection to other modules.** Module 7.11-12 taught GSAP actions. This generalizes to any DOM behavior.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — A tooltip, a click-outside dropdown, and an intersect fade-in
 

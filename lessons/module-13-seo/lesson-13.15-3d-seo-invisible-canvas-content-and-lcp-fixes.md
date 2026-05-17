@@ -61,6 +61,24 @@ The `contentUrl` points to the poster image — a real 2D asset Google can fetch
 
 Lighthouse SEO is a 100-point deterministic audit. Score 100 by hitting every checkbox: document title, meta description, viewport, crawlable links, valid hreflang (if you use it), image alt attributes, structured data. Nothing on that list checks whether a canvas is semantic. As long as the *page* around the canvas is semantic, you get 100 — even with a WebGL hero. This lesson proves that claim by building exactly such a page.
 
+### 1.x What search engines see with canvas content
+
+When a page includes a `<canvas>` element (for 3D rendering via Threlte/Three.js):
+
+1. **Search engines see an empty `<canvas>` tag.** Crawlers do not execute WebGL. The 3D scene is invisible to them.
+2. **LCP is affected.** If the canvas is the largest element above the fold, LCP measures how long until the canvas renders — which depends on JavaScript execution and WebGL initialization.
+3. **Content is missing.** Product configurators, 3D visualizations, and interactive scenes contain no crawlable text.
+
+The fix: provide invisible-to-users, visible-to-crawlers alternative content. Use `aria-label` on the canvas, add a `<noscript>` block with a static image and text description, and ensure the page has sufficient text content outside the canvas for Google to understand the topic.
+
+> **In production sidebar.** Our product configurator page initially had an LCP of 4.2s because the LCP element was the 3D canvas. Google saw an empty `<canvas>` with no content. We fixed both issues: (1) Added a hero image above the canvas that serves as the LCP element (loads in 1.2s). (2) Added a `<noscript>` block with a product image and description for crawlers. (3) Lazy-loaded the 3D canvas so it does not block LCP. Google now indexes the product description and image, and our LCP improved from 4.2s to 1.5s.
+
+### 1.x Common interview question
+
+**Q: "How do you make a 3D canvas-based page SEO-friendly?"**
+
+**Model answer:** Canvas content is invisible to search engines because crawlers do not execute WebGL. Three fixes: (1) Add text content outside the canvas that describes what the 3D scene shows — product name, features, specifications. This gives Google something to index. (2) Add a `<noscript>` block with a static image and alt text as a fallback for non-JS environments. (3) Ensure the canvas is not the LCP element — place a fast-loading image or heading above it. (4) Use `aria-label` on the canvas for accessibility. (5) Lazy-load the 3D libraries with dynamic import so they do not block the initial render. The goal: the page is useful and indexable even without the 3D scene.
+
 ## Deep Dive
 
 **Why this matters at scale.** Crawlers cannot see canvas pixels. All meaningful content must exist as HTML text alongside the 3D scene.
@@ -72,6 +90,13 @@ Lighthouse SEO is a 100-point deterministic audit. Score 100 by hitting every ch
 **Performance implications.** The poster-image swap adds one image request. The 3D scene loads independently without blocking LCP.
 
 **Connection to other modules.** Module 12.12's Threlte performance ensures 3D does not block LCP. Module 13.10's CWV addresses poster timing.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the poster fills the canvas slot until the scene loads
 

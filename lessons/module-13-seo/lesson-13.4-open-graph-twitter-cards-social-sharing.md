@@ -73,6 +73,24 @@ Before you ship, always test:
 
 Facebook and LinkedIn both cache OG data aggressively. After a change, click "Scrape again" in the debugger or the preview will show the stale version for hours.
 
+### 1.x What social platforms do under the hood with OG tags
+
+When you share a URL on Twitter, Facebook, Slack, or Discord:
+
+1. The platform's crawler fetches the URL (a simple HTTP GET, no JavaScript execution).
+2. It parses the HTML `<head>` for Open Graph (`og:`) and Twitter Card (`twitter:`) meta tags.
+3. It extracts the title, description, image URL, and type.
+4. It fetches the image URL separately and generates a preview card.
+5. The card is cached — typically for hours to days. Updating your OG tags does not immediately update existing shares.
+
+Key requirements: `og:image` must be an absolute URL (relative URLs fail on most platforms). The image should be at least 1200x630 pixels for `summary_large_image` cards. The description should be under 200 characters.
+
+### 1.x Common interview question
+
+**Q: "What are Open Graph tags, and why must the `og:image` URL be absolute?"**
+
+**Model answer:** Open Graph tags are HTML meta tags in the `<head>` that control how a URL appears when shared on social media. Key tags: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`. The `og:image` URL must be absolute (including `https://`) because social media crawlers fetch the image from their own servers, not from the user's browser. A relative URL like `/images/hero.jpg` has no meaning without the origin. The crawler needs `https://example.com/images/hero.jpg` to locate the file. This is the most common OG tag mistake — and it results in link previews with no image.
+
 ## Deep Dive
 
 **Why this matters at scale.** OG tags control link previews on social media. og:image must be absolute and ideally 1200x630px.
@@ -84,6 +102,13 @@ Facebook and LinkedIn both cache OG data aggressively. After a change, click "Sc
 **Performance implications.** Meta tags are static HTML — zero runtime cost. The og:image URL triggers a separate fetch by the social platform's crawler.
 
 **Connection to other modules.** Module 13.3's SEO component contains these tags. Module 9's load functions provide dynamic data.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the preview card we design in CSS
 

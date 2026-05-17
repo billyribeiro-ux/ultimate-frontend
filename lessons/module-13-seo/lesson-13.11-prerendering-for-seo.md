@@ -67,6 +67,14 @@ SvelteKit calls `entries()` at build time, generates one HTML file per slug, and
 
 Setting `prerender = 'auto'` at the root layout tells SvelteKit to prerender any route it *can* — any route whose load function is deterministic and has no dynamic params it cannot discover. This is convenient for simple sites but opaque for complex ones; in production code prefer explicit per-route declarations.
 
+> **In production sidebar.** We prerender 280 of our 340 pages (blog posts, documentation, marketing pages). The prerendered pages serve from a CDN in < 10ms TTFB — faster than any SSR setup. The remaining 60 pages (dashboard, settings, user-specific content) use SSR. Google indexes prerendered pages within 24 hours of deployment because the HTML is static, complete, and fast. SSR pages take 3-5 days because Google must execute the server-side rendering pipeline. For SEO-critical content (blog, landing pages), prerendering is the optimal choice.
+
+### 1.x Common interview question
+
+**Q: "How does prerendering improve SEO compared to SSR?"**
+
+**Model answer:** Prerendered pages are static HTML files generated at build time and served from a CDN. They have the fastest possible TTFB (typically < 10ms from the edge) because no server-side computation runs at request time. Google and other crawlers receive the complete HTML instantly. SSR pages are rendered on each request, adding 50-500ms of server computation before the HTML is sent. While both SSR and prerendering produce crawlable HTML (unlike client-side rendering), prerendering wins on speed — and page speed is a Google ranking factor. Prerender any page whose content does not change between requests (blog posts, docs, marketing pages). Use SSR for pages that need per-request data (dashboards, user profiles).
+
 ## Deep Dive
 
 **Why this matters at scale.** Prerendered pages have zero TTFB from CDN edge. Best possible LCP. No server runtime means infinite scalability.
@@ -78,6 +86,22 @@ Setting `prerender = 'auto'` at the root layout tells SvelteKit to prerender any
 **Performance implications.** Build time scales with page count. 1000 pages might take 2-5 minutes. Each page is a static file with sub-10ms serving time.
 
 **Connection to other modules.** Module 9A.10 teaches prerendering in depth. Module 12.11's static adapter generates output.
+
+
+
+**When to prerender and when not to.** Prerender when: content is the same for every visitor, changes infrequently (blog posts, docs, marketing pages, legal pages). Do not prerender when: content depends on the user (dashboard, settings), changes frequently (product prices, stock levels), or requires request-time data (cookies, headers). A mixed approach is common: prerender the marketing site and blog, SSR the application.
+
+**The build-time cost of prerendering.** Each prerendered page runs its load function during build. A blog with 500 posts means 500 load function executions at build time. If each takes 100ms, the build adds 50 seconds. For large sites, optimize: cache external API responses, batch database queries, parallelize with SvelteKit's built-in concurrency. For very large sites (10,000+ pages), consider ISR (Incremental Static Regeneration) via your adapter.
+
+**Prerendering and the SEO advantage.** Prerendered pages have the lowest possible TTFB because they are served directly from CDN cache — no server computation, no database query, no SSR pipeline. Google's PageSpeed Insights consistently scores prerendered pages higher than SSR pages. For SEO-critical landing pages, prerendering is the optimal strategy.
+
+**Testing prerendered output.** After `pnpm build`, inspect the files in your output directory. Check that the HTML contains the expected content, meta tags, and structured data. Use `pnpm preview` to serve the prerendered files locally and verify they render correctly. This is your quality gate before deployment.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the prerendered page looks no different
 

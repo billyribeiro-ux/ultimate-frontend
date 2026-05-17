@@ -151,6 +151,35 @@ Open Chrome DevTools → Performance. Record a short interaction (click a button
 
 A useful trick: temporarily add `console.log('effect fired', Date.now())` inside the effect. Count the logs per interaction. Before your fix: 47. After adding `untrack` around the accidental reader: 1.
 
+### 1.x What Svelte does under the hood with effects
+
+When the compiler processes `$effect(() => { ... })`, it creates a subscription that:
+
+1. **Runs the effect function** and tracks every reactive value read during execution (dependencies).
+2. **Registers a cleanup** if the effect returns a function.
+3. **Schedules re-runs** when any dependency changes — but only after the current microtask completes (batched).
+4. **Runs cleanup** before each re-run and on component unmount.
+
+The most common performance mistake: reading too many dependencies inside an effect. If your effect reads 10 reactive values but only needs to react to 1, it re-runs 10x more often than necessary. The fix: `$effect` only tracks what it reads — restructure the code so the effect reads only what it needs:
+
+```ts
+// Bad: re-runs when ANY state changes
+$effect(() => { console.log(name, age, email, phone, address); });
+
+// Good: re-runs only when name changes
+$effect(() => { console.log(name); });
+// Separate effect for age
+$effect(() => { console.log(age); });
+```
+
+> **In production sidebar.** We had an effect that recalculated a dashboard chart whenever any filter changed. The effect read 8 filter values. Changing any single filter triggered a full chart recalculation — 200ms of work. We split it into two effects: one that computed the filtered dataset (reading 8 values), and one that rendered the chart (reading only the dataset). Changing filters that did not affect the data (like display options) no longer triggered the expensive chart render. The perceived responsiveness improved from 200ms to 40ms for display-only changes.
+
+### 1.x Common interview question
+
+**Q: "How does Svelte track dependencies in `$effect`, and how do you prevent unnecessary re-runs?"**
+
+**Model answer:** Svelte tracks dependencies by recording every reactive value read during the effect's execution. The next time any of those values changes, the effect re-runs. To prevent unnecessary re-runs, minimize the number of reactive values read inside the effect. Split large effects into smaller, focused ones that each read only their relevant dependencies. Use `$derived` for computations that other effects depend on — this creates an intermediate cached value that only recomputes when its own dependencies change, preventing downstream effects from running unnecessarily. The key principle: an effect should do one thing and read only the values it needs for that one thing.
+
 ## Deep Dive
 
 **Why this matters at scale.** Effects that read too many values rerun unnecessarily. Minimize the reactive surface: read only needed values, extract computation to $derived.
@@ -162,6 +191,13 @@ A useful trick: temporarily add `console.log('effect fired', Date.now())` inside
 **Performance implications.** An effect with N dependencies reruns when any one changes. Reducing dependencies from 10 to 3 eliminates 70% of potential reruns.
 
 **Connection to other modules.** Module 2 explains the dependency graph. Module 12.5's $derived provides the primary optimization.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — A dashboard with visible effect counts
 

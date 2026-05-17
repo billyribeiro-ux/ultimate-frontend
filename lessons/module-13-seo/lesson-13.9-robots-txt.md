@@ -70,6 +70,27 @@ Since 2023, major AI crawlers — OpenAI's GPTBot, Google-Extended (for Gemini t
 
 Just like the sitemap, robots.txt is best served from a `+server.ts` endpoint. The advantages: environment-aware content (staging servers can Disallow everything while production only blocks admin routes), and automatic sitemap URL generation from the request origin.
 
+### 1.x What search engines do under the hood with robots.txt
+
+When a search engine crawler visits your site:
+
+1. **First request:** The crawler fetches `/robots.txt` before crawling any other page.
+2. **Parsing:** The crawler reads `User-agent` directives to find rules that apply to it. `User-agent: *` applies to all crawlers. `User-agent: Googlebot` applies only to Google.
+3. **Disallow rules:** `Disallow: /admin` tells the crawler not to request any URL starting with `/admin`. The crawler respects this voluntarily — it is not an access control mechanism.
+4. **Allow rules:** `Allow: /admin/public` overrides a broader `Disallow`. More specific rules take precedence.
+5. **Sitemap directive:** `Sitemap: https://example.com/sitemap.xml` tells the crawler where to find your sitemap.
+6. **Caching:** Crawlers cache `robots.txt` for up to 24 hours. Changes take effect after the cache expires.
+
+In SvelteKit, serve `robots.txt` as a prerendered route or a static file in the `static/` directory.
+
+> **In production sidebar.** Our `robots.txt` blocks `/api/` (internal API endpoints), `/admin/` (admin panel), and `/preview/` (draft content). We also block `User-agent: GPTBot` and `User-agent: ChatGPT-User` to prevent AI training crawlers from scraping our content. The `Sitemap` directive points to our dynamic sitemap. One mistake we caught early: we accidentally had `Disallow: /` in a staging environment's `robots.txt` that was deployed to production for 2 hours. Google deindexed 30 pages before we fixed it. Lesson: robots.txt changes affect indexing immediately and can be destructive. Always review before deploying.
+
+### 1.x Common interview question
+
+**Q: "What is `robots.txt` and what is a common mistake when using it?"**
+
+**Model answer:** `robots.txt` is a text file at the root of a website that tells search engine crawlers which URLs they may or may not request. It uses `User-agent`, `Allow`, `Disallow`, and `Sitemap` directives. A common mistake: using `Disallow` to "hide" sensitive pages. `robots.txt` is public — anyone can read it, and it only tells well-behaved crawlers to not fetch those URLs. Malicious actors will ignore it. It is not a security mechanism. Another common mistake: accidentally deploying `Disallow: /` (block everything) to production, which can deindex your entire site within hours. Always test robots.txt changes in staging first.
+
 ## Deep Dive
 
 **Why this matters at scale.** robots.txt is the first file crawlers request. Incorrect configuration can block your entire site from indexing.
@@ -81,6 +102,40 @@ Just like the sitemap, robots.txt is best served from a `+server.ts` endpoint. T
 **Performance implications.** robots.txt is a static text file with zero processing cost. Serve it as a prerendered +server.ts endpoint.
 
 **Connection to other modules.** Module 13.8's sitemap URL is referenced here. Module 10.1's endpoint pattern generates the file.
+
+
+
+**Robots.txt best practices for SvelteKit:**
+
+```txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_app/
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+Key rules: Block `/api/` (internal endpoints have no SEO value), block `/admin/` (authenticated pages), block `/_app/` (SvelteKit's internal assets). Block AI training crawlers if you do not want your content used for model training.
+
+**Static file vs dynamic endpoint.** You can serve `robots.txt` as a static file in `static/robots.txt` or as a dynamic endpoint at `src/routes/robots.txt/+server.ts`. The static file is simpler and always consistent. The dynamic endpoint lets you vary rules by environment (block everything on staging, allow on production).
+
+**Testing robots.txt.** Use Google's `robots.txt` Tester in Search Console to verify your rules. Test specific URLs against your rules to confirm they are allowed or blocked as expected. Remember: changes to `robots.txt` take up to 24 hours to be reflected by crawlers.
+
+**The Crawl-delay directive.** Some crawlers (Bing) support `Crawl-delay: 10` (wait 10 seconds between requests). Google ignores this directive — use Search Console's crawl rate settings instead. Do not rely on `Crawl-delay` for rate limiting; use proper rate limiting at the server level.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — robots.txt has no UI
 

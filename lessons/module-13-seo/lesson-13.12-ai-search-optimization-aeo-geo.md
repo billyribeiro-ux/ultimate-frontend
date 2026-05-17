@@ -79,6 +79,27 @@ AEO does not replace SEO — it extends it. Every AEO technique *also* helps tra
 
 The only AEO-specific technique that has no traditional SEO benefit is optimizing for citation format — making your content "quotable" in a way that AI engines prefer to extract. This is a bonus, not a trade-off.
 
+### 1.x What AI systems do under the hood — how AI Overviews select cited sources
+
+Google's AI Overviews and similar AI search features (Perplexity, Bing Chat) select cited sources through:
+
+1. **Content quality signals:** E-E-A-T factors (author credentials, publication authority, content depth).
+2. **Structured data:** JSON-LD structured data helps AI systems understand what a page is about and extract key facts.
+3. **Clear, factual writing:** AI systems prefer content that states facts directly rather than burying them in marketing language.
+4. **Heading structure:** Well-organized H2/H3 headings help AI systems extract specific answers to specific questions.
+5. **FAQ markup:** FAQPage JSON-LD gives AI systems pre-structured question-answer pairs to cite.
+6. **Freshness:** Recent publication dates (from `<time>` elements or `dateModified` in JSON-LD) favor newer content.
+
+To optimize for AI citation, write content that directly answers common questions, structure it with clear headings, include FAQ sections with JSON-LD markup, and maintain E-E-A-T signals.
+
+> **In production sidebar.** After implementing AEO (Answer Engine Optimization) on our technical documentation — adding FAQ JSON-LD, restructuring content around common questions, and ensuring every page has a direct answer in the first paragraph — we saw our content cited in Google AI Overviews for 12 different queries within 2 months. Each AI Overview citation drives traffic because users click through for the full article. The optimization was primarily content restructuring, not code — but SvelteKit's load functions and JSON-LD component made the structured data implementation systematic.
+
+### 1.x Common interview question
+
+**Q: "What is AEO (Answer Engine Optimization) and how does it differ from traditional SEO?"**
+
+**Model answer:** AEO optimizes content for AI-powered search systems (Google AI Overviews, Perplexity, Bing Chat) that extract and cite information directly in their responses. Traditional SEO focuses on ranking URLs in a list of blue links. AEO focuses on being cited as a source in AI-generated answers. The techniques overlap but differ in emphasis: AEO prioritizes direct answers to questions (AI systems extract clear, factual statements), FAQ-structured content with JSON-LD markup (AI systems can identify Q&A pairs), and E-E-A-T signals (AI systems prefer authoritative sources). In SvelteKit, implement AEO by structuring content around questions, using FAQPage JSON-LD, and ensuring every page has a clear, direct answer in its first paragraph or section.
+
 ## Deep Dive
 
 **Why this matters at scale.** AI Overviews now appear on 25-40% of informational queries. For sites that depend on organic search traffic for revenue (blogs, SaaS documentation, e-commerce guides), losing visibility in Overviews means losing traffic to competitors who are cited instead. Conversely, being cited in an AI Overview can produce traffic equivalent to a top-3 organic ranking — from a single well-structured page. For a 20-page content site, optimizing the top 5 pages for AEO can produce measurable traffic increases within weeks of the pages being recrawled.
@@ -90,6 +111,13 @@ The only AEO-specific technique that has no traditional SEO benefit is optimizin
 **Performance implications.** AEO has zero direct performance cost — it is a content strategy, not a technical implementation. The technical implementations (FAQPage schema, structured headings, dateModified meta) are all zero-cost additions to the HTML. The indirect performance consideration: AI engines (like Google) penalize slow pages in their source selection. A page with poor Core Web Vitals is less likely to be cited in an AI Overview than an identical page with good scores. This means Module 12's performance optimizations directly support AEO success.
 
 **Connection to other modules.** AEO builds on Module 8 (SSR — AI engines read the HTML, not JavaScript-rendered content), Module 13 Lesson 13.6 (JSON-LD — FAQPage schema is the primary AEO signal), Module 13 Lesson 13.7 (E-E-A-T — expertise signals increase citation likelihood), and Module 12 (Core Web Vitals — fast pages are preferred sources). The capstone project includes an FAQ section with FAQPage schema, structured headings that match target queries, and visible freshness signals — a complete AEO implementation.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — the FAQ section as a component
 

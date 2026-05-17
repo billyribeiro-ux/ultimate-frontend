@@ -126,6 +126,26 @@ export const load: PageLoad = async ({ fetch, params }) => {
 
 The page component receives `data.articleSchema` and passes it directly to `<JsonLd data={data.articleSchema} />`. The structured data is always in sync with the page content because both come from the same data source.
 
+### 1.x What Google does under the hood with JSON-LD
+
+Google's Rich Results system processes JSON-LD as follows:
+
+1. **Crawl:** Googlebot fetches your page and extracts all `<script type="application/ld+json">` blocks from the HTML.
+2. **Parse:** Google parses the JSON-LD and validates it against Schema.org type definitions.
+3. **Index:** Valid structured data is associated with the page in Google's index.
+4. **Rich Results:** When the page appears in search results, Google uses the structured data to generate enhanced snippets: star ratings, price ranges, recipe cards, FAQ accordions, breadcrumb trails, event dates.
+5. **Rich Results Test:** You can preview how Google will display your structured data at https://search.google.com/test/rich-results. Paste your URL and see exactly which rich results are eligible.
+
+JSON-LD is Google's preferred format for structured data (over Microdata and RDFa). It is cleanly separated from HTML markup, making it easy to generate dynamically in SvelteKit load functions.
+
+> **In production sidebar.** We added JSON-LD structured data to our product pages (Product schema), blog posts (Article schema), and FAQ sections (FAQPage schema). Within 6 weeks of Google re-crawling, our product pages gained star ratings in search results (from review data), our blog posts gained publication dates and author names, and our FAQ pages gained expandable answers directly in Google. The click-through rate on product pages increased 28% — the star ratings made our results visually prominent. The total implementation effort: 4 hours to build a generic JSON-LD component and populate it from load function data.
+
+### 1.x Common interview question
+
+**Q: "What is JSON-LD structured data, and how does it improve SEO?"**
+
+**Model answer:** JSON-LD (JavaScript Object Notation for Linked Data) is a way to embed structured data in a web page using a `<script type="application/ld+json">` block. The data follows Schema.org vocabulary and describes the page's content in a machine-readable format — what type of content it is (Article, Product, FAQ, Recipe), its properties (title, author, price, rating), and its relationships. Google uses this data to generate Rich Results — enhanced search snippets with star ratings, prices, images, FAQ accordions, and more. Rich Results occupy more visual space in search results and have higher click-through rates. JSON-LD does not affect page rendering — it is invisible to users but critical for search engines.
+
 ## Deep Dive
 
 **Why this matters at scale.** In a 20-route content site, structured data is the difference between plain blue links in search results and rich snippets with star ratings, FAQ accordions, breadcrumbs, and publication dates. Rich snippets have measurably higher click-through rates (CTR) — studies consistently show 20-40% CTR improvement for results with rich snippets compared to plain results. For a site with 10,000 monthly search impressions, that is 2,000-4,000 additional clicks per month from the same ranking position. At scale, structured data is one of the highest-ROI SEO investments available.
@@ -137,6 +157,13 @@ The page component receives `data.articleSchema` and passes it directly to `<Jso
 **Performance implications.** JSON-LD has zero performance impact on rendering. It lives in a `<script>` tag with `type="application/ld+json"`, which the browser does not execute — it is treated as inert data. The only cost is the bytes in the HTML: a typical Article schema is 300-500 bytes, a BreadcrumbList is 200-400 bytes. For a total of 1-2 KB per page, this is negligible compared to even a small image. There is no JavaScript execution, no DOM manipulation, no layout cost. Structured data is the rare SEO technique that is entirely free of performance trade-offs.
 
 **Connection to other modules.** JSON-LD builds on Module 8 (SSR — structured data must be in the server-rendered HTML for crawlers to see it), Module 9A (load functions provide the data that JSON-LD schemas are built from), and Module 13 Lessons 13.3-13.5 (the SEO component system that JSON-LD integrates with). Lesson 13.7 adds E-E-A-T signals to Article schemas. Lesson 13.12 uses FAQPage schema as AEO fuel. The capstone project ships structured data on every content page, validated by the Rich Results Test.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — JSON-LD emits nothing visual
 

@@ -118,6 +118,26 @@ Before pushing a real deploy button, go through this short list:
 
 Once all ten are green, ship it.
 
+### 1.x What SvelteKit adapters do under the hood
+
+An adapter transforms SvelteKit's build output into a format suitable for a specific deployment target:
+
+1. **`adapter-node`:** Produces a standalone Node.js server. The output is a `build/` directory with `index.js` that starts an Express-like HTTP server. Deploy anywhere that runs Node.js: VPS, Docker, Railway, Fly.io.
+2. **`adapter-vercel`:** Produces Vercel Serverless Functions. Each route becomes a function. Static assets go to the CDN. Config is auto-generated as `vercel.json`.
+3. **`adapter-cloudflare`:** Produces Cloudflare Workers. Each route becomes a Worker handler. Uses the Workers runtime (V8 isolates, not Node.js).
+4. **`adapter-static`:** Produces static HTML files only. All routes must be prerenderable. No server-side code runs at request time. Deploy to any static host (GitHub Pages, Netlify, S3).
+5. **`adapter-auto`:** Detects your deployment platform from environment variables and picks the right adapter automatically.
+
+The adapter runs as the final step of `pnpm build`. It reads the server manifest (which routes exist, which are prerendered, which need SSR) and packages accordingly.
+
+> **In production sidebar.** We deploy to Vercel with `adapter-vercel`. Our 42-route app deploys in 45 seconds. Prerendered routes (about, blog, docs) are served from the edge CDN in < 10ms. SSR routes (dashboard, settings) run as Serverless Functions with a cold start of ~200ms and warm execution of ~50ms. We tried `adapter-node` on Railway first — it worked but cold starts were 800ms (full Node.js process startup). Vercel's function-per-route model keeps cold starts short because each function is small. The adapter choice directly affects TTFB and cold start performance.
+
+### 1.x Common interview question
+
+**Q: "What is a SvelteKit adapter, and how do you choose the right one?"**
+
+**Model answer:** A SvelteKit adapter transforms the build output for a specific deployment target. `adapter-node` produces a standalone Node.js server for VPS or Docker deployments. `adapter-vercel` and `adapter-cloudflare` produce serverless functions for their respective platforms. `adapter-static` produces only HTML files for static hosting. Choose based on your deployment target: if you deploy to Vercel, use `adapter-vercel`. If you run your own server, use `adapter-node`. If the entire site is static, use `adapter-static`. The adapter does not change how you write code — routes, load functions, and components are the same regardless of adapter. Only the deployment packaging differs.
+
 ## Deep Dive
 
 **Why this matters at scale.** The adapter choice determines runtime: cold start, distribution, cost, and feature support. adapter-node, adapter-static, adapter-auto serve different needs.
@@ -129,6 +149,13 @@ Once all ten are green, ship it.
 **Performance implications.** adapter-node cold start is ~50ms. adapter-static is 0ms (CDN). Serverless adapters cold start 100-300ms. Runtime cost per request is lowest for adapter-node.
 
 **Connection to other modules.** Module 8's SSR options interact with adapter capabilities. Module 13's prerendering requires adapter support.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — Nothing to style
 

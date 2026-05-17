@@ -68,6 +68,26 @@ For most apps, `+page.server.ts` is the safer default. The crawler gets the SEO 
 
 SvelteKit gives every page access to every parent layout's data via `page.data`. If the root layout returns a default `seo` object and a page returns its own, the page's version replaces the default key-by-key. You can either do a full replace (the simple approach — the page sends a complete `seo` object) or a shallow merge (the layout reads both and spreads them). The mini-build below uses the full replace because it is the harder-to-get-wrong pattern.
 
+### 1.x What SvelteKit does under the hood — SEO data flow
+
+The data flow for SEO metadata in SvelteKit:
+
+1. **Load function runs** on the server. It fetches the page's data (post title, description, image URL) from the database or CMS.
+2. **Data is returned** as part of the load's return object: `return { post, seo: { title: post.title, description: post.excerpt } }`.
+3. **Component receives `data`** via `PageProps`. The `<SEO>` component receives its props from `data.seo`.
+4. **`<svelte:head>` renders** with the SEO data. Because load runs before rendering, the meta tags are in the initial HTML.
+5. **Crawler receives** fully formed HTML with correct meta tags on the first request. No JavaScript execution needed.
+
+The critical insight: SEO data must come from `load()`, not from `onMount()` or client-side fetching. Crawlers see the server-rendered HTML. If meta tags are set client-side, most crawlers will not see them.
+
+> **In production sidebar.** We generate SEO metadata from the same database query that produces the page content. The load function returns both `post` (for the page body) and `seo` (for the head). This ensures the SEO metadata always matches the page content — if the title changes in the database, both the visible heading and the `<title>` tag update in the same deploy. We also validate that every page has a title under 60 characters and a description under 160 characters, using Valibot schemas in the load function. Pages with missing or invalid SEO data throw a build-time warning.
+
+### 1.x Common interview question
+
+**Q: "Why should SEO metadata come from a SvelteKit load function rather than being set in the component?"**
+
+**Model answer:** Load functions run on the server before the HTML is rendered. Their return values are embedded in the initial HTML response. This means meta tags set from load data are present in the server-rendered HTML that crawlers receive. If SEO metadata were set in `onMount()` or a client-side effect, it would only appear after JavaScript executes — which most social media crawlers and some search engine crawlers do not do. Additionally, load functions provide typed data via `$types`, so the SEO component receives typed props with compile-time checking. Missing or mistyped metadata is caught at build time, not discovered months later when Google's snippet looks wrong.
+
 ## Deep Dive
 
 **Why this matters at scale.** Load functions create a single source of truth for both page content and meta tags. The data in <svelte:head> always matches what is rendered.
@@ -79,6 +99,13 @@ SvelteKit gives every page access to every parent layout's data via `page.data`.
 **Performance implications.** SEO data adds a few bytes to the load function return. The cost is the same as any other data property.
 
 **Connection to other modules.** Module 9A's load functions provide the data layer. Module 13.3's SEO component consumes the data.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — no new styles, pure data flow
 

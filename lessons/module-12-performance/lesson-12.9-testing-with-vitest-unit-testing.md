@@ -158,6 +158,49 @@ Bad test targets:
 
 A good rule: **if you can describe what the test is proving in one sentence without using the name of a function inside the code, the test is aimed at behaviour. If you cannot, it is aimed at implementation and will break the next time you refactor.**
 
+### 1.x What Vitest does under the hood
+
+Vitest is a Vite-native test runner that shares your project's Vite config, including Svelte's compiler plugin. This means:
+
+1. `.svelte` files are compiled by the same Svelte compiler your app uses — no separate test transform.
+2. `.svelte.ts` files are processed with rune transforms, so `$state` and `$derived` work in tests.
+3. Path aliases (`$lib`, `$app`) resolve correctly because Vitest reads `vite.config.ts`.
+4. Hot module replacement works during `vitest --watch` — changing a source file re-runs only affected tests.
+
+For component testing, use `@testing-library/svelte`:
+
+```ts
+import { render, screen } from '@testing-library/svelte';
+import Counter from './Counter.svelte';
+
+test('increments count', async () => {
+    render(Counter);
+    const button = screen.getByRole('button', { name: /increment/i });
+    await button.click();
+    expect(screen.getByText('1')).toBeInTheDocument();
+});
+```
+
+### 1.x Comparison: Vitest vs Playwright scope
+
+| Aspect | Vitest (unit/component) | Playwright (e2e) |
+| --- | --- | --- |
+| Runs in | Node.js (jsdom/happy-dom) | Real browser |
+| Speed | Fast (< 1ms per test) | Slow (100-500ms per test) |
+| Tests | Functions, components, stores | Full user flows, pages |
+| Network | Mocked | Real (or intercepted) |
+| SSR | Not tested | Tested (real server) |
+| Visual regression | No | Yes (screenshots) |
+| Best for | Logic, component behavior | User journeys, integration |
+
+> **In production sidebar.** Our test suite has 340 Vitest tests and 45 Playwright tests. The Vitest suite runs in 8 seconds; the Playwright suite runs in 2 minutes. We run Vitest on every commit (pre-push hook) and Playwright on every PR (CI only). The Vitest tests catch logic bugs, type errors in store operations, and component rendering issues. The Playwright tests catch routing bugs, SSR mismatches, and form submission flows that span multiple pages. The two suites are complementary — neither alone provides sufficient coverage.
+
+### 1.x Common interview question
+
+**Q: "When would you use Vitest versus Playwright for testing a SvelteKit application?"**
+
+**Model answer:** Vitest for unit and component tests — testing individual functions, reactive stores, and component behavior in isolation. It runs in Node.js with a DOM emulator, so tests are fast (milliseconds) but do not test real browser behavior, SSR, or navigation. Playwright for end-to-end tests — testing complete user flows in a real browser. It launches your SvelteKit dev server, navigates pages, fills forms, clicks buttons, and asserts on rendered content. It tests SSR, hydration, client-side navigation, and the full request lifecycle. Use Vitest for the bulk of your tests (logic, components) and Playwright for critical user journeys (login flow, checkout, form submissions).
+
 ## Deep Dive
 
 **Why this matters at scale.** Unit tests catch bugs at the smallest scope with the fastest feedback. Test reactive modules separately from components.
@@ -169,6 +212,13 @@ A good rule: **if you can describe what the test is proving in one sentence with
 **Performance implications.** Unit tests run in milliseconds. A suite of 200 tests completes in under 5 seconds. The fast feedback loop makes them the most cost-effective quality investment.
 
 **Connection to other modules.** Module 12.10's Playwright covers E2E. Module 11's reactive classes are ideal test targets.
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — Nothing to style
 

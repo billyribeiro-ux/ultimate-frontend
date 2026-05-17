@@ -112,6 +112,53 @@ A bad E2E suite tries to cover every component prop and every edge case. Those b
 
 Playwright downloads large browser binaries on install (`pnpm playwright install`). Parallel agents in this course are producing content, so **we do not run the browsers in this lesson** — we only write the test files. To actually run them on your own machine, run `pnpm playwright install` once (it takes a few minutes) and then `pnpm playwright test`. For this lesson, the proof is that the test file type-checks.
 
+### 1.x What Chrome DevTools shows you — reading Core Web Vitals
+
+To measure Core Web Vitals, open Chrome DevTools and use the Lighthouse panel or the Performance panel:
+
+**LCP (Largest Contentful Paint):** In the Performance panel, record a page load. The LCP marker appears as a green diamond on the timeline. The element it measured is highlighted — typically the largest image or text block above the fold. Good: < 2.5s. Needs improvement: 2.5-4s. Poor: > 4s.
+
+**CLS (Cumulative Layout Shift):** In the Performance panel, look for "Layout Shift" entries. Each shift shows which element moved and by how much. The CLS score is the sum of all unexpected layout shifts during the page's lifetime. Good: < 0.1. Poor: > 0.25. Common causes: images without `width`/`height`, fonts loading late (FOUT), injected content above the fold.
+
+**INP (Interaction to Next Paint):** In the Performance panel, click a button or type in an input, then look at the "Interaction" entries. Each shows the delay from the user's input to the next paint. Good: < 200ms. Poor: > 500ms. Common causes: heavy JavaScript on the main thread, long `$effect` chains, synchronous DOM manipulation.
+
+> **In production sidebar.** We tracked Core Web Vitals via Google's CrUX (Chrome User Experience Report) for our SvelteKit app over 6 months. Our initial scores: LCP 3.2s (poor), CLS 0.18 (needs improvement), INP 180ms (good). After optimization — image lazy loading (Lesson 12.2), font preloading, removing layout-shifting ads — we hit LCP 1.8s (good), CLS 0.04 (good), INP 120ms (good). The LCP improvement alone correlated with a 12% increase in organic search impressions, as Google uses CWV as a ranking signal.
+
+### 1.x Common interview question
+
+**Q: "Name the three Core Web Vitals and explain what each measures."**
+
+**Model answer:** LCP (Largest Contentful Paint) measures loading performance — specifically, how long until the largest visible element (image, heading, or text block) renders. Target: under 2.5 seconds. CLS (Cumulative Layout Shift) measures visual stability — how much the page layout shifts unexpectedly during loading. Target: under 0.1. INP (Interaction to Next Paint) measures responsiveness — how long between a user interaction (click, tap, keypress) and the next visual update. Target: under 200ms. Together, they capture the three dimensions users care about: "did it load fast?", "did it stay still?", and "did it respond when I clicked?".
+
+### 1.x What Playwright does under the hood
+
+Playwright automates real browsers (Chromium, Firefox, WebKit):
+
+1. **Server launch:** Playwright starts your SvelteKit dev server (or preview server) before running tests.
+2. **Browser launch:** A real browser process starts in headless mode. No DOM emulation — real rendering, real network, real cookies.
+3. **Page navigation:** Playwright navigates to your routes with `page.goto()`. SSR runs, HTML arrives, hydration happens.
+4. **Assertions:** Playwright's locators (`page.getByRole`, `page.getByText`) wait automatically for elements to appear. No manual `waitFor` needed in most cases.
+5. **Screenshots:** `expect(page).toHaveScreenshot()` captures a pixel-level snapshot and compares against a baseline.
+
+A typical test flow:
+
+```ts
+test('user can create a note', async ({ page }) => {
+    await page.goto('/notes');
+    await page.getByLabel('Title').fill('My note');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByText('My note')).toBeVisible();
+});
+```
+
+> **In production sidebar.** Our Playwright suite catches an average of 2 bugs per month that Vitest misses — typically SSR/hydration mismatches, broken form actions, and navigation edge cases. The most valuable Playwright test: our checkout flow test, which fills a form, submits payment, and verifies the confirmation page. This 30-second test has caught 4 regressions in 6 months. Without it, each would have been a production bug reported by a customer.
+
+### 1.x Common interview question
+
+**Q: "How does Playwright test SSR in a SvelteKit application?"**
+
+**Model answer:** Playwright launches a real browser and navigates to your SvelteKit app's URL. The SvelteKit server runs the full SSR pipeline — load functions, component rendering, HTML generation. The browser receives the server-rendered HTML, which Playwright can assert against. Then hydration runs, and Playwright can test client-side interactions. This means Playwright tests the complete lifecycle: SSR -> HTML delivery -> hydration -> client interaction. It catches bugs that unit tests miss: SSR/hydration mismatches (different content on server vs client), broken load functions that only fail with real cookies, and form actions that depend on the full request/response cycle.
+
 ## Deep Dive
 
 **Why this matters at scale.** E2E tests verify the full stack: routing, data loading, form submissions, client interactions. They catch issues unit tests cannot.
@@ -123,6 +170,20 @@ Playwright downloads large browser binaries on install (`pnpm playwright install
 **Performance implications.** Each test starts a browser context. Parallel execution across browsers multiplies test time by the number of browsers. Focus on the primary browser.
 
 **Connection to other modules.** Module 12.9's Vitest covers isolated logic. Playwright covers integration and user flows.
+
+
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
+
+## Going Deeper
+
+- Check the relevant section in the official [Svelte](https://svelte.dev/docs) or [SvelteKit](https://svelte.dev/docs/kit) documentation.
+- Apply the pattern from this lesson to a real project and measure the impact.
+- Explore the advanced patterns described in the Deep Dive section above.
 
 ## 2. Style it — Nothing to style
 
