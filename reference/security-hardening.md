@@ -720,4 +720,56 @@ Use this 20-item checklist before every production deployment. Each item should 
 
 ---
 
+---
+
+## 9. Common Security Misconceptions
+
+These myths persist in the developer community and lead to vulnerable applications. Each one represents a false sense of security that needs to be corrected.
+
+### "SSR protects my code from being seen"
+
+Server-side rendering means your component code runs on the server before being sent as HTML. But this does not mean your code is hidden. The compiled JavaScript is still sent to the client for hydration. Your component logic, template structure, and any values returned from load functions are fully visible in the browser's source view and network tab. SSR protects server-side secrets (database queries, API keys used in load functions) but does not hide client-side logic. If you need code to remain secret, it must run exclusively in `+page.server.ts`, `+server.ts`, or `hooks.server.ts` files, and the return values must not contain sensitive information.
+
+### "HTTPS makes my app secure"
+
+HTTPS encrypts data in transit between the client and server, preventing eavesdropping and man-in-the-middle attacks. But HTTPS does not protect against XSS (injection happens inside the browser), CSRF (the browser sends cookies regardless of encryption), SQL injection (the query is constructed on the server), or broken authentication (weak passwords, unsigned cookies). HTTPS is a necessary foundation — it is not sufficient on its own. Think of HTTPS as a locked delivery truck: it protects the package during transport, but if the package contains a bomb, the lock does not help.
+
+### "Framework X prevents XSS automatically"
+
+Svelte does automatically escape `{expression}` output, which prevents the most common form of XSS. But Svelte provides `{@html}`, which intentionally bypasses escaping. Every framework has an escape hatch — React has `dangerouslySetInnerHTML`, Vue has `v-html`. The automatic protection is a safety net, not a guarantee. You must still audit every use of raw HTML rendering and sanitize user-controlled content. Additionally, XSS is not limited to HTML injection — attribute injection (`href="javascript:alert(1)"`), event handler injection, and CSS injection (`background: url('javascript:...')`) are all possible attack vectors that template escaping does not address.
+
+### "My app is too small to be attacked"
+
+Automated attack bots do not discriminate by app size. They scan the entire internet for common vulnerabilities: exposed `.env` files, default admin credentials, SQL injection in login forms, XSS in search parameters. Your small SvelteKit side project is scanned by the same bots that target Fortune 500 companies. The cost of implementing basic security (CSP headers, cookie attributes, input validation) is measured in hours. The cost of a breach (user data theft, reputation damage, legal liability) is measured in months and careers.
+
+### "I will add security later"
+
+Security decisions made early in development (password hashing algorithm, session management pattern, CSP header configuration) are expensive to change later. Switching from plain-text passwords to hashed passwords requires migrating every user record. Adding CSP headers to an app that relies on inline scripts requires refactoring every inline script. Adding CSRF protection after deployment requires testing every form and API endpoint. Security is not a feature that can be bolted on at the end. It must be baked in from the first commit.
+
+---
+
+## 10. Incident Response Checklist
+
+When a security incident occurs (or you suspect one), follow this checklist in order.
+
+### Immediate Actions (First 15 Minutes)
+
+1. **Assess scope** — What was accessed? User data? Payment info? Admin credentials? Internal systems?
+2. **Contain the breach** — If credentials are compromised, rotate them immediately. If a session is hijacked, invalidate all sessions. If a vulnerability is being actively exploited, disable the affected feature.
+3. **Preserve evidence** — Do not delete logs. Do not modify the vulnerable code yet. Take screenshots of the attack in your monitoring dashboard. You will need this evidence for post-mortem analysis.
+
+### Short-Term Response (First 24 Hours)
+
+4. **Deploy the fix** — Once evidence is preserved, patch the vulnerability and deploy. Prioritize stopping the attack over code quality — you can refactor later.
+5. **Notify affected users** — If user data was accessed, notify affected users per your legal obligations (GDPR requires notification within 72 hours). Be honest about what happened and what you are doing about it.
+6. **Check for secondary access** — Attackers often establish persistence (backdoor accounts, scheduled tasks, modified code). Audit your deployment for unauthorized changes.
+
+### Post-Incident (First Week)
+
+7. **Conduct a post-mortem** — How did the vulnerability get introduced? Why was it not caught by code review? Why did monitoring not alert earlier? Document findings without blaming individuals.
+8. **Update security practices** — Add the attack vector to your security testing checklist. If the vulnerability was a missing CSP header, add CSP header verification to your CI/CD pipeline.
+9. **Review similar code** — If the vulnerability was an unsanitized `{@html}`, search the entire codebase for other instances. If the vulnerability was a missing authentication check, audit all protected endpoints.
+
+---
+
 *Security is not a feature — it is a requirement. Every section in this guide represents a real attack vector that has been exploited in production applications. Implement all of them, not just the ones that seem relevant. The attack you do not prepare for is the one that succeeds.*
