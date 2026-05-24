@@ -968,6 +968,282 @@ It is `onclick`, not `onClick`. All lowercase, matching the DOM.
 
 ---
 
+## Lifecycle: useEffect Cleanup Patterns
+
+### React
+
+```tsx
+function WebSocketChat({ roomId }: { roomId: string }) {
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    const ws = new WebSocket(`wss://api.example.com/rooms/${roomId}`);
+    ws.onmessage = (e) => {
+      setMessages(prev => [...prev, JSON.parse(e.data)]);
+    };
+    return () => ws.close(); // cleanup on unmount or roomId change
+  }, [roomId]);
+
+  return (
+    <ul>
+      {messages.map(msg => <li key={msg.id}>{msg.text}</li>)}
+    </ul>
+  );
+}
+```
+
+### Svelte 5
+
+```svelte
+<script lang="ts">
+  let { roomId }: { roomId: string } = $props();
+  let messages: Message[] = $state([]);
+
+  $effect(() => {
+    const ws = new WebSocket(`wss://api.example.com/rooms/${roomId}`);
+    ws.onmessage = (e: MessageEvent) => {
+      messages.push(JSON.parse(e.data));
+    };
+    return () => ws.close(); // cleanup works the same way
+  });
+</script>
+
+<ul>
+  {#each messages as msg (msg.id)}
+    <li>{msg.text}</li>
+  {/each}
+</ul>
+```
+
+**Key differences:**
+- Cleanup return function works identically in both frameworks.
+- No dependency array — Svelte tracks that the effect reads `roomId` and re-runs automatically when it changes.
+- `messages.push()` mutates in place instead of `setMessages(prev => [...prev, item])`.
+
+---
+
+## Error Boundaries
+
+### React
+
+```tsx
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Caught:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+// Usage
+<ErrorBoundary fallback={<p>Something went wrong</p>}>
+  <RiskyComponent />
+</ErrorBoundary>
+```
+
+### Svelte 5
+
+```svelte
+<svelte:boundary onerror={(error) => console.error('Caught:', error)}>
+  <RiskyComponent />
+
+  {#snippet failed(error, reset)}
+    <p>Something went wrong: {error.message}</p>
+    <button onclick={reset}>Try again</button>
+  {/snippet}
+</svelte:boundary>
+```
+
+**Key differences:**
+- React requires a class component for error boundaries (no hook equivalent).
+- Svelte uses `<svelte:boundary>` — a declarative template element.
+- Svelte's `{#snippet failed}` provides both the error and a `reset` function to retry.
+- No class component ceremony. The boundary is just a template block.
+
+---
+
+## Async Data Patterns (Suspense vs {#await})
+
+### React
+
+```tsx
+import { Suspense } from 'react';
+
+function App() {
+  return (
+    <Suspense fallback={<Skeleton />}>
+      <UserProfile />
+    </Suspense>
+  );
+}
+
+// UserProfile uses a data fetching library with Suspense support
+function UserProfile() {
+  const user = use(fetchUser()); // React 19+ use() hook
+  return <h1>{user.name}</h1>;
+}
+```
+
+### Svelte 5
+
+```svelte
+<script lang="ts">
+  const userPromise: Promise<User> = fetchUser();
+</script>
+
+{#await userPromise}
+  <Skeleton />
+{:then user}
+  <h1>{user.name}</h1>
+{:catch error}
+  <p>Failed to load: {error.message}</p>
+{/await}
+```
+
+**Key differences:**
+- React's Suspense is a component boundary that catches thrown promises. It requires library support.
+- Svelte's `{#await}` is a template block that handles any Promise directly.
+- Svelte's version includes built-in error handling via `{:catch}` — React's Suspense requires a separate ErrorBoundary for errors.
+- No special library integration needed in Svelte — any Promise works.
+
+---
+
+## Animations and Transitions
+
+### React
+
+```tsx
+// React does not have built-in transitions.
+// Most teams use framer-motion:
+import { motion, AnimatePresence } from 'framer-motion';
+
+function Modal({ isOpen }: { isOpen: boolean }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.3 }}
+        >
+          Modal content
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+```
+
+### Svelte 5
+
+```svelte
+<script lang="ts">
+  import { fade, fly } from 'svelte/transition';
+
+  let isOpen: boolean = $state(false);
+</script>
+
+{#if isOpen}
+  <div transition:fly={{ y: 20, duration: 300 }}>
+    Modal content
+  </div>
+{/if}
+```
+
+**Key differences:**
+- React needs a third-party library (framer-motion, react-spring) for mount/unmount animations.
+- Svelte has built-in transitions: `fade`, `fly`, `slide`, `scale`, `blur`, `draw`.
+- Apply with `transition:name` (both enter and exit), `in:name` (enter only), or `out:name` (exit only).
+- Transitions are declared on the element, not wrapped in animation components.
+- Custom transitions are functions — you can create your own with CSS or JavaScript-based animations.
+
+---
+
+## Portals / Teleport
+
+### React
+
+```tsx
+import { createPortal } from 'react-dom';
+
+function Modal({ children }: { children: React.ReactNode }) {
+  return createPortal(
+    <div className="modal-overlay">{children}</div>,
+    document.body
+  );
+}
+```
+
+### Svelte 5
+
+Svelte does not have a built-in portal/teleport. The most common approach is a Svelte action:
+
+```svelte
+<script lang="ts">
+  function portal(node: HTMLElement, target: string = 'body') {
+    const container: Element | null = document.querySelector(target);
+    if (container) container.appendChild(node);
+
+    return {
+      destroy() {
+        node.remove();
+      }
+    };
+  }
+</script>
+
+<div use:portal={'body'} class="modal-overlay">
+  Modal content
+</div>
+```
+
+Alternatively, since SvelteKit renders the entire page, many "portal" use cases are solved by rendering the modal at the root layout level and controlling visibility via a store.
+
+---
+
+## Pattern Summary Table
+
+| React | Svelte 5 | Category |
+|-------|----------|----------|
+| `useState` | `$state` | State |
+| `useReducer` | Class with `$state` + methods | State |
+| `useMemo` | `$derived` | Derived |
+| `useCallback` | Not needed | Performance |
+| `React.memo` | Not needed | Performance |
+| `useEffect` | `$effect` | Side effects |
+| `useRef` (DOM) | `bind:this` | DOM access |
+| `useRef` (value) | Regular `let` variable | Persistent value |
+| `useContext` | `getContext` | Context |
+| `createContext` | `setContext` | Context |
+| `forwardRef` | `bind:this` on component | Ref forwarding |
+| `useImperativeHandle` | Export functions from script | Component API |
+| `Suspense` | `{#await}` | Async |
+| `ErrorBoundary` | `<svelte:boundary>` | Error handling |
+| `createPortal` | Action or root-level render | DOM teleport |
+| `lazy()` | `import()` in load functions | Code splitting |
+| `StrictMode` | Not needed | Development |
+| JSX | Template syntax | Rendering |
+| `className` | `class` | Styling |
+| `onClick` | `onclick` | Events |
+| `key={id}` | `(id)` in `{#each}` | List identity |
+| `dangerouslySetInnerHTML` | `{@html}` | Raw HTML |
+| `React.Fragment` | Not needed (Svelte supports multiple root elements) | Fragment |
+
+---
+
 ## Further Reading
 
 - [Official Svelte Tutorial](https://svelte.dev/tutorial) — interactive, excellent

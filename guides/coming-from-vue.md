@@ -989,6 +989,231 @@ If you are used to scoped slots passing data up to the parent, the equivalent is
 
 ---
 
+## Composables to Svelte Patterns
+
+Vue composables (use-prefixed functions) are a popular pattern for reusable stateful logic. Svelte achieves the same with different tools.
+
+### Vue 3 (Composable)
+
+```typescript
+// composables/useMousePosition.ts
+import { ref, onMounted, onUnmounted } from 'vue';
+
+export function useMousePosition() {
+  const x = ref(0);
+  const y = ref(0);
+
+  function update(e: MouseEvent) {
+    x.value = e.clientX;
+    y.value = e.clientY;
+  }
+
+  onMounted(() => window.addEventListener('mousemove', update));
+  onUnmounted(() => window.removeEventListener('mousemove', update));
+
+  return { x, y };
+}
+
+// Usage in component
+const { x, y } = useMousePosition();
+```
+
+### Svelte 5 (Class or function in .svelte.ts)
+
+```typescript
+// mouse.svelte.ts
+class MousePosition {
+  x: number = $state(0);
+  y: number = $state(0);
+
+  constructor() {
+    $effect(() => {
+      const update = (e: MouseEvent) => {
+        this.x = e.clientX;
+        this.y = e.clientY;
+      };
+      window.addEventListener('mousemove', update);
+      return () => window.removeEventListener('mousemove', update);
+    });
+  }
+}
+
+export function useMousePosition(): MousePosition {
+  return new MousePosition();
+}
+```
+
+```svelte
+<script lang="ts">
+  import { useMousePosition } from '$lib/mouse.svelte';
+
+  const mouse = useMousePosition();
+</script>
+
+<p>Mouse: {mouse.x}, {mouse.y}</p>
+```
+
+**Key differences:**
+- Vue composables use `ref()` + lifecycle hooks. Svelte uses `$state` + `$effect`.
+- Svelte's class-based approach provides natural encapsulation with getters for computed values.
+- Both approaches achieve reusable, composable stateful logic.
+- The `.svelte.ts` extension is required for runes (`$state`, `$effect`) outside `.svelte` files.
+
+---
+
+## Error Handling
+
+### Vue 3
+
+```vue
+<script setup lang="ts">
+import { onErrorCaptured, ref } from 'vue';
+
+const error = ref<Error | null>(null);
+
+onErrorCaptured((err: Error) => {
+  error.value = err;
+  return false; // prevent propagation
+});
+</script>
+
+<template>
+  <div v-if="error">Error: {{ error.message }}</div>
+  <slot v-else />
+</template>
+```
+
+### Svelte 5
+
+```svelte
+<svelte:boundary onerror={(err) => console.error(err)}>
+  <RiskyComponent />
+
+  {#snippet failed(error, reset)}
+    <div>Error: {error.message}</div>
+    <button onclick={reset}>Retry</button>
+  {/snippet}
+</svelte:boundary>
+```
+
+**Key differences:**
+- Vue uses `onErrorCaptured` composition function. Svelte uses `<svelte:boundary>` template element.
+- Svelte's boundary provides a built-in `reset` function for retry, which Vue does not have out of the box.
+- Both catch errors in child components during rendering.
+
+---
+
+## Async Data (Suspense vs {#await})
+
+### Vue 3
+
+```vue
+<template>
+  <Suspense>
+    <template #default>
+      <AsyncComponent />
+    </template>
+    <template #fallback>
+      <LoadingSpinner />
+    </template>
+  </Suspense>
+</template>
+```
+
+### Svelte 5
+
+```svelte
+{#await dataPromise}
+  <LoadingSpinner />
+{:then result}
+  <DataDisplay data={result} />
+{:catch error}
+  <ErrorMessage {error} />
+{/await}
+```
+
+**Key differences:**
+- Vue's `<Suspense>` catches async setup functions. Svelte's `{#await}` handles any Promise.
+- Svelte's version includes built-in error handling via `{:catch}`.
+- No component boundary needed — `{#await}` works inline in any template.
+
+---
+
+## Teleport to Root-Level Rendering
+
+### Vue 3
+
+```vue
+<template>
+  <Teleport to="body">
+    <div class="modal">Modal content</div>
+  </Teleport>
+</template>
+```
+
+### Svelte 5
+
+Svelte does not have a built-in `<Teleport>`. Common alternatives:
+
+1. **Render in the root layout** — Control modal visibility via a store. The layout renders the modal at the document level.
+2. **Svelte action** — Move an element to a different parent at mount time.
+
+```svelte
+<script lang="ts">
+  function teleport(node: HTMLElement, target: string = 'body') {
+    const container = document.querySelector(target);
+    if (container) container.appendChild(node);
+    return {
+      destroy() { node.remove(); }
+    };
+  }
+</script>
+
+<div use:teleport={'body'} class="modal">
+  Modal content
+</div>
+```
+
+---
+
+## Pattern Summary Table
+
+| Vue 3 | Svelte 5 | Category |
+|-------|----------|----------|
+| `ref()` | `$state` | Primitive state |
+| `reactive()` | `$state` (deep) | Object state |
+| `computed()` | `$derived` | Derived values |
+| `watch()` | `$effect` | Side effects |
+| `watchEffect()` | `$effect` | Auto-tracked effects |
+| `defineProps()` | `$props()` | Component props |
+| `defineEmits()` | Callback props | Child-to-parent |
+| `v-model` | `bind:value` | Two-way binding |
+| `v-if` / `v-else` | `{#if}` / `{:else}` | Conditional |
+| `v-for` | `{#each}` | List rendering |
+| `v-on` / `@` | `on*` attributes | Events |
+| `v-bind` / `:` | `attr={expr}` | Attribute binding |
+| `v-show` | `class:hidden` | Visibility toggle |
+| `<slot>` | `{@render children()}` | Content projection |
+| `<slot name="x">` | `{#snippet x()}` | Named slots |
+| Scoped slots | Snippet parameters | Render props |
+| `ref="el"` | `bind:this={el}` | Template refs |
+| `provide()` | `setContext()` | Provide data |
+| `inject()` | `getContext()` | Consume data |
+| Pinia | `.svelte.ts` class | Global state |
+| `onMounted()` | `$effect` / `onMount` | Mount lifecycle |
+| `onUnmounted()` | `$effect` return | Cleanup |
+| `<Transition>` | `transition:fade` | Animations |
+| `<Teleport>` | Action or layout-level | DOM teleport |
+| `<Suspense>` | `{#await}` | Async loading |
+| `<KeepAlive>` | Not needed | Component caching |
+| Vue directive | Svelte action (`use:`) | DOM behavior |
+| `.value` | Not needed | Value access |
+| `{{ }}` | `{ }` | Interpolation |
+| `@click` | `onclick` | Click handler |
+| `:class` | `class:name` | Dynamic class |
+
+---
+
 ## Further Reading
 
 - [Official Svelte Tutorial](https://svelte.dev/tutorial) — interactive, excellent

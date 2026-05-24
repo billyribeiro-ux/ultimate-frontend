@@ -92,7 +92,7 @@
 						type="button"
 						class="toggle-switch"
 						class:toggle-switch--on={flag.enabled}
-						onclick|stopPropagation={() => toggleFlag(index)}
+						onclick={(e: MouseEvent) => { e.stopPropagation(); toggleFlag(index); }}
 						aria-label="Toggle {flag.label}"
 					>
 						<span class="toggle-switch__thumb"></span>
@@ -104,7 +104,7 @@
 					<span class="flag-card__rollout">{flag.rolloutPercentage}%</span>
 				</div>
 				{#if selectedFlagIndex === index}
-					<label class="rollout-control" onclick|stopPropagation={() => {}}>
+					<label class="rollout-control" onclick={(e: MouseEvent) => e.stopPropagation()}>
 						<span>Rollout: {flag.rolloutPercentage}%</span>
 						<input
 							type="range"
