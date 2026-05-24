@@ -26,7 +26,8 @@
 		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte' },
 		{ id: '18', number: '18', title: 'Advanced Patterns', href: '/modules/18-advanced' },
 		{ id: '19', number: '19', title: 'Internationalization', href: '/modules/19-i18n' },
-		{ id: '20', number: '20', title: 'Testing Deep Dive', href: '/modules/20-testing' }
+		{ id: '20', number: '20', title: 'Testing Deep Dive', href: '/modules/20-testing' },
+		{ id: '21', number: '21', title: 'Vite, Vitest & Playground', href: '/modules/21-vite-vitest' }
 	];
 </script>
 

@@ -25,7 +25,8 @@
 		{ id: '14', number: '14', title: '3D with Threlte', href: '/modules/14-threlte', goal: 'Declarative 3D: scenes, models, physics, production.' },
 		{ id: '18', number: '18', title: 'Advanced Patterns', href: '/modules/18-advanced', goal: 'Compound, polymorphic, headless components, monorepos.' },
 		{ id: '19', number: '19', title: 'Internationalization', href: '/modules/19-i18n', goal: 'i18n, ICU messages, Paraglide, RTL, locale routing.' },
-		{ id: '20', number: '20', title: 'Testing Deep Dive', href: '/modules/20-testing', goal: 'Vitest, component tests, Playwright, CI/CD pipelines.' }
+		{ id: '20', number: '20', title: 'Testing Deep Dive', href: '/modules/20-testing', goal: 'Vitest, component tests, Playwright, CI/CD pipelines.' },
+		{ id: '21', number: '21', title: 'Vite, Vitest & Playground', href: '/modules/21-vite-vitest', goal: 'Build tooling, plugins, HMR, testing, Svelte REPL.' }
 	];
 </script>
 

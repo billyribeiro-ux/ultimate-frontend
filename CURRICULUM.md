@@ -345,3 +345,22 @@ Student builds a comprehensive testing strategy from unit tests through CI/CD pi
 - 20.10 — CI/CD testing pipeline (GitHub Actions workflow)
 
 **Module project:** Full-Stack Test Suite.
+
+---
+
+## Module 21 — Vite, Vitest & The Svelte Playground
+
+Student demystifies the build tooling that has been running silently since Lesson 1.2 — learning to configure, extend, and debug Vite; write comprehensive tests with Vitest; and leverage the Svelte Playground for rapid prototyping.
+
+- 21.1 — What Vite actually does (module graph, HMR, dependency pre-bundling, dev vs build)
+- 21.2 — vite.config.ts in depth (plugins, server, build, optimizeDeps, define, css, modes)
+- 21.3 — Environment variables and modes (.env files, VITE_*, $env modules, security)
+- 21.4 — The plugin system (Plugin interface, resolveId/load/transform, virtual modules)
+- 21.5 — HMR and the dev experience (WebSocket, module invalidation, import.meta.hot)
+- 21.6 — Build analysis and optimization (chunk sizes, tree-shaking, code splitting, visualizer)
+- 21.7 — Vitest fundamentals (config, describe/it/expect, matchers, lifecycle hooks)
+- 21.8 — Mocking and spying (vi.fn, vi.spyOn, vi.mock, timer mocking, testing trophy)
+- 21.9 — Snapshot and inline snapshot testing (toMatchSnapshot, toMatchInlineSnapshot, update)
+- 21.10 — The Svelte Playground and REPL (in-browser compiler, svelte/compiler API, embed)
+
+**Module project:** Custom Dev Toolkit.
