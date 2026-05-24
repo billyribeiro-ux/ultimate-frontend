@@ -76,7 +76,7 @@
 			Click a button variant to see TypeScript narrow the type at runtime:
 		</p>
 		<div class="variant-buttons">
-			{#each examples as example, i}
+			{#each examples as example, i (i)}
 				<button
 					class="variant-btn"
 					class:variant-btn--active={selectedIndex === i}
@@ -112,7 +112,7 @@
 		</div>
 		{#if eventLog.length > 0}
 			<ul class="event-log">
-				{#each eventLog as entry, i}
+				{#each eventLog as entry, i (i)}
 					<li class="event-log__entry"><code>{entry}</code></li>
 				{/each}
 			</ul>

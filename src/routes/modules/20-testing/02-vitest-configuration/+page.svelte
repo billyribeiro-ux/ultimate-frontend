@@ -79,7 +79,7 @@ export default defineConfig({
 				<label class="option">
 					<span class="option__label">{option.label}</span>
 					<select class="option__select" bind:value={option.value}>
-						{#each option.options as opt}
+						{#each option.options as opt (opt)}
 							<option value={opt}>{opt}</option>
 						{/each}
 					</select>
@@ -96,7 +96,7 @@ export default defineConfig({
 	<section class="checklist" aria-labelledby="setup-heading">
 		<h2 id="setup-heading">Setup Checklist</h2>
 		<ul class="step-list">
-			{#each setupSteps as step, i}
+			{#each setupSteps as step, i (step.text)}
 				<li class="step-item">
 					<label class="step-label">
 						<input type="checkbox" bind:checked={step.done} />

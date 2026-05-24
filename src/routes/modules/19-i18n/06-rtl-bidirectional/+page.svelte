@@ -1,5 +1,5 @@
 <script lang="ts">
-	let direction: 'ltr' | 'rtl' = $state('ltr');
+	let direction = $state<'ltr' | 'rtl'>('ltr');
 
 	interface CardItem {
 		id: string;

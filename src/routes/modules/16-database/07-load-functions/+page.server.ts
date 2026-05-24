@@ -4,7 +4,7 @@ import { desc } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const allNotes = db.query.notes.findMany({
+	const allNotes = await db.query.notes.findMany({
 		orderBy: [desc(notes.createdAt)],
 		with: {
 			user: true

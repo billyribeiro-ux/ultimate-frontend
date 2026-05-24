@@ -1,17 +1,17 @@
 <script lang="ts">
 	type AsyncState = 'pending' | 'resolved' | 'rejected';
-	let state: AsyncState = $state('pending');
+	let asyncState = $state<AsyncState>('pending');
 	let data: string = $state('');
 
-	function resolve(): void { state = 'resolved'; data = 'Ada Lovelace'; }
-	function reject(): void { state = 'rejected'; data = 'Network error'; }
-	function reset(): void { state = 'pending'; data = ''; }
+	function resolve(): void { asyncState = 'resolved'; data = 'Ada Lovelace'; }
+	function reject(): void { asyncState = 'rejected'; data = 'Network error'; }
+	function reset(): void { asyncState = 'pending'; data = ''; }
 
 	let assertions: Array<{ text: string; passes: boolean }> = $derived([
-		{ text: 'Loading indicator visible', passes: state === 'pending' },
-		{ text: 'User name displayed', passes: state === 'resolved' },
-		{ text: 'Error message shown', passes: state === 'rejected' },
-		{ text: 'Loading hidden after resolve', passes: state !== 'pending' }
+		{ text: 'Loading indicator visible', passes: asyncState === 'pending' },
+		{ text: 'User name displayed', passes: asyncState === 'resolved' },
+		{ text: 'Error message shown', passes: asyncState === 'rejected' },
+		{ text: 'Loading hidden after resolve', passes: asyncState !== 'pending' }
 	]);
 </script>
 
@@ -33,9 +33,9 @@
 		<section class="component-panel" aria-labelledby="component-heading">
 			<h2 id="component-heading">Async Component</h2>
 			<div class="async-preview">
-				{#if state === 'pending'}
+				{#if asyncState === 'pending'}
 					<div class="loading">Loading...</div>
-				{:else if state === 'resolved'}
+				{:else if asyncState === 'resolved'}
 					<div class="success">
 						<h3>User Profile</h3>
 						<p>{data}</p>
@@ -57,7 +57,7 @@
 		<section class="assertions-panel" aria-labelledby="assertions-heading">
 			<h2 id="assertions-heading">Test Assertions</h2>
 			<ul class="assertion-list">
-				{#each assertions as assertion}
+				{#each assertions as assertion (assertion.text)}
 					<li class="assertion" class:assertion--pass={assertion.passes} class:assertion--fail={!assertion.passes}>
 						<span class="assertion__icon">{assertion.passes ? 'PASS' : 'FAIL'}</span>
 						<span>{assertion.text}</span>

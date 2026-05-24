@@ -12,7 +12,7 @@ interface LessonData {
 }
 
 export const load: PageServerLoad = ({ request, url, locals }): LessonData => {
-	const maybeId = (locals as Record<string, unknown>).requestId;
+	const maybeId = (locals as unknown as Record<string, unknown>).requestId;
 	const requestId =
 		typeof maybeId === 'string' && maybeId.length > 0 ? maybeId : crypto.randomUUID();
 

@@ -78,7 +78,7 @@
 	</header>
 
 	<nav class="locale-tabs" aria-label="Locale selector">
-		{#each locales as locale}
+		{#each locales as locale (locale)}
 			<button
 				class="locale-tab"
 				class:locale-tab--active={activeLocale === locale}

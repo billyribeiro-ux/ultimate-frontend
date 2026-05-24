@@ -111,7 +111,7 @@
 					{#if job.dependsOn}<span class="job__depends">needs: tests</span>{/if}
 				</h2>
 				<ul class="step-list">
-					{#each job.steps as step}
+					{#each job.steps as step (step.name)}
 						<li class="step" class:step--running={step.status === 'running'} class:step--passed={step.status === 'passed'} class:step--failed={step.status === 'failed'}>
 							<span class="step__icon">
 								{#if step.status === 'passed'}OK

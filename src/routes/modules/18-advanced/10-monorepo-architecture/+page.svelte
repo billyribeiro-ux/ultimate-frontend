@@ -106,7 +106,7 @@
 						<dd>
 							{#if selectedPkg.dependencies.length > 0}
 								<ul class="dep-list">
-									{#each selectedPkg.dependencies as dep}
+									{#each selectedPkg.dependencies as dep (dep)}
 										<li>{dep}</li>
 									{/each}
 								</ul>
@@ -118,7 +118,7 @@
 						<dd>
 							{#if dependents.length > 0}
 								<ul class="dep-list">
-									{#each dependents as dep}
+									{#each dependents as dep (dep.name)}
 										<li>{dep.name}</li>
 									{/each}
 								</ul>

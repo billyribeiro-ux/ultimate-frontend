@@ -87,7 +87,7 @@
 				<p class="warning">Warning: pyramid is inverted! More E2E tests than unit tests.</p>
 			{/if}
 			<div class="pyramid">
-				{#each pyramid as level}
+				{#each pyramid as level (level.level)}
 					<div class="pyramid__level">
 						<div
 							class="pyramid__bar"

@@ -74,7 +74,7 @@
 			/>
 			<p class="poster-note">Reduced motion enabled — showing static image.</p>
 		{:else if browser && shouldLoadCanvas}
-			<Canvas frameloop="demand" dpr={clampedDpr}>
+			<Canvas autoRender={false} dpr={clampedDpr}>
 				<T.PerspectiveCamera makeDefault position={[0, 1, 5]} fov={45}>
 					<OrbitControls enableDamping dampingFactor={0.05} />
 				</T.PerspectiveCamera>

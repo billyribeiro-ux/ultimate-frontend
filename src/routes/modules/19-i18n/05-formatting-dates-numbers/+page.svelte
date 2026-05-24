@@ -66,7 +66,7 @@
 		<label class="field">
 			<span class="field__label">Currency</span>
 			<select class="field__input" bind:value={currencyCode}>
-				{#each currencies as cur}
+				{#each currencies as cur (cur)}
 					<option value={cur}>{cur}</option>
 				{/each}
 			</select>

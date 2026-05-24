@@ -59,7 +59,7 @@
 		<section class="control-group" aria-labelledby="locale-heading">
 			<h2 id="locale-heading" class="control-group__title">Locale</h2>
 			<div class="control-buttons">
-				{#each locales as locale}
+				{#each locales as locale (locale.code)}
 					<button
 						class="locale-btn"
 						class:locale-btn--active={currentLocale === locale.code}
@@ -75,7 +75,7 @@
 		<section class="control-group" aria-labelledby="page-heading">
 			<h2 id="page-heading" class="control-group__title">Page</h2>
 			<div class="control-buttons">
-				{#each pages as page}
+				{#each pages as page (page)}
 					<button
 						class="page-btn"
 						class:page-btn--active={currentPage === page}

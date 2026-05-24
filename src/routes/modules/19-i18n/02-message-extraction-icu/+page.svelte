@@ -137,7 +137,7 @@
 	<section class="presets" aria-label="Preset examples">
 		<h2 class="sr-only">Presets</h2>
 		<div class="preset-buttons">
-			{#each presets as preset}
+			{#each presets as preset (preset.name)}
 				<button class="preset-btn" onclick={() => loadPreset(preset)}>
 					{preset.name}
 				</button>
@@ -159,7 +159,7 @@
 
 			<h3 class="panel__subtitle">Variables</h3>
 			<div class="var-list">
-				{#each variables as variable, i}
+				{#each variables as variable, i (variable.name)}
 					<div class="var-row">
 						<span class="var-row__name">{variable.name}</span>
 						<input

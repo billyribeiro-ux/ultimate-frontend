@@ -86,7 +86,7 @@
 		<div class="page-selector">
 			<span class="field__label">Page</span>
 			<div class="page-buttons">
-				{#each pages as page}
+				{#each pages as page (page.path)}
 					<button
 						class="page-btn"
 						class:page-btn--active={selectedPage === page.path}
@@ -103,7 +103,7 @@
 		<section class="links-preview" aria-labelledby="links-heading">
 			<h2 id="links-heading">Hreflang Links for <code>{currentSet.page}</code></h2>
 			<ul class="link-list">
-				{#each currentSet.links as link}
+				{#each currentSet.links as link (link.hreflang)}
 					<li class="link-item">
 						<span class="link-item__lang" class:link-item__lang--default={link.hreflang === 'x-default'}>
 							{link.hreflang}

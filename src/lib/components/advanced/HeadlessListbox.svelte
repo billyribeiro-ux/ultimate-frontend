@@ -49,7 +49,7 @@
 		}
 	}
 
-	let state: ListboxState = $derived({
+	let listboxState: ListboxState = $derived({
 		isOpen,
 		selectedValue,
 		highlightedIndex,
@@ -59,4 +59,4 @@
 	let actions = { toggle, select, highlight };
 </script>
 
-{@render children(state, actions)}
+{@render children(listboxState, actions)}

@@ -30,9 +30,9 @@ function hexToArrayBuffer(hex: string): ArrayBuffer {
  * Returns a string in the format: `salt:hash` (both hex-encoded).
  */
 export async function hashPassword(password: string): Promise<string> {
-	const salt: Uint8Array = crypto.getRandomValues(new Uint8Array(16));
+	const salt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
 	const encoder: TextEncoder = new TextEncoder();
-	const passwordBuffer: Uint8Array = encoder.encode(password);
+	const passwordBuffer = encoder.encode(password) as Uint8Array<ArrayBuffer>;
 
 	const key: CryptoKey = await crypto.subtle.importKey(
 		'raw',
@@ -53,7 +53,7 @@ export async function hashPassword(password: string): Promise<string> {
 		KEY_LENGTH * 8
 	);
 
-	const saltHex: string = arrayBufferToHex(salt.buffer);
+	const saltHex: string = arrayBufferToHex(salt.buffer as ArrayBuffer);
 	const hashHex: string = arrayBufferToHex(derivedBits);
 
 	return `${saltHex}:${hashHex}`;
@@ -69,7 +69,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
 
 	const salt: ArrayBuffer = hexToArrayBuffer(saltHex);
 	const encoder: TextEncoder = new TextEncoder();
-	const passwordBuffer: Uint8Array = encoder.encode(password);
+	const passwordBuffer = encoder.encode(password) as Uint8Array<ArrayBuffer>;
 
 	const key: CryptoKey = await crypto.subtle.importKey(
 		'raw',
