@@ -351,4 +351,65 @@ Use this template when documenting architecture decisions for your team. The goa
 
 ---
 
+---
+
+## Appendix: How to Write Good ADRs
+
+### When to Write an ADR
+
+Write an ADR when you face a decision that is difficult to reverse, affects multiple team members, or will be questioned six months from now. Day-to-day coding decisions (variable names, function structure, file organization) do not need ADRs. Technology choices, architecture patterns, and infrastructure decisions do.
+
+Signs you need an ADR:
+- Two or more team members disagree on the approach
+- The decision involves a dependency that will be expensive to replace later
+- The decision affects the system's security, performance, or scalability boundaries
+- You are choosing between options that each have significant trade-offs
+- A future developer will ask "why did we do it this way?"
+
+### How to Write the Context Section
+
+The context section is the most important part of an ADR. It captures the forces that led to the decision — the constraints, requirements, pressures, and trade-offs that shaped the choice. Without good context, the decision seems arbitrary.
+
+Bad context: "We needed a database ORM."
+Good context: "Our application needs a TypeScript ORM for PostgreSQL access. We need type-safe queries, migrations, and a schema definition language that integrates with our TypeScript-strict codebase. The application runs on both Node.js and edge runtimes, which constrains our ORM choice."
+
+The good version explains what is needed, why it is needed, and what constraints exist. A future developer reading this understands the decision even if they were not present for the discussion.
+
+### How to Write the Alternatives Section
+
+The alternatives section demonstrates due diligence. It shows that you considered other approaches and rejected them for specific reasons, not because of bias or ignorance. Always list at least two alternatives, and explain the specific reason each was rejected — not just "we preferred option A."
+
+Bad alternative: "We considered Prisma but chose Drizzle instead."
+Good alternative: "Prisma was rejected primarily because of the binary engine requirement (~15MB), which prevents deployment to edge runtimes. Prisma's query engine also adds 200-500ms cold start on serverless."
+
+The good version gives a specific, measurable reason for rejection. A future developer who encounters a new Prisma version without the binary engine limitation can revisit this decision with new information.
+
+### How to Supersede an ADR
+
+When technology evolves or requirements change, an ADR may need revision. Do not edit the original ADR — mark it as "Superseded by ADR-XXX" and write a new ADR that references the original. This preserves the decision history and shows how thinking evolved.
+
+```markdown
+**Title:** Drizzle ORM for database access
+**Status:** Superseded by ADR-025
+**Context:** [original context unchanged]
+**Decision:** [original decision unchanged]
+**Note (2027-03):** Superseded because Prisma released Edge Runtime support
+in v6, eliminating the binary engine requirement that originally drove our
+Drizzle choice. See ADR-025 for the updated decision.
+```
+
+The original ADR becomes a historical document that explains why Drizzle was chosen. The new ADR explains why the team switched to Prisma. Together, they tell the complete story of the decision and its evolution.
+
+### ADR Anti-Patterns
+
+**Recording decisions after they are made.** ADRs are most valuable when written during the decision process, not months later from memory. Retrospective ADRs miss the nuances of the alternatives considered and the forces at play.
+
+**Writing ADRs for non-decisions.** If there is only one reasonable option (e.g., "use TypeScript" in a TypeScript course), an ADR adds bureaucracy without value. ADRs are for genuine trade-off decisions with multiple viable options.
+
+**Not reviewing ADRs periodically.** Technology changes. An ADR that says "rejected library X because it lacks feature Y" may be outdated if library X has since added feature Y. Schedule annual ADR reviews as part of your team's technical debt process.
+
+**Making ADRs too long.** An ADR is not a research paper. Each section should be concise — 3-4 sentences for context, 1-2 sentences for the decision, 3-4 bullets for consequences. If you need more space, the decision may need to be broken into smaller decisions.
+
+---
+
 *Review these ADRs annually. Technology evolves, team needs change, and decisions that were correct a year ago may need revision. Mark superseded ADRs as such and create new ones documenting why the decision changed.*

@@ -1546,4 +1546,69 @@ export const load: PageServerLoad = async ({ params }) => {
 
 ---
 
+---
+
+## Workshop Appendix: Review Patterns Cheat Sheet
+
+After completing all 20 reviews, you should be able to recognize these patterns instantly. This summary distills the workshop into actionable rules.
+
+### Reactivity Patterns
+
+**Rule 1: Pure computations use `$derived`, side effects use `$effect`.**
+If you are setting a reactive variable based on other reactive variables inside `$effect`, stop. That is `$derived`. Effects are for DOM manipulation, network requests, timers, and event listeners — anything that interacts with the outside world. Derived values are for transforming reactive data into other reactive data without leaving the reactive system.
+
+**Rule 2: `$state` objects support direct mutation — embrace it.**
+Svelte 5's reactivity system tracks individual property reads and writes on `$state` objects. When you write `settings.theme = 'dark'`, Svelte knows to update only the components that read `settings.theme`. Spreading (`settings = { ...settings, theme: 'dark' }`) creates a new object reference, defeating this granularity. Unlike React's `useState` which requires immutable updates, Svelte's `$state` is designed for mutation.
+
+**Rule 3: Keys are identity, indices are positions.**
+Never use array indices as `{#each}` keys for lists that can be reordered, filtered, or mutated. An index says "this is the third item" — a key says "this is item #abc-123." When you sort a list, indices change but keys do not. Svelte uses keys to match DOM nodes to data across updates. Without proper keys, transitions fire on wrong elements, event handlers close over stale data, and input elements lose focus.
+
+**Rule 4: Effect cleanup is mandatory for subscriptions.**
+Every `addEventListener` must have a matching `removeEventListener` in the cleanup. Every `setTimeout` must have a matching `clearTimeout`. Every `fetch` should have an `AbortController`. Every subscription must be unsubscribed. The `$effect` return function is not optional — it is a contract. Failing to clean up creates memory leaks that accumulate over time and eventually crash the application.
+
+### Type Safety Patterns
+
+**Rule 5: Type your props, type your load functions, type your actions.**
+TypeScript cannot help you if you do not give it types. Untyped props mean no autocomplete, no refactoring support, and no compile-time error detection. Untyped load functions mean `data` is `any` in your template. Untyped actions mean `form` is `any`. The five minutes you spend writing types saves hours of debugging runtime errors.
+
+**Rule 6: Constrain string parameters with union types.**
+A prop typed as `string` accepts any string, including typos. A prop typed as `'primary' | 'secondary' | 'danger'` only accepts valid values. Union types turn runtime "why isn't my style applying?" bugs into compile-time "this string is not assignable" errors. Use them for variants, sizes, status values, and any prop with a fixed set of valid values.
+
+### Security Patterns
+
+**Rule 7: Every `{@html}` is a potential XSS vulnerability until sanitized.**
+When reviewing code, search for `{@html}`. Every instance must either render content from a trusted source (your own codebase, not user input) or be sanitized with DOMPurify. There are no exceptions. A single unsanitized `{@html}` is the most common vulnerability in Svelte applications.
+
+**Rule 8: Never expose secrets in load function returns.**
+Everything returned from a load function is serialized and sent to the client. This includes `+page.server.ts` load functions — the "server" in the name means the function runs on the server, not that the return value stays on the server. Database URLs, API keys, internal user IDs, and debug information must never appear in load function return values.
+
+**Rule 9: Authentication requires hashing, signing, and proper cookie attributes.**
+Plain-text password comparison is a career-ending mistake. Unsigned session tokens are an impersonation vector. Missing `httpOnly` on session cookies means XSS equals session hijack. Missing `SameSite` means CSRF is trivially exploitable. Authentication code must be reviewed by a senior developer before merging.
+
+### Performance Patterns
+
+**Rule 10: Debounce user-triggered network requests.**
+Search inputs, autocomplete, and filter changes should not fire a network request on every keystroke. Debounce with a 200-500ms delay, abort in-flight requests when new input arrives, and verify the response matches the current query to prevent race conditions.
+
+**Rule 11: Never call functions in template expressions for expensive operations.**
+`{#each getItems() as item}` re-evaluates `getItems()` on every render. Use `$derived` instead — it memoizes the result and only recomputes when dependencies change. For cheap operations (formatting a single string), a function call is fine. For operations that iterate arrays, sort data, or make calculations, always use `$derived`.
+
+### Accessibility Patterns
+
+**Rule 12: Use native HTML elements before building custom ones.**
+`<dialog>` provides focus trapping, Escape key handling, backdrop, and screen reader announcements for free. `<button>` provides keyboard activation, focus management, and implicit ARIA roles. `<details>/<summary>` provides disclosure widgets. Before building a custom component, check if a native element already does what you need.
+
+**Rule 13: Test with keyboard-only navigation.**
+Unplug your mouse and try to use your application. If you cannot reach an interactive element with Tab, activate it with Enter/Space, or navigate a complex widget with arrow keys, keyboard users cannot use your application. This includes people with motor impairments, power users who prefer keyboard navigation, and screen reader users.
+
+### SSR/Hydration Patterns
+
+**Rule 14: Never read browser APIs at the top level of `<script>`.**
+`window`, `document`, `navigator`, `localStorage`, and `sessionStorage` do not exist during SSR. Code at the top level of `<script>` runs on both server and client. Move browser API access into `$effect` (client-only) or guard with `import { browser } from '$app/environment'`. Use the `mounted` flag pattern for conditional rendering that must differ between server and client without causing hydration mismatches.
+
+**Rule 15: Choose rendering mode based on data freshness requirements, not performance assumptions.**
+SSG is not "faster SSR." SSG is for content that changes at deploy time. SSR is for content that changes per-request. CSR is for content behind authentication that has no SEO requirement. Choosing the wrong rendering mode causes stale data in production, which is worse than a 100ms TTFB increase.
+
+---
+
 *End of workshop. Revisit these exercises periodically as you build more complex applications. The patterns that trip up junior developers are the same ones that cause production incidents at scale.*
