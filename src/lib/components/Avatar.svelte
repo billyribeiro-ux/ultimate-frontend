@@ -13,12 +13,15 @@
 
 	let { name, src, size = 'md' }: Props = $props();
 
-	const initials: string = name
-		.split(' ')
-		.map((part: string): string => part.charAt(0))
-		.join('')
-		.slice(0, 2)
-		.toUpperCase();
+	// $derived so initials recompute if the `name` prop changes.
+	const initials: string = $derived(
+		name
+			.split(' ')
+			.map((part: string): string => part.charAt(0))
+			.join('')
+			.slice(0, 2)
+			.toUpperCase()
+	);
 </script>
 
 <span class="avatar avatar--{size}" aria-label={name}>

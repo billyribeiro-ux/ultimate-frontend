@@ -68,6 +68,10 @@
 
 	<div class="rings">
 		<figure class="ring">
+			<figcaption>
+				<strong>Tween class</strong>
+				<code>new Tween(0, ...)</code>
+			</figcaption>
 			<svg viewBox="0 0 200 200" aria-hidden="true">
 				<circle cx="100" cy="100" r={RADIUS} class="ring__track" />
 				<circle
@@ -82,10 +86,6 @@
 					{progressA.current.toFixed(0)}%
 				</text>
 			</svg>
-			<figcaption>
-				<strong>Tween class</strong>
-				<code>new Tween(0, ...)</code>
-			</figcaption>
 			<div class="ring__controls">
 				<button type="button" onclick={advanceA}>Advance +10</button>
 				<button type="button" onclick={resetA}>Reset</button>
@@ -93,6 +93,10 @@
 		</figure>
 
 		<figure class="ring">
+			<figcaption>
+				<strong>tweened() function</strong>
+				<code>tweened(0, ...)</code>
+			</figcaption>
 			<svg viewBox="0 0 200 200" aria-hidden="true">
 				<circle cx="100" cy="100" r={RADIUS} class="ring__track" />
 				<circle
@@ -107,10 +111,6 @@
 					{$progressB.toFixed(0)}%
 				</text>
 			</svg>
-			<figcaption>
-				<strong>tweened() function</strong>
-				<code>tweened(0, ...)</code>
-			</figcaption>
 			<div class="ring__controls">
 				<button type="button" onclick={advanceB}>Advance +10</button>
 				<button type="button" onclick={resetB}>Reset</button>

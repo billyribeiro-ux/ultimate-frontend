@@ -1,28 +1,7 @@
 <script lang="ts">
-	const OPEN_SCRIPT = '<' + 'script lang="ts">';
-	const CLOSE_SCRIPT = '</' + 'script>';
-	let sourceCode: string = $state(
-`${OPEN_SCRIPT}
-  let count: number = $state(0);
+	import { DEFAULT_SOURCE, extractStyleBlock } from './playground-data';
 
-  function increment(): void {
-    count += 1;
-  }
-${CLOSE_SCRIPT}
-
-<button onclick={increment}>
-  Clicks: {count}
-</button>
-
-<style>
-  button {
-    padding: 0.5rem 1rem;
-    font-size: 1.2rem;
-    border-radius: 0.5rem;
-    border: 2px solid currentColor;
-  }
-</style>`
-	);
+	let sourceCode: string = $state(DEFAULT_SOURCE);
 
 	type OutputTab = 'js' | 'css' | 'ast';
 	let activeTab: OutputTab = $state('js');
@@ -70,10 +49,8 @@ ${CLOSE_SCRIPT}
 	});
 
 	let cssOutput: string = $derived.by(() => {
-		const styleMatch: RegExpMatchArray | null = sourceCode.match(/<style>([\s\S]*?)<\/style>/);
-		if (!styleMatch) return '/* No <style> block found */';
-
-		const rawCss: string = styleMatch[1];
+		const rawCss: string | null = extractStyleBlock(sourceCode);
+		if (rawCss === null) return '/* No style block found */';
 		const hash: string = 'svelte-1a2b3c';
 
 		return rawCss

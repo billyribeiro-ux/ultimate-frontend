@@ -15,11 +15,12 @@
 		depth: number;
 	}
 
-	const spans: Span[] = [
+	// $derived so the trace rebuilds when `data` changes on client-side navigation.
+	const spans: Span[] = $derived([
 		{ id: 's1', name: `GET ${data.timestamp}`, duration: data.loadDuration, depth: 0 },
 		{ id: 's2', name: '  load() in +page.server.ts', duration: data.loadDuration, depth: 1 },
 		{ id: 's3', name: '    simulatedWork (setTimeout)', duration: data.simulatedWork, depth: 2 }
-	];
+	]);
 
 	function formatMs(value: number): string {
 		return `${value.toFixed(1)} ms`;

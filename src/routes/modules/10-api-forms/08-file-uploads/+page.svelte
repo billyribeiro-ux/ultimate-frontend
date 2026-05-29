@@ -175,7 +175,7 @@
 		block-size: 1px;
 		clip: rect(0 0 0 0);
 	}
-	.file-input:focus-visible + .file-label {
+	.field:has(.file-input:focus-visible) .file-label {
 		outline: 2px solid var(--color-brand);
 		outline-offset: 2px;
 	}

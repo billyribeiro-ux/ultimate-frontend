@@ -87,14 +87,18 @@
 </section>
 
 {#if modalOpen}
-	<div class="overlay" role="presentation" onclick={closeModal}>
+	<div class="overlay">
+		<!-- The backdrop is a real <button> so its dismiss action is keyboard-
+		     reachable, not a click handler on a non-interactive element. -->
+		<button type="button" class="overlay__backdrop" aria-label="Close dialog" onclick={closeModal}
+		></button>
 		<div
 			class="modal"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="modal-title"
+			tabindex="-1"
 			use:focusTrap
-			onclick={(e) => e.stopPropagation()}
 		>
 			<h2 id="modal-title">A focus-trapped modal</h2>
 			<p>Press Tab and Shift+Tab to cycle inside this modal. Press Escape to close it.</p>
@@ -212,13 +216,22 @@
 	.overlay {
 		position: fixed;
 		inset: 0;
-		background: oklch(0% 0 0 / 0.5);
 		display: grid;
 		place-items: center;
 		z-index: 50;
 	}
 
+	.overlay__backdrop {
+		position: absolute;
+		inset: 0;
+		border: 0;
+		padding: 0;
+		background: oklch(0% 0 0 / 0.5);
+		cursor: pointer;
+	}
+
 	.modal {
+		position: relative;
 		background: var(--color-surface);
 		padding: var(--space-lg);
 		border-radius: var(--radius-lg);

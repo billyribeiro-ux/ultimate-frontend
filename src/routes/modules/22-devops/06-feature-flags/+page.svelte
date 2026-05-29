@@ -104,10 +104,11 @@
 					<span class="flag-card__rollout">{flag.rolloutPercentage}%</span>
 				</div>
 				{#if selectedFlagIndex === index}
-					<label class="rollout-control" onclick={(e: MouseEvent) => e.stopPropagation()}>
+					<label class="rollout-control">
 						<span>Rollout: {flag.rolloutPercentage}%</span>
 						<input
 							type="range"
+							onclick={(e: MouseEvent) => e.stopPropagation()}
 							min="0"
 							max="100"
 							value={flag.rolloutPercentage}

@@ -8,7 +8,8 @@
 
 	let { data }: PageProps = $props();
 
-	const serialised: string = JSON.stringify(data, null, 2);
+	// $derived so it recomputes when `data` changes on client-side navigation.
+	const serialised: string = $derived(JSON.stringify(data, null, 2));
 </script>
 
 <svelte:head>

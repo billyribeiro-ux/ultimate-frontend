@@ -7,9 +7,10 @@
 
 	let { data }: PageProps = $props();
 
-	const temperature: string = data.forecast.current.temperature_2m.toFixed(1);
-	const units: string = data.forecast.current_units.temperature_2m;
-	const at: string = data.forecast.current.time;
+	// $derived so these recompute when `data` changes on client-side navigation.
+	const temperature: string = $derived(data.forecast.current.temperature_2m.toFixed(1));
+	const units: string = $derived(data.forecast.current_units.temperature_2m);
+	const at: string = $derived(data.forecast.current.time);
 </script>
 
 <svelte:head>
