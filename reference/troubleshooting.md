@@ -804,18 +804,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 ### Error: "Type 'ColumnDef<User>[]' has type parameter incompatibility with TanStack Table"
 
 **When you see it:** You define TanStack Table column definitions but the generic parameter does not match your data type, or you mix up `ColumnDef`, `AccessorColumnDef`, and `DisplayColumnDef`.
-**What it means:** TanStack Table v9 has a precise generic system. `ColumnDef<TData, TValue>` must match the data type you pass to `useTable()`. If `TData` is `User` in your column defs but `Product` in your table options, TypeScript catches the mismatch.
+**What it means:** TanStack Table v9 has a precise generic system. `ColumnDef<TFeatures, TData>` must match both the feature set from `tableFeatures({ ... })` and the data type you pass to `createTable()`. If `TData` is `User` in your column defs but `Product` in your table options, TypeScript catches the mismatch.
 **The fix:**
 ```typescript
 // Before (broken) — wrong generic
-import type { ColumnDef } from '@tanstack/table-core';
-const columns: ColumnDef<Product>[] = [
+import { tableFeatures, columnVisibilityFeature, type ColumnDef } from '@tanstack/svelte-table';
+const _features = tableFeatures({ columnVisibilityFeature });
+const columns: ColumnDef<typeof _features, Product>[] = [
   { accessorKey: 'name', header: 'Name' }
 ];
 // But table uses User[]...
 
-// After (fixed) — consistent generic
-import type { ColumnDef } from '@tanstack/table-core';
+// After (fixed) — consistent generics
+import {
+  createTable,
+  tableFeatures,
+  columnVisibilityFeature,
+  createCoreRowModel,
+  type ColumnDef
+} from '@tanstack/svelte-table';
 
 interface User {
   id: string;
@@ -823,15 +830,18 @@ interface User {
   email: string;
 }
 
-const columns: ColumnDef<User>[] = [
+const _features = tableFeatures({ columnVisibilityFeature });
+
+const columns: ColumnDef<typeof _features, User>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'email', header: 'Email' }
 ];
 
-const table = createSvelteTable({
-  data: users,       // User[]
-  columns,           // ColumnDef<User>[]
-  getCoreRowModel: getCoreRowModel()
+const table = createTable({
+  _features,
+  get data() { return users; },   // User[]
+  columns,                        // ColumnDef<typeof _features, User>[]
+  _rowModels: { coreRowModel: createCoreRowModel() }
 });
 ```
 **Why it happens:** TanStack Table uses generics to create a type-safe pipeline from raw data to rendered cells. If the generic parameters diverge at any point, TypeScript catches it because the accessor functions, cell renderers, and sort comparators all depend on the same `TData` type. This prevents runtime errors where you try to access `row.email` on a `Product` object that has no `email` field.

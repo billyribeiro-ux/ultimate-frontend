@@ -50,7 +50,7 @@
 		<h1>A headless table, styled your way</h1>
 		<p class="lede">
 			TanStack Table gives you the logic. You write the markup. The table below is
-			<code>createSvelteTable</code> plus a handful of loops, fully typed against the
+			<code>createTable</code> plus a handful of loops, fully typed against the
 			<code>Member</code> interface.
 		</p>
 	</header>

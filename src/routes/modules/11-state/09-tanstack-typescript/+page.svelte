@@ -1,8 +1,8 @@
 <!--
 	Lesson 11.9 — TanStack Table advanced typing
-	Mini-build: a typed members table with a custom role-badge renderer
-	built via flexRender, typed row selection, and an augmented ColumnMeta
-	used for right-aligning numeric columns.
+	Mini-build: a typed members table with an inline role badge, typed row
+	selection, and an augmented ColumnMeta used for right-aligning numeric
+	columns.
 -->
 <script lang="ts">
 	import {

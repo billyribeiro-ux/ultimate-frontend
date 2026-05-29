@@ -30,36 +30,59 @@ export interface User {
 
 <script lang="ts">
 	import {
-		createSvelteTable,
-		getCoreRowModel,
-		getSortedRowModel,
-		getFilteredRowModel,
-		getPaginationRowModel,
-		flexRender,
+		createTable,
+		tableFeatures,
+		columnVisibilityFeature,
+		rowSortingFeature,
+		columnFilteringFeature,
+		globalFilteringFeature,
+		rowPaginationFeature,
+		createCoreRowModel,
+		createSortedRowModel,
+		createFilteredRowModel,
+		createPaginatedRowModel,
+		filterFns,
+		sortFns,
 		type ColumnDef,
 		type SortingState,
-		type PaginationState
+		type PaginationState,
+		type Updater
 	} from '@tanstack/svelte-table';
 	import type { User } from '$lib/types/user';
 
 	const { users }: UsersTableProps = $props();
 
+	const _features = tableFeatures({
+		columnVisibilityFeature,
+		rowSortingFeature,
+		columnFilteringFeature,
+		globalFilteringFeature,
+		rowPaginationFeature
+	});
+
 	let sorting = $state<SortingState>([]);
 	let globalFilter = $state<string>('');
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
-	const columns: ColumnDef<User>[] = [
+	const columns: ColumnDef<typeof _features, User>[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
 		{ accessorKey: 'lastActive', header: 'Last active' }
 	];
 
-	const table = createSvelteTable({
+	const table = createTable({
+		_features,
 		get data() {
 			return users;
 		},
 		columns,
+		_rowModels: {
+			coreRowModel: createCoreRowModel(),
+			sortedRowModel: createSortedRowModel(sortFns),
+			filteredRowModel: createFilteredRowModel(filterFns),
+			paginatedRowModel: createPaginatedRowModel()
+		},
 		state: {
 			get sorting() {
 				return sorting;
@@ -71,25 +94,27 @@ export interface User {
 				return pagination;
 			}
 		},
-		onSortingChange: (updater) => {
+		onSortingChange: (updater: Updater<SortingState>) => {
 			sorting = typeof updater === 'function' ? updater(sorting) : updater;
 		},
-		onGlobalFilterChange: (v) => {
-			globalFilter = typeof v === 'function' ? v(globalFilter) : (v as string);
+		onGlobalFilterChange: (v: Updater<string>) => {
+			globalFilter = (typeof v === 'function' ? v(globalFilter) : v ?? '') as string;
+			pagination = { ...pagination, pageIndex: 0 };
 		},
-		onPaginationChange: (updater) => {
+		onPaginationChange: (updater: Updater<PaginationState>) => {
 			pagination = typeof updater === 'function' ? updater(pagination) : updater;
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel()
+		}
 	});
 </script>
 
 <label class="search">
 	Search
-	<input type="search" bind:value={globalFilter} placeholder="Name or email" />
+	<input
+		type="search"
+		value={globalFilter}
+		oninput={(e) => (globalFilter = (e.currentTarget as HTMLInputElement).value)}
+		placeholder="Name or email"
+	/>
 </label>
 
 <table>
@@ -99,7 +124,7 @@ export interface User {
 				{#each headerGroup.headers as header (header.id)}
 					<th>
 						<button type="button" onclick={header.column.getToggleSortingHandler()}>
-							<svelte:component this={flexRender(header.column.columnDef.header, header.getContext())} />
+							{header.column.columnDef.header}
 							{#if header.column.getIsSorted() === 'asc'}↑{:else if header.column.getIsSorted() === 'desc'}↓{/if}
 						</button>
 					</th>
@@ -111,7 +136,7 @@ export interface User {
 		{#each table.getRowModel().rows as row (row.id)}
 			<tr>
 				{#each row.getVisibleCells() as cell (cell.id)}
-					<td><svelte:component this={flexRender(cell.column.columnDef.cell, cell.getContext())} /></td>
+					<td>{cell.getValue()}</td>
 				{/each}
 			</tr>
 		{/each}
@@ -120,7 +145,7 @@ export interface User {
 
 <nav class="pager">
 	<button type="button" onclick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Prev</button>
-	<span>Page {pagination.pageIndex + 1} of {table.getPageCount()}</span>
+	<span>Page {table.state.pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}</span>
 	<button type="button" onclick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Next</button>
 </nav>
 
