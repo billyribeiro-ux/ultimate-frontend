@@ -9,7 +9,7 @@ prerequisites:
 learning_objectives:
   - Explain what "headless" means and why it is a good fit for Svelte
   - Install @tanstack/svelte-table and import the Svelte 5 adapter
-  - Build a typed createSvelteTable instance with columns and data
+  - Build a typed createTable instance with columns, features, and data
   - Render headers, rows, and cells from the table's row model
   - Apply PE7 styling without fighting any built-in table styles
 status: ready
@@ -29,65 +29,76 @@ The "headless" library pattern inverts the trade-off. A headless library gives y
 
 **TanStack Table** is the headless table library for React, Vue, Solid, *and* Svelte 5. It is written by Tanner Linsley, the same author as TanStack Query and TanStack Router. It is widely used, carefully typed, and specifically designed for the pattern above. The Svelte 5 adapter ships as `@tanstack/svelte-table`.
 
-### 1.2 The Svelte 5 adapter in one function
+### 1.2 The Svelte 5 adapter: createTable, features, and row models
 
-The whole adapter API is one function: `createSvelteTable(options)`. You pass it a configuration object; it returns a reactive table instance that your component reads from.
+The v9 adapter centres on one function — `createTable(options)` — plus two ideas that make the configuration explicit. You pass `createTable` a configuration object; it returns a reactive table instance that your component reads from.
 
 ```ts
 import {
-	createSvelteTable,
-	getCoreRowModel,
+	createTable,
+	tableFeatures,
+	columnVisibilityFeature,
+	createCoreRowModel,
 	type ColumnDef
 } from '@tanstack/svelte-table';
 ```
 
-A bare-minimum table needs three things:
+A bare-minimum table needs four things:
 
-1. A typed array of rows.
-2. A typed array of column definitions.
-3. The core row model (the engine that builds the current visible rows from the raw data).
+1. A *feature declaration* — `tableFeatures({ ... })` lists which features the table can use, declared once and statically outside the component.
+2. A typed array of column definitions, parameterised over both the features and the row type.
+3. A typed array of rows (passed reactively through a `data` getter).
+4. The core row model factory, passed inside `_rowModels` (the engine that builds the current visible rows from the raw data).
 
 Here is what that looks like for a list of members:
 
 ```svelte
 <script lang="ts">
 	import {
-		createSvelteTable,
-		getCoreRowModel,
-		flexRender,
+		createTable,
+		tableFeatures,
+		columnVisibilityFeature,
+		createCoreRowModel,
 		type ColumnDef
 	} from '@tanstack/svelte-table';
 	import { members, type Member } from '$lib/stores/members';
 
-	const columns: ColumnDef<Member>[] = [
+	const _features = tableFeatures({ columnVisibilityFeature });
+
+	const columns: ColumnDef<typeof _features, Member>[] = [
 		{ accessorKey: 'name', header: 'Name' },
 		{ accessorKey: 'email', header: 'Email' },
 		{ accessorKey: 'role', header: 'Role' },
 		{ accessorKey: 'joined', header: 'Joined' }
 	];
 
-	const table = createSvelteTable({
+	const table = createTable({
+		_features,
 		get data() {
 			return members;
 		},
 		columns,
-		getCoreRowModel: getCoreRowModel()
+		_rowModels: { coreRowModel: createCoreRowModel() }
 	});
 </script>
 ```
 
-Two details to notice. First, `data` is a *getter*, not a static property. TanStack's Svelte 5 adapter expects reactive inputs to be read through getters so that it can re-run the row models when the source changes. If you wrote `data: members` (without the `get`), the table would be frozen to the first reference and would never update when the array mutated. This getter pattern is new in the Svelte 5 adapter and is the single biggest change from the old Svelte 3/4 version of the same library.
+Three details to notice. First, `_features` is declared with `tableFeatures({ ... })` *outside* the component and lists every feature the table will use. In v9, features are opt-in and declared up front rather than implied by which row models you pass. The bare table only enables `columnVisibilityFeature`; Lesson 11.8 adds sort, filter, and pagination features alongside their row models.
 
-Second, `ColumnDef<Member>[]` is the generic type that gives you full auto-complete and type-checking on `accessorKey`. If you write `accessorKey: 'namme'`, TypeScript immediately tells you that `'namme'` is not a key of `Member`. This is the same level of type safety you get from `keyof` in your own code, delivered by the library.
+Second, `data` is a *getter*, not a static property. TanStack's Svelte 5 adapter expects reactive inputs to be read through getters so that it can re-run the row models when the source changes. If you wrote `data: members` (without the `get`), the table would be frozen to the first reference and would never update when the array mutated. This getter pattern is the single biggest reactivity contract in the Svelte 5 adapter.
+
+Third, `ColumnDef<typeof _features, Member>[]` is the generic type that gives you full auto-complete and type-checking on `accessorKey`. Note the *two* type parameters in v9: the features type comes first, then the row type. If you write `accessorKey: 'namme'`, TypeScript immediately tells you that `'namme'` is not a key of `Member`. This is the same level of type safety you get from `keyof` in your own code, delivered by the library.
+
+The core row model is passed as a *factory call* inside `_rowModels` — `_rowModels: { coreRowModel: createCoreRowModel() }` — not as a top-level `getCoreRowModel:` option. Every optional row model (filter, sort, paginate) joins it as another key in that same `_rowModels` object.
 
 ### 1.3 Rendering rows and cells
 
 Once the table exists, rendering it is a matter of reading its methods. The four you need for a basic table:
 
-- `table.getHeaderGroups()` — returns an array of header rows (normally one, unless you use column groups).
+- `table.getHeaderGroups()` — returns an array of header rows (normally one, unless you use column groups). These method names are unchanged from earlier versions.
 - `table.getRowModel().rows` — returns the rows to display.
 - Each row has `.getVisibleCells()` — returns the cells for that row.
-- Each header and each cell has `.getContext()`, passed to `flexRender()` to produce the rendered value.
+- Each header exposes `header.column.columnDef.header`, and each cell exposes `cell.getValue()`.
 
 ```svelte
 <table>
@@ -95,13 +106,7 @@ Once the table exists, rendering it is a matter of reading its methods. The four
 		{#each table.getHeaderGroups() as group (group.id)}
 			<tr>
 				{#each group.headers as header (header.id)}
-					<th>
-						{#if !header.isPlaceholder}
-							<svelte:component
-								this={flexRender(header.column.columnDef.header, header.getContext())}
-							/>
-						{/if}
-					</th>
+					<th>{header.column.columnDef.header}</th>
 				{/each}
 			</tr>
 		{/each}
@@ -110,11 +115,7 @@ Once the table exists, rendering it is a matter of reading its methods. The four
 		{#each table.getRowModel().rows as row (row.id)}
 			<tr>
 				{#each row.getVisibleCells() as cell (cell.id)}
-					<td>
-						<svelte:component
-							this={flexRender(cell.column.columnDef.cell, cell.getContext())}
-						/>
-					</td>
+					<td>{cell.getValue()}</td>
 				{/each}
 			</tr>
 		{/each}
@@ -122,7 +123,7 @@ Once the table exists, rendering it is a matter of reading its methods. The four
 </table>
 ```
 
-For the simplest possible case, where the header is a plain string and the cell is the accessed value, `flexRender` handles both. You will see in Lesson 11.9 how to plug in custom Svelte components as cells — for example a "role badge" component — through the same `flexRender` call.
+For the simplest possible case, where the header is a plain string and the cell is the accessed value, reading `columnDef.header` and `cell.getValue()` directly is all you need. You will see in Lesson 11.9 how to plug in custom Svelte components as cells — for example a "role badge" component — by switching on the column id and rendering your own markup.
 
 ### 1.4 What "no features" means
 
@@ -171,9 +172,9 @@ Each model is computed lazily — it only recalculates when its input changes. I
 
 **Why this matters at scale.** Headless UI separates logic from presentation. You control all markup and styling while TanStack handles sorting, filtering, pagination.
 
-**The mental model.** createSvelteTable takes column definitions and row models. getHeaderGroups() and getRowModel() provide data for rendering. State lives outside the table.
+**The mental model.** createTable takes a feature declaration, column definitions, and a `_rowModels` object of factory calls. getHeaderGroups() and getRowModel() provide data for rendering. State lives outside the table.
 
-**Edge cases.** Column accessors must match data properties. The table re-renders when state changes. flexRender bridges TanStack's render output to Svelte components.
+**Edge cases.** Column accessors must match data properties. The table re-renders when state changes. The returned table is already reactive — no `fromStore`, no `$` prefix.
 
 **Performance implications.** TanStack processes the full dataset through its row model pipeline on every state change. For 10,000+ rows, consider server-side processing.
 
@@ -223,15 +224,15 @@ The adapter re-reads reactive inputs on every dependency change. If `data` were 
 </details>
 
 <details>
-<summary><strong>Q3.</strong> Why is <code>ColumnDef&lt;Member&gt;[]</code> better than <code>any[]</code> for the columns array?</summary>
+<summary><strong>Q3.</strong> Why is <code>ColumnDef&lt;typeof _features, Member&gt;[]</code> better than <code>any[]</code> for the columns array?</summary>
 
-`ColumnDef<Member>` constrains `accessorKey` to actual keys of `Member`, so a typo in a column name becomes a TypeScript error instead of a runtime surprise. It also propagates the row type into every cell renderer so that `row.original.name` is known to be a `string`.
+`ColumnDef<typeof _features, Member>` constrains `accessorKey` to actual keys of `Member`, so a typo in a column name becomes a TypeScript error instead of a runtime surprise. It also propagates the row type into every cell renderer so that `row.original.name` is known to be a `string`. The first type parameter ties the columns to the enabled features; the second is the row type.
 </details>
 
 <details>
 <summary><strong>Q4.</strong> What is the minimum set of options required to construct a table?</summary>
 
-`data` (typed array), `columns` (array of column definitions), and `getCoreRowModel: getCoreRowModel()`. The core row model is what turns raw rows into the table's internal row format. Everything else — sorting, filtering, pagination — is an opt-in row model you add in Lesson 11.8.
+`_features` (from `tableFeatures({ ... })`), `data` (typed array via a getter), `columns` (array of column definitions), and `_rowModels: { coreRowModel: createCoreRowModel() }`. The core row model is what turns raw rows into the table's internal row format. Everything else — sorting, filtering, pagination — is an opt-in feature plus row model you add in Lesson 11.8.
 </details>
 
 <details>
@@ -243,10 +244,10 @@ When the table is small and static and the features you need are trivial. A five
 ## 6. Common mistakes
 
 - **`data: members` instead of `get data() { return members; }`.** Silent loss of reactivity.
-- **Using `<DataTable>`-style wrapper components from other libraries.** Those fight TanStack's headless contract. Stick to plain HTML plus `flexRender`.
-- **Declaring columns inside the `createSvelteTable` call without a type.** Lose auto-complete on `accessorKey` and any typos go unnoticed until runtime.
-- **Rendering headers as string literals instead of via `flexRender`.** Works for plain strings; breaks the moment you add a custom header component in 11.9.
+- **Using `<DataTable>`-style wrapper components from other libraries.** Those fight TanStack's headless contract. Stick to plain HTML and the table's own helpers.
+- **Declaring columns inside the `createTable` call without a type.** Lose auto-complete on `accessorKey` and any typos go unnoticed until runtime. Annotate with `ColumnDef<typeof _features, Member>[]`.
+- **Passing row models as top-level options (`getCoreRowModel: ...`).** In v9 the row models live inside `_rowModels` as factory calls. A top-level `getCoreRowModel` does nothing.
 
 ## 7. What's next
 
-Lesson 11.8 flips on `getSortedRowModel`, `getFilteredRowModel`, and `getPaginationRowModel` — three one-line additions that transform the static table into a working data grid.
+Lesson 11.8 adds the `rowSortingFeature`, `columnFilteringFeature`, `globalFilteringFeature`, and `rowPaginationFeature` plus their row-model factories — turning the static table into a working data grid.

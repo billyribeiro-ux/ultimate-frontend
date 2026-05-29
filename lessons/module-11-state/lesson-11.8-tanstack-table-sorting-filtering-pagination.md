@@ -6,9 +6,9 @@ duration: 55 minutes
 prerequisites:
   - Lesson 11.7 — TanStack Table basics
 learning_objectives:
-  - Add sort with getSortedRowModel and a clickable sort state
-  - Add global filter with getFilteredRowModel and a search input
-  - Add pagination with getPaginationRowModel and previous/next controls
+  - Add sort with createSortedRowModel and a clickable sort state
+  - Add global filter with createFilteredRowModel and a search input
+  - Add pagination with createPaginatedRowModel and previous/next controls
   - Keep sort, filter, and pagination state in the URL via Lesson 11.6 technique
   - Recognise the row-model pipeline order and why it matters
 status: ready
@@ -22,33 +22,51 @@ status: ready
 
 ### 1.1 Row models, and why they stack
 
-The table you built in Lesson 11.7 had exactly one row model, `getCoreRowModel`. Its job is to convert the raw `data` array into the internal row format TanStack uses for everything else. Every optional feature adds its own row model, and the models run in a fixed order — a pipeline.
+The table you built in Lesson 11.7 had exactly one row model, the core row model. Its job is to convert the raw `data` array into the internal row format TanStack uses for everything else. Every optional feature adds its own row model, and the models run in a fixed order — a pipeline.
 
 The pipeline is: **core → filter → sort → paginate**.
 
 Core turns the source array into rows. Filter removes rows that do not match the current search. Sort re-orders the remaining rows. Paginate trims the sorted, filtered rows down to the current page. You rarely need to think about the order — it is the obviously correct order for human expectations ("I search, then sort the results, then flip through pages of them") — but it is worth knowing so that you do not go looking for bugs that are not there. If your sort does not affect the current page, that is because pagination runs *after* sort, which is exactly right.
 
-Each model is added with one import and one option:
+In v9 each model is a *factory* you call and place inside the `_rowModels` object — and each feature it serves must be declared in `tableFeatures({ ... })`. The filter and sort factories take the built-in function registries (`filterFns`, `sortFns`) as arguments:
 
 ```ts
 import {
-	getCoreRowModel,
-	getFilteredRowModel,
-	getSortedRowModel,
-	getPaginationRowModel
+	createTable,
+	tableFeatures,
+	rowSortingFeature,
+	columnFilteringFeature,
+	globalFilteringFeature,
+	rowPaginationFeature,
+	createCoreRowModel,
+	createFilteredRowModel,
+	createSortedRowModel,
+	createPaginatedRowModel,
+	filterFns,
+	sortFns
 } from '@tanstack/svelte-table';
 
-const table = createSvelteTable({
+const _features = tableFeatures({
+	rowSortingFeature,
+	columnFilteringFeature,
+	globalFilteringFeature,
+	rowPaginationFeature
+});
+
+const table = createTable({
+	_features,
 	get data() { return members; },
 	columns,
-	getCoreRowModel: getCoreRowModel(),
-	getFilteredRowModel: getFilteredRowModel(),
-	getSortedRowModel: getSortedRowModel(),
-	getPaginationRowModel: getPaginationRowModel()
+	_rowModels: {
+		coreRowModel: createCoreRowModel(),
+		filteredRowModel: createFilteredRowModel(filterFns),
+		sortedRowModel: createSortedRowModel(sortFns),
+		paginatedRowModel: createPaginatedRowModel()
+	}
 });
 ```
 
-That is the whole pipeline wired up. The row models are functions that return functions (so you can pass arguments to customise their behaviour), but the out-of-the-box behaviour is fine for most tables.
+That is the whole pipeline wired up. The row-model factories accept arguments (the function registries, or custom options) so you can customise their behaviour, but the out-of-the-box behaviour is fine for most tables.
 
 ### 1.2 State, and where it lives
 
@@ -58,33 +76,36 @@ The Svelte 5 adapter lets you pass reactive state in via the same getter pattern
 
 ```svelte
 <script lang="ts">
-	import type { SortingState, ColumnFiltersState, PaginationState } from '@tanstack/svelte-table';
+	import type { SortingState, PaginationState, Updater } from '@tanstack/svelte-table';
 
 	let sorting = $state<SortingState>([]);
 	let globalFilter = $state<string>('');
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
-	const table = createSvelteTable({
+	const table = createTable({
+		_features,
 		get data() { return members; },
 		columns,
+		_rowModels: {
+			coreRowModel: createCoreRowModel(),
+			filteredRowModel: createFilteredRowModel(filterFns),
+			sortedRowModel: createSortedRowModel(sortFns),
+			paginatedRowModel: createPaginatedRowModel()
+		},
 		state: {
 			get sorting() { return sorting; },
 			get globalFilter() { return globalFilter; },
 			get pagination() { return pagination; }
 		},
-		onSortingChange: (updater) => {
+		onSortingChange: (updater: Updater<SortingState>) => {
 			sorting = typeof updater === 'function' ? updater(sorting) : updater;
 		},
-		onGlobalFilterChange: (value) => {
-			globalFilter = value as string;
+		onGlobalFilterChange: (value: Updater<string>) => {
+			globalFilter = (typeof value === 'function' ? value(globalFilter) : value ?? '') as string;
 		},
-		onPaginationChange: (updater) => {
+		onPaginationChange: (updater: Updater<PaginationState>) => {
 			pagination = typeof updater === 'function' ? updater(pagination) : updater;
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel()
+		}
 	});
 </script>
 ```
@@ -148,7 +169,7 @@ Pagination needs a previous button, a next button, and a page indicator. The tab
 	</button>
 
 	<span>
-		Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+		Page {table.state.pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
 	</span>
 
 	<button
@@ -189,7 +210,7 @@ Sorting and filtering in TanStack Table follow a declarative state model:
 
 **Why this matters at scale.** Sorting, filtering, and pagination are composable row model processors. Each transforms data in sequence, creating a pipeline.
 
-**The mental model.** State for each feature lives in $state variables connected via state/onChange. getSortedRowModel, getFilteredRowModel, getPaginationRowModel compose in order.
+**The mental model.** State for each feature lives in $state variables connected via state/onChange. The factories createSortedRowModel(sortFns), createFilteredRowModel(filterFns), and createPaginatedRowModel() compose in order inside `_rowModels`.
 
 **Edge cases.** The pipeline order matters: filter first reduces the dataset, then sort, then paginate. Reversing the order produces different results.
 
