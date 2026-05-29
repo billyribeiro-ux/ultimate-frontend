@@ -106,9 +106,9 @@ Treat `error(...)` as "please show this to the user" and regular exceptions as "
 
 If you use `Promise.all` and one branch throws `error(404, ...)`, the whole load aborts with that error. If the failing branch is optional, wrap it in a try/catch or use `Promise.allSettled` instead. The decision depends on whether the page can render meaningfully with partial data.
 
-### 1.7 What April 2026 changes
+### 1.7 What May 2026 changes
 
-Nothing in the API shape. `error` and `redirect` have been stable since SvelteKit 1.0. What did change is that in April 2026 the `error` helper throws synchronously (no `throw` keyword needed in newest SvelteKit versions), but the `throw error(...)` form still works and is what we teach for clarity.
+Nothing in the API shape. `error` and `redirect` have been stable since SvelteKit 1.0. What did change is that in May 2026 the `error` helper throws synchronously (no `throw` keyword needed in newest SvelteKit versions), but the `throw error(...)` form still works and is what we teach for clarity.
 
 ### 1.8 What SvelteKit does under the hood
 

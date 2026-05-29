@@ -74,7 +74,7 @@
 	<title>Module 9B · Remote Functions · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="SvelteKit's April 2026 paradigm for type-safe client/server communication — query, form, command, and prerender."
+		content="SvelteKit's May 2026 paradigm for type-safe client/server communication — query, form, command, and prerender."
 	/>
 </svelte:head>
 
@@ -84,7 +84,7 @@
 	</nav>
 
 	<header>
-		<p class="eyebrow">Module 9B · April 2026</p>
+		<p class="eyebrow">Module 9B · May 2026</p>
 		<h1>Remote Functions</h1>
 		<p class="lede">
 			Ten lessons on SvelteKit's newest paradigm for type-safe client/server

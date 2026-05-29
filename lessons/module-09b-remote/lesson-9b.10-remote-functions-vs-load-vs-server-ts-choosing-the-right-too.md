@@ -22,7 +22,7 @@ status: ready
 
 ### 1.1 Why there are still four tools
 
-In April 2026 SvelteKit gives you four distinct ways to talk to the server from a page: the classic `load()` function, the three remote function flavours (`query`, `form`, `command`), and the original `+server.ts` endpoint. This can feel like too many options. In practice each has a **single clear job** and picking between them comes down to two questions:
+In May 2026 SvelteKit gives you four distinct ways to talk to the server from a page: the classic `load()` function, the three remote function flavours (`query`, `form`, `command`), and the original `+server.ts` endpoint. This can feel like too many options. In practice each has a **single clear job** and picking between them comes down to two questions:
 
 1. *Who* is calling this? (SvelteKit's own rendering pipeline, a component, an HTML form, a third party?)
 2. *When* is it called? (Before the page renders, from user interaction, by a webhook?)

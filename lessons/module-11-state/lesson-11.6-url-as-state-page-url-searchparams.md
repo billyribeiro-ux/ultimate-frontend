@@ -43,7 +43,7 @@ The reactive page object lives in `$app/state`:
 <p>Showing {role} sorted by {sort}, page {pageNum}.</p>
 ```
 
-A note on history. SvelteKit 2 deprecated the older `$app/stores` module (which exposed `$page`) in favour of `$app/state` (which exposes `page` as a reactive object). The new form is a rune-compatible reactive object; you read its properties directly without a leading `$`. Tutorials that use `$page.url.searchParams` are the *older* pattern. They still work, but `page.url.searchParams` from `$app/state` is the April 2026 recommendation and the one you will use in this course.
+A note on history. SvelteKit 2 deprecated the older `$app/stores` module (which exposed `$page`) in favour of `$app/state` (which exposes `page` as a reactive object). The new form is a rune-compatible reactive object; you read its properties directly without a leading `$`. Tutorials that use `$page.url.searchParams` are the *older* pattern. They still work, but `page.url.searchParams` from `$app/state` is the May 2026 recommendation and the one you will use in this course.
 
 Every time the URL changes — whether via a link click, the back button, or a programmatic `goto()` — the `page` object updates reactively, and any `$derived` that reads `page.url.searchParams` recomputes. There is no subscription to manage.
 
@@ -223,7 +223,7 @@ A filter in the URL is bookmarkable, shareable, survives a reload, integrates wi
 <details>
 <summary><strong>Q2.</strong> What is the difference between <code>$app/stores</code> and <code>$app/state</code>?</summary>
 
-`$app/stores` is the older module, which exposed `$page` as a Svelte 3/4-style store (read with a leading `$`). `$app/state` is the April 2026 replacement, which exposes `page` as a rune-compatible reactive object (read without the `$`). Use `$app/state` in new code. Tutorials that use `$page.url.searchParams` are using the older pattern.
+`$app/stores` is the older module, which exposed `$page` as a Svelte 3/4-style store (read with a leading `$`). `$app/state` is the May 2026 replacement, which exposes `page` as a rune-compatible reactive object (read without the `$`). Use `$app/state` in new code. Tutorials that use `$page.url.searchParams` are using the older pattern.
 </details>
 
 <details>
@@ -249,7 +249,7 @@ Secrets (URLs end up in server logs, referrer headers, and screenshots) and larg
 - **`bind:value` on a URL-backed input.** Two-way binding fights the URL write. Use `value={q}` + `oninput`.
 - **Forgetting `noScroll: true`.** Every filter change scrolls the page to the top.
 - **Stacking history entries on every keystroke.** Use `replaceState: true` when debouncing.
-- **Reading `$page.url` instead of `page.url` from `$app/state`.** April 2026 uses the new module.
+- **Reading `$page.url` instead of `page.url` from `$app/state`.** May 2026 uses the new module.
 
 ## 7. What's next
 

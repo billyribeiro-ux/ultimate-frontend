@@ -73,7 +73,7 @@ const pos = spring({ x: 0, y: 0 }, { stiffness: 0.1, damping: 0.4 });
 pos.set({ x: 100, y: 50 });
 ```
 
-The returned value is a store; the template reads `$pos.x`, `$pos.y`. You will still see this form in older codebases. Prefer the `Spring` class for new code in April 2026.
+The returned value is a store; the template reads `$pos.x`, `$pos.y`. You will still see this form in older codebases. Prefer the `Spring` class for new code in May 2026.
 
 ### 1.3 Tuning stiffness and damping
 
@@ -199,7 +199,7 @@ Pass `{ instant: true }` to `.set()`, or set stiffness and damping both to 1. Th
 </details>
 
 <details>
-<summary><strong>Q4.</strong> Is the legacy <code>spring()</code> function still supported in April 2026?</summary>
+<summary><strong>Q4.</strong> Is the legacy <code>spring()</code> function still supported in May 2026?</summary>
 
 Yes. It is marked deprecated in favour of the `Spring` class (5.8+) but still exported and still works. Prefer `Spring` for new code; recognise `spring()` in older code.
 </details>

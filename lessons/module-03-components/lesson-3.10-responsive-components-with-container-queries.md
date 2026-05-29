@@ -94,7 +94,7 @@ Container queries shine when combined with the custom-property knob pattern from
 
 The knob values change, the existing rules pick them up, and the component reshapes. Two tools, one file.
 
-### 1.6 Browser support in April 2026
+### 1.6 Browser support in May 2026
 
 Container queries (`@container`) and `container-type` are **baseline** since 2023 and are in every evergreen browser. You no longer need a polyfill, a PostCSS plugin, or a feature-detection fallback. Write them directly and trust the browser to do its job.
 

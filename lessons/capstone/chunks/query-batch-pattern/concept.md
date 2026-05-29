@@ -6,7 +6,7 @@ penalty: medium
 
 # query.batch() Pattern — Level 2 Concept Reveal
 
-`query.batch()` is a helper from `$app/server` that collects multiple `query` invocations and sends them to the server as a single request. It is the April 2026 successor to ad-hoc request deduplication.
+`query.batch()` is a helper from `$app/server` that collects multiple `query` invocations and sends them to the server as a single request. It is the May 2026 successor to ad-hoc request deduplication.
 
 The key insight: **batching is opt-in at the call site, not at the declaration**. Your individual `query` functions stay unchanged. You decide *at the point of use* whether a particular call should participate in a batch.
 

@@ -85,7 +85,7 @@ You do not always need `depends` and `invalidate`. SvelteKit re-runs a load auto
 
 Custom dependencies are for cases where nothing in the URL changed but the underlying data did — typically after a mutation.
 
-### 1.7 What April 2026 adds
+### 1.7 What May 2026 adds
 
 Remote functions (Module 9B) add a different model for mutations that integrates more tightly with `depends`/`invalidate`. In particular, a remote `command` can attach an invalidation key so calling the command automatically invalidates the right queries. That is beyond the scope of this module — we mention it so students know there is a tighter integration waiting for them in the next module.
 

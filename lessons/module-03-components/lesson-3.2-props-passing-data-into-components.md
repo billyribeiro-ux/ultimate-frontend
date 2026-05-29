@@ -34,7 +34,7 @@ Props only flow **downward**, from parent to child. A child cannot reach up and 
 
 ### 1.3 How Svelte 5 spells it: the `$props()` rune
 
-In Svelte 5 (April 2026), props are declared in exactly one way: by calling the `$props()` rune inside the `<script lang="ts">` block and destructuring the object it returns.
+In Svelte 5 (May 2026), props are declared in exactly one way: by calling the `$props()` rune inside the `<script lang="ts">` block and destructuring the object it returns.
 
 ```svelte
 <script lang="ts">
@@ -61,7 +61,7 @@ If you search "Svelte props" on the internet, a large fraction of the top result
 </script>
 ```
 
-That is **Svelte 3 and Svelte 4** syntax. It worked for seven years. Svelte 5, released late 2024, introduced runes as a clearer, typed, explicit alternative, and by the April 2026 release the `$props()` rune is the official, recommended, and future-facing way. The old `export let` form still technically works in compatibility mode, but we never use it in this course.
+That is **Svelte 3 and Svelte 4** syntax. It worked for seven years. Svelte 5, released late 2024, introduced runes as a clearer, typed, explicit alternative, and by the May 2026 release the `$props()` rune is the official, recommended, and future-facing way. The old `export let` form still technically works in compatibility mode, but we never use it in this course.
 
 Why did the team change it? Three reasons: `export` normally means "make this available to other files", which confused learners; the old form had strange edge cases around default values; and it did not play well with strict TypeScript. `$props()` fixes all three.
 
@@ -266,7 +266,7 @@ One-way flow gives you a single reliable answer to "where did this value come fr
 </details>
 
 <details>
-<summary><strong>Q2.</strong> What is the one correct way to declare props in Svelte 5 (April 2026)?</summary>
+<summary><strong>Q2.</strong> What is the one correct way to declare props in Svelte 5 (May 2026)?</summary>
 
 Call the `$props()` rune exactly once inside `<script lang="ts">` and destructure the returned object: `let { label, value } = $props();`. Any example using `export let` is Svelte 3/4 and must be rewritten.
 </details>
@@ -286,7 +286,7 @@ Nothing. Svelte's compiler wires the prop to the child's reactive graph automati
 <details>
 <summary><strong>Q5.</strong> A tutorial shows `export let label = '';` inside a Svelte file. What should you do with it?</summary>
 
-Rewrite it as `let { label = '' } = $props();`. The old syntax is Svelte 3/4 and has no place in an April 2026 codebase.
+Rewrite it as `let { label = '' } = $props();`. The old syntax is Svelte 3/4 and has no place in an May 2026 codebase.
 </details>
 
 ## 6. Common mistakes

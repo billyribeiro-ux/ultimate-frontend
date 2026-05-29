@@ -80,7 +80,7 @@ Both methods are frequently overused. Two red flags:
 
 ### 1.6 Svelte 5 removed the `|preventDefault` modifier
 
-Svelte 3/4 had a shorthand: `on:submit|preventDefault={handleSubmit}`. Svelte 5 removed it. In the April 2026 version you call `event.preventDefault()` yourself inside the handler. This aligns with the rest of the platform (`addEventListener` has never had a modifier) and makes the call visible in the handler body where it belongs.
+Svelte 3/4 had a shorthand: `on:submit|preventDefault={handleSubmit}`. Svelte 5 removed it. In the May 2026 version you call `event.preventDefault()` yourself inside the handler. This aligns with the rest of the platform (`addEventListener` has never had a modifier) and makes the call visible in the handler body where it belongs.
 
 ### 1.7 The full event propagation path — a concrete walkthrough
 

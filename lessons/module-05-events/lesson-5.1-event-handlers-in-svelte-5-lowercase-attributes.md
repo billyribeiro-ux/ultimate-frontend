@@ -28,7 +28,7 @@ So far in this course your pages have been like posters on a wall. They tell you
 
 Every front-end framework ever written has its own way to attach a handler to a DOM element. React invented `onClick={handleClick}`. Vue invented `@click="handleClick"`. Angular invented `(click)="handleClick()"`. Svelte 3 and Svelte 4 invented `on:click={handleClick}` — the colon was a Svelte-specific directive. Four frameworks, four different spellings for the same idea. Every new learner had to memorise yet another flavour.
 
-### 1.2 The April 2026 answer: use the platform
+### 1.2 The May 2026 answer: use the platform
 
 Svelte 5 removed the colon. The event attribute in modern Svelte is the *exact same attribute name the browser already uses*, written in lowercase:
 

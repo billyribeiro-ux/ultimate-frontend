@@ -72,7 +72,7 @@ Because cookies are sent automatically, a malicious site can craft a form that P
 
 SvelteKit protects you by default: it checks the `Origin` header on every form action POST. If the `Origin` does not match your app's domain, SvelteKit rejects the request with a 403 before your action code even runs. You will see this in action in Lesson 15.8.
 
-### 1.5 What is different in the April 2026 version
+### 1.5 What is different in the May 2026 version
 
 Older SvelteKit tutorials (pre-2024) often demonstrated auth with `getSession` and `$session` stores. Those APIs no longer exist. The current pattern uses:
 

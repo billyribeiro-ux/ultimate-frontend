@@ -25,7 +25,7 @@ Every component we have built so far produces *all* its own markup. `InfoCard` r
 
 But imagine a `Card` component — a box with a border, a header, a body, a footer, padding, and a shadow. The *chrome* is fixed. The *contents* are different every time you use it. One card contains a product summary; another contains a chart; a third contains a sign-in form. The card cannot possibly pre-declare markup for all of those. The card needs a **hole** — a place in its own markup where the parent drops in whatever it wants to render there.
 
-Every UI framework has a mechanism for this hole. React calls it `children`. Vue calls it `<slot>`. Svelte 3 and 4 called it `<slot>` too. Svelte 5 redesigned it around a feature called **snippets**, and by April 2026 snippets are the only idiomatic way to solve this problem in new code.
+Every UI framework has a mechanism for this hole. React calls it `children`. Vue calls it `<slot>`. Svelte 3 and 4 called it `<slot>` too. Svelte 5 redesigned it around a feature called **snippets**, and by May 2026 snippets are the only idiomatic way to solve this problem in new code.
 
 ### 1.2 What a snippet is
 

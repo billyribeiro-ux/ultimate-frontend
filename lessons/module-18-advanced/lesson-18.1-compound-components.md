@@ -122,7 +122,7 @@ In older Svelte (v3/v4), developers used slots for composition. Slots are gone i
 
 Render props (passing a snippet that receives state) are the headless pattern — covered in Lesson 18.3. Compound components give children their own identity as components with their own `<script>`, styles, and lifecycle. Choose compound components when children have distinct behavior; choose headless/render-prop when you want maximum render flexibility with minimal component overhead.
 
-### 1.8 When the April 2026 version changed things
+### 1.8 When the May 2026 version changed things
 
 Svelte 5.55+ made compound components significantly cleaner. The `$props()` rune replaced `export let`, making prop interfaces explicit. Snippets replaced slots, giving compound children full TypeScript support for their `children` prop. Reactive getters in context objects replaced the store-based workarounds that Svelte 4 required. The result: compound components in Svelte 5 are simpler to write, fully type-safe, and perform better than any previous version.
 

@@ -17,7 +17,7 @@
 	</nav>
 
 	<header>
-		<p class="eyebrow">Lesson 9B.1 · April 2026 paradigm</p>
+		<p class="eyebrow">Lesson 9B.1 · May 2026 paradigm</p>
 		<h1>What Remote Functions are and why they exist</h1>
 		<p class="lede">
 			SvelteKit's newest answer to the "two codebases" problem. One file, both
@@ -37,7 +37,7 @@
 			</ul>
 		</div>
 		<div class="compare__card compare__card--new">
-			<p class="compare__label">The April 2026 way</p>
+			<p class="compare__label">The May 2026 way</p>
 			<p class="compare__body">{newWay}</p>
 			<ul>
 				<li><code>posts.remote.ts</code></li>

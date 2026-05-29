@@ -101,9 +101,9 @@ Four concrete wins:
 3. **SEO and scraping work.** Googlebot and Twitter see the rendered content, not a spinner.
 4. **Deduplication and caching.** SvelteKit caches load results, deduplicates fetches, and re-runs only what changed on navigation.
 
-### 1.6 How April 2026 differs from Svelte 3/4
+### 1.6 How May 2026 differs from Svelte 3/4
 
-In pre-SvelteKit-1.0 tutorials you may see `export async function load()` as a module-level function without the `PageLoad` type, returning `{ props: { ... } }`. That was the legacy API. The April 2026 shape is `export const load: PageLoad = async (event) => { return { ... }; }` — a typed arrow function returning a plain object. If a tutorial uses `return { props: { post } }`, it is outdated.
+In pre-SvelteKit-1.0 tutorials you may see `export async function load()` as a module-level function without the `PageLoad` type, returning `{ props: { ... } }`. That was the legacy API. The May 2026 shape is `export const load: PageLoad = async (event) => { return { ... }; }` — a typed arrow function returning a plain object. If a tutorial uses `return { props: { post } }`, it is outdated.
 
 ### 1.7 The load function event object
 

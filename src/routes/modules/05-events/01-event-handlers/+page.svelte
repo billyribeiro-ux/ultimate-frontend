@@ -34,7 +34,7 @@
 		<p class="eyebrow">Lesson 5.1 · Mini-build</p>
 		<h1>A button that actually listens</h1>
 		<p class="lede">
-			The lowercase <code>onclick</code> attribute is the April 2026 way. No colon, no directive,
+			The lowercase <code>onclick</code> attribute is the May 2026 way. No colon, no directive,
 			no framework lore.
 		</p>
 	</header>

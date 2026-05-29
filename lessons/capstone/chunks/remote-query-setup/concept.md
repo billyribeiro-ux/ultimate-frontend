@@ -6,7 +6,7 @@ penalty: medium
 
 # Remote Query Setup — Level 2 Concept Reveal
 
-**Remote Functions** are SvelteKit's April 2026 answer to "I want a typed, end-to-end-safe RPC call I can import directly into my component." A `.remote.ts` file exports one or more of four function kinds:
+**Remote Functions** are SvelteKit's May 2026 answer to "I want a typed, end-to-end-safe RPC call I can import directly into my component." A `.remote.ts` file exports one or more of four function kinds:
 
 - `query` — read, cacheable, re-invocable
 - `command` — write, not cached

@@ -29,7 +29,7 @@ From the repo root:
 pnpm add gsap
 ```
 
-That is it. `pnpm` records `gsap` in `dependencies` (not `devDependencies`, because it is used in your runtime bundle, not just at build time). The lockfile pins a specific version. A typical April 2026 entry:
+That is it. `pnpm` records `gsap` in `dependencies` (not `devDependencies`, because it is used in your runtime bundle, not just at build time). The lockfile pins a specific version. A typical May 2026 entry:
 
 ```json
 "dependencies": {

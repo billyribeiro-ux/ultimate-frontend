@@ -111,7 +111,7 @@ You can also pass an inline arrow function, though it is usually cleaner to defi
 <button onclick={() => count++}>Click</button>
 ```
 
-### 1.7 The April 2026 pattern vs what you may see online
+### 1.7 The May 2026 pattern vs what you may see online
 
 If you search "Svelte counter" on Google, the top results are still full of Svelte 3 and 4 code: plain `let count = 0` as "automatically reactive", `on:click` event binding, and `$: doubled = count * 2` for derived values. None of these work in Svelte 5 the way the tutorial intends. Use this checklist to spot outdated code:
 

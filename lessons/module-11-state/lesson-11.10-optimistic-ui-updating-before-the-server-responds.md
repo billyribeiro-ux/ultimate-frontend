@@ -108,7 +108,7 @@ If the row you are optimistically updating lives inside a TanStack Table, the re
 
 ### 1.6 Pairing with remote functions
 
-SvelteKit's April 2026 remote functions (Module 9B) make the server call half of this pattern particularly clean. A `command` remote function returns a typed promise; your store awaits it; the error handling is already standardised. The mini-build fakes the server call with `setTimeout` so the lesson runs without a backend, but the shape of the code is identical to what you would write against a real remote command.
+SvelteKit's May 2026 remote functions (Module 9B) make the server call half of this pattern particularly clean. A `command` remote function returns a typed promise; your store awaits it; the error handling is already standardised. The mini-build fakes the server call with `setTimeout` so the lesson runs without a backend, but the shape of the code is identical to what you would write against a real remote command.
 
 ### 1.7 Optimistic UI and lists: the position problem
 

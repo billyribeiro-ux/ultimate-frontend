@@ -75,7 +75,7 @@ Svelte 5.10+ introduced `<svelte:boundary>`, an error boundary you can wrap arou
 
 You almost never want to use it to hide real bugs — a hydration mismatch is a bug, not a feature — but in a third-party widget that you do not control, a boundary stops one broken component from bringing down the whole page.
 
-### 1.6 What the April 2026 version changes
+### 1.6 What the May 2026 version changes
 
 Svelte 5 rewrote hydration to be smaller and faster. Specifically, the compiler now knows exactly which nodes need event listeners and walks a narrow list rather than the whole DOM. In practice this means hydration costs are lower than Svelte 4, and hydration mismatches are harder to cause. You will still meet them, but less often.
 
@@ -87,7 +87,7 @@ SvelteKit minimizes this by code-splitting per route. Each page only hydrates it
 
 ### 1.8 Partial hydration and islands (future direction)
 
-Some frameworks (Astro, Qwik) experiment with partial hydration: only interactive components are hydrated, while static content remains inert HTML. SvelteKit does not currently implement this model — it hydrates the entire page. However, Svelte's compiled output is already extremely lean (no runtime, targeted DOM operations), which makes full hydration faster than partial hydration in many other frameworks. The April 2026 version's narrow-list hydration walker is a step toward even more targeted hydration, and future SvelteKit versions may offer explicit islands for specific use cases.
+Some frameworks (Astro, Qwik) experiment with partial hydration: only interactive components are hydrated, while static content remains inert HTML. SvelteKit does not currently implement this model — it hydrates the entire page. However, Svelte's compiled output is already extremely lean (no runtime, targeted DOM operations), which makes full hydration faster than partial hydration in many other frameworks. The May 2026 version's narrow-list hydration walker is a step toward even more targeted hydration, and future SvelteKit versions may offer explicit islands for specific use cases.
 
 
 

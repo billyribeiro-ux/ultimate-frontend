@@ -424,7 +424,7 @@ A-Z reference of every technical term used in the course. Each entry notes where
 
 **`redirect()`** — A SvelteKit helper that throws a redirect error with a status code and URL, used in load functions and form actions to redirect the user. (First introduced: Module 9A, Lesson 9A.8)
 
-**Remote function** — A SvelteKit feature (April 2026) that allows components to call server-side functions directly, available as `query`, `command`, and `form` types. (First introduced: Module 9B, Lesson 9B.1)
+**Remote function** — A SvelteKit feature (May 2026) that allows components to call server-side functions directly, available as `query`, `command`, and `form` types. (First introduced: Module 9B, Lesson 9B.1)
 
 **`@render`** — Svelte 5's template tag `{@render snippetName(args)}` for rendering a declared snippet with optional arguments. (First introduced: Module 3, Lesson 3.6)
 

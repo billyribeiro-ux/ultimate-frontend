@@ -108,7 +108,7 @@ Sometimes you want to compute a value once per iteration of an `{#each}` loop an
 
 `{@const}` is the only way to bind a name inside the markup block. It can only appear at the top of a block (`{#each}`, `{#if}`, `{#await}`, `<Component>`). It is not a general-purpose `let`.
 
-### 1.6 The April 2026 difference
+### 1.6 The May 2026 difference
 
 Svelte 3 and 4 used the same `{ }` syntax, but reactive assignments inside a component relied on a quirky `$:` syntax that is now replaced by the `$derived` rune (Module 2). The `{ }` interpolation itself has not changed — if you see `{value}` in an old tutorial, it still works exactly the same way. What has changed is *what goes inside*: you no longer write `{count * 2}` hoping it re-evaluates. It always re-evaluates because in Svelte 5 reactivity is explicit and the compiler knows which values are reactive. This will become crystal clear in Lesson 2.2.
 

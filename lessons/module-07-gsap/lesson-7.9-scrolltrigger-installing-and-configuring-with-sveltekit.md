@@ -140,7 +140,7 @@ ScrollTrigger.matchMedia({
 
 The code inside the media-query block only runs when the user does **not** prefer reduced motion. If they do, the animations are skipped entirely and the section appears in its natural state. This is cleaner than sprinkling `prefersReducedMotion.current` checks throughout.
 
-> **Note:** `ScrollTrigger.matchMedia` works but `gsap.matchMedia()` is the newer, more flexible API. Both are valid in April 2026.
+> **Note:** `ScrollTrigger.matchMedia` works but `gsap.matchMedia()` is the newer, more flexible API. Both are valid in May 2026.
 
 
 

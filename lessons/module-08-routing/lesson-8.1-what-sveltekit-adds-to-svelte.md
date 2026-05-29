@@ -38,7 +38,7 @@ Think of SvelteKit as four things in one package:
 3. **A server-side renderer.** Every page is rendered to HTML on the server first, so the first byte the browser receives already contains the content. Search engines see real HTML. Social previews see real HTML. Users on slow connections see real HTML. That is the topic of Lessons 8.2 and 8.3.
 4. **A universal deployment target.** When you are done, you pick an adapter (`adapter-node`, `adapter-vercel`, `adapter-cloudflare`, `adapter-static`) and the same codebase ships to any of them. You do not rewrite your app for each platform.
 
-On top of those four, SvelteKit also adds hooks (middleware that sees every request — Lesson 8.9), form actions (Module 10), layouts (Lesson 8.5), error boundaries (Lesson 8.4), and in April 2026 a very new feature called **remote functions** (Module 9B) that lets you call typed server functions directly from a component.
+On top of those four, SvelteKit also adds hooks (middleware that sees every request — Lesson 8.9), form actions (Module 10), layouts (Lesson 8.5), error boundaries (Lesson 8.4), and in May 2026 a very new feature called **remote functions** (Module 9B) that lets you call typed server functions directly from a component.
 
 ### 1.3 Why file-based routing exists
 
@@ -62,7 +62,7 @@ A good heuristic: **if the file is a single component that could be used in any 
 
 When something breaks, the file that exploded tells you which docs to open. A reactivity bug in a `.svelte` file points you at **svelte.dev/docs/svelte**. A 404 or a hydration mismatch points you at **svelte.dev/docs/kit**.
 
-### 1.5 What is different in April 2026
+### 1.5 What is different in May 2026
 
 Since SvelteKit 2.50 the reactive page state API lives in `$app/state`, not `$app/stores`. Since SvelteKit 2.55 typed route parameters are generated into `$app/types`. Remote functions (query / form / command) are stable and opt-in via `experimental.remoteFunctions: true` in `svelte.config.js`. You will meet each of these in its own lesson.
 

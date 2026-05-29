@@ -81,7 +81,7 @@ In the module project you will build a site where the home page is SSG, a dashbo
 - **SSR+CSR (default)** is the best balance for most real content. The server sends real HTML; the client takes over after hydration.
 - **SSR-only (`csr=false`)** is underused — it is perfect for pages that do not need interactivity and want to ship zero JS. Your Lighthouse score will be grateful.
 
-### 1.7 What April 2026 adds
+### 1.7 What May 2026 adds
 
 SvelteKit 2.50+ supports ISR-like behaviour on some adapters (Vercel, Netlify) where a prerendered page is revalidated on a schedule. Setting `prerender = true` + an adapter-specific revalidate option gives you the speed of SSG with the freshness of SSR. This is adapter territory and beyond the scope of this lesson, but it is good to know it exists.
 

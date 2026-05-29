@@ -39,7 +39,7 @@ With remote functions, this makes queries read like synchronous code:
 
 No `{#await}`, no `{:then}`, no nested indentation. The `post` variable is simply the resolved value.
 
-### 1.2 Why it is still experimental in April 2026
+### 1.2 Why it is still experimental in May 2026
 
 The semantics of top-level `await` during SSR are subtle. What happens if an awaited value errors? What happens during a client-side navigation, when there is no "first render" to stream into? How do you show loading UI when the component itself is suspended? The Svelte team has answers, but they are still iterating on the details. Enabling the flag in production is fine for experimentation and strongly encouraged for learning — but for a course we teach the **conservative pattern** (`{#await}`) as the default and show the async SSR syntax as the future.
 
@@ -244,7 +244,7 @@ It renders a fallback while any awaited value inside the boundary is still resol
 <details>
 <summary><strong>Q4.</strong> Why does this course still teach <code>{#await}</code> as the default?</summary>
 
-Because async SSR is experimental in April 2026. The Svelte team still reserves the right to change details. `{#await}` is stable today and reproducible for every student.
+Because async SSR is experimental in May 2026. The Svelte team still reserves the right to change details. `{#await}` is stable today and reproducible for every student.
 </details>
 
 <details>

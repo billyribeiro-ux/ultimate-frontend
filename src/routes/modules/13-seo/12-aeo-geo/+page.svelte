@@ -19,7 +19,7 @@
 				'Classic SEO targets the ten blue links. AEO targets the three citations inside the AI Overview above them.'
 		},
 		{
-			question: 'Which queries trigger AI Overviews in April 2026?',
+			question: 'Which queries trigger AI Overviews in May 2026?',
 			answer:
 				'Informational, how-to, definitional, and comparative queries trigger Overviews most often. Transactional and navigational queries rarely do.'
 		}

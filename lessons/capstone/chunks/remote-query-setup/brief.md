@@ -11,7 +11,7 @@ Replace the plain `load()` dashboard with a **Remote Function** `query` so the m
 ## What to build
 
 - Create `src/lib/server/metrics.remote.ts` (or similar) exporting a `query` function named `getMetrics()` that returns `Metric[]`.
-- Call `await getMetrics()` inside the dashboard page using the April 2026 async SSR pattern.
+- Call `await getMetrics()` inside the dashboard page using the May 2026 async SSR pattern.
 - Ensure SSR still ships the rendered list in the first byte.
 - Provide a manual refresh button in the dashboard that re-invokes the query without a full navigation.
 

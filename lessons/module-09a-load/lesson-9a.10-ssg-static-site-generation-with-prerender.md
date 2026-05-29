@@ -94,7 +94,7 @@ If your load needs any of these, do not prerender it. If your load only uses `pa
 
 Your app can have prerendered home and about pages, prerendered blog posts, and SSR-rendered dashboards in the same codebase. The build output contains the static HTML for the first group and the server code for the second. Your adapter chooses the right thing at deploy time.
 
-### 1.7 What April 2026 adds
+### 1.7 What May 2026 adds
 
 Some adapters (Vercel, Netlify) now support incremental static regeneration (ISR) on top of prerender — the static HTML is served immediately, then regenerated in the background on a schedule. That gives you SSG speed with near-SSR freshness. This is adapter-specific; check your adapter's docs.
 

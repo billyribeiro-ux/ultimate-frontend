@@ -9,7 +9,7 @@ prerequisites:
 learning_objectives:
   - Explain why a server-rendered page is indexable while a pure client-rendered page often is not
   - Describe how SvelteKit's zero-runtime bundle baseline helps Core Web Vitals
-  - Name three measurable signals Google uses to rank pages in April 2026
+  - Name three measurable signals Google uses to rank pages in May 2026
   - Prove via View Source that a SvelteKit page ships HTML before JavaScript runs
   - State when SSR is the right choice vs prerender vs CSR for SEO
 status: ready
@@ -25,7 +25,7 @@ status: ready
 
 Before Google decides *how* to rank your page, it has to *see* the page. Googlebot — the crawler that fetches and indexes the web — makes an HTTP request to your URL, receives a response, and tries to extract three things from it: the **visible text**, the **links**, and the **structured metadata** (title, meta description, headings, schema.org JSON-LD).
 
-If those three things are present in the HTML that comes back on the first request, indexing is fast, cheap, and reliable. If those things are only present *after* JavaScript runs, indexing becomes expensive and unreliable. Googlebot does run JavaScript — but it runs it in a **second pass** that is scheduled whenever the crawler has spare rendering capacity. In April 2026, that second pass can be delayed by hours, days, or sometimes never for lower-authority sites. For new sites, for pages that change frequently, and for any page that competes for fresh keywords, the JavaScript pass is too slow to rely on.
+If those three things are present in the HTML that comes back on the first request, indexing is fast, cheap, and reliable. If those things are only present *after* JavaScript runs, indexing becomes expensive and unreliable. Googlebot does run JavaScript — but it runs it in a **second pass** that is scheduled whenever the crawler has spare rendering capacity. In May 2026, that second pass can be delayed by hours, days, or sometimes never for lower-authority sites. For new sites, for pages that change frequently, and for any page that competes for fresh keywords, the JavaScript pass is too slow to rely on.
 
 This is the single biggest reason a client-rendered single-page app has historically struggled with SEO. A classic React app served as `<div id="root"></div>` with no text in it is, to Googlebot's first pass, **a blank page**. The content appears only after the React runtime downloads, parses, executes, fetches data, and mounts the components. Pages compete for rankings against other pages that shipped their content in the first byte. Blank pages lose.
 

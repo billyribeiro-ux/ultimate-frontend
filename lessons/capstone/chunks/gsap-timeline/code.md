@@ -41,7 +41,7 @@ penalty: high
 
 <section class="hero page">
 	<div class="hero__text">
-		<p class="eyebrow" bind:this={eyebrow}>PE7 SaaS · April 2026</p>
+		<p class="eyebrow" bind:this={eyebrow}>PE7 SaaS · May 2026</p>
 		<h1 bind:this={headline}>Ship production SvelteKit faster</h1>
 		<p class="subhead" bind:this={subhead}>
 			The course capstone — every module, one app.

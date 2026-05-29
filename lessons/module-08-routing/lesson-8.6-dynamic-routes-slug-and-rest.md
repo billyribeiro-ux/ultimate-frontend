@@ -42,7 +42,7 @@ This matches any single URL segment after `/blog/`. The page can read the value 
 <h1>Post: {slug}</h1>
 ```
 
-`page.params` is a plain object whose keys are the names of every dynamic segment in the matched route. Since SvelteKit 2.55, the shape of `params` is generated automatically into `$app/types`, so `page.params.slug` is a `string` with no manual typing needed. In older SvelteKit you had to import `PageProps` from `./$types`; the April 2026 version makes it truly zero-typing.
+`page.params` is a plain object whose keys are the names of every dynamic segment in the matched route. Since SvelteKit 2.55, the shape of `params` is generated automatically into `$app/types`, so `page.params.slug` is a `string` with no manual typing needed. In older SvelteKit you had to import `PageProps` from `./$types`; the May 2026 version makes it truly zero-typing.
 
 ### 1.3 Rest parameters — `[...rest]` for catch-alls
 
@@ -85,9 +85,9 @@ src/routes/users/[id=integer]/+page.svelte
 
 Now `/users/42` matches but `/users/abc` does not — it falls through to the next route or to a 404. Matchers are strict, cheap, and play well with TypeScript.
 
-### 1.6 Typed params in April 2026
+### 1.6 Typed params in May 2026
 
-Before SvelteKit 2.55, you had to import `PageProps` from the generated `./$types` module to get `params` typed. As of April 2026, typed params are exposed through `$app/types` and flow automatically into `page.params` from `$app/state`. The practical result: you do not write any type annotations for route params; you just read them, and TypeScript knows the shape from the file tree.
+Before SvelteKit 2.55, you had to import `PageProps` from the generated `./$types` module to get `params` typed. As of May 2026, typed params are exposed through `$app/types` and flow automatically into `page.params` from `$app/state`. The practical result: you do not write any type annotations for route params; you just read them, and TypeScript knows the shape from the file tree.
 
 ### 1.7 When to use which
 
@@ -189,7 +189,7 @@ Write a matcher function in `src/params/integer.ts` that returns `true` only for
 </details>
 
 <details>
-<summary><strong>Q4.</strong> In April 2026, do you need to import <code>PageProps</code> from <code>./$types</code> just to get a typed <code>params.slug</code>?</summary>
+<summary><strong>Q4.</strong> In May 2026, do you need to import <code>PageProps</code> from <code>./$types</code> just to get a typed <code>params.slug</code>?</summary>
 
 No. Typed params flow through `$app/types` into `page.params` automatically. You still need `./$types` for typing a load function's return, but for reading params you only import `page` from `$app/state`.
 </details>

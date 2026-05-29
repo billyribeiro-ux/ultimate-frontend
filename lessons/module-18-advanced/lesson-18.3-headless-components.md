@@ -156,7 +156,7 @@ Use styled (compound) components when:
 
 Most design systems ship both: headless primitives for power users and styled defaults for quick adoption.
 
-### 1.9 The April 2026 advantage
+### 1.9 The May 2026 advantage
 
 Svelte 5's snippets with typed parameters make headless components significantly more ergonomic than Svelte 4's approach (which required slots with `let:` directives — less type-safe and harder to compose). The `Snippet<[State, Actions]>` type gives you full IntelliSense on snippet parameters, compile-time checks on shape mismatches, and clear documentation through the interface. Combined with `$derived` for reactive state objects, headless components in Svelte 5 require less boilerplate than any other framework.
 

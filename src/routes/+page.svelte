@@ -17,7 +17,7 @@
 		{ id: '07', number: '7', title: 'GSAP & Threlte', href: '/modules/07-gsap', goal: 'Timelines, ScrollTrigger, and 3D with Threlte.' },
 		{ id: '08', number: '8', title: 'Routing & Layouts', href: '/modules/08-routing', goal: 'SSR, hydration, nested layouts, hooks.' },
 		{ id: '09a', number: '9A', title: 'Data Loading (load)', href: '/modules/09a-load', goal: 'Traditional load() with full type safety.' },
-		{ id: '09b', number: '9B', title: 'Remote Functions', href: '/modules/09b-remote', goal: 'query, form, command, query.batch — April 2026.' },
+		{ id: '09b', number: '9B', title: 'Remote Functions', href: '/modules/09b-remote', goal: 'query, form, command, query.batch — May 2026.' },
 		{ id: '10', number: '10', title: 'API Routes & Forms', href: '/modules/10-api-forms', goal: '+server.ts, form actions, progressive enhancement.' },
 		{ id: '11', number: '11', title: 'State at Scale', href: '/modules/11-state', goal: 'Context, .svelte.ts stores, TanStack Table.' },
 		{ id: '12', number: '12', title: 'Performance & Production', href: '/modules/12-performance', goal: 'Core Web Vitals, tests, 3D performance, deploy.' },
@@ -34,13 +34,13 @@
 	<title>Ultimate Frontend · Svelte 5 + SvelteKit 2 Course</title>
 	<meta
 		name="description"
-		content="University-level Svelte 5 and SvelteKit 2 course using April 2026 syntax: runes, remote functions, PE7 CSS, GSAP, Threlte, full SEO."
+		content="University-level Svelte 5 and SvelteKit 2 course using May 2026 syntax: runes, remote functions, PE7 CSS, GSAP, Threlte, full SEO."
 	/>
 </svelte:head>
 
 <section class="page stack">
 	<header class="hero">
-		<p class="hero__eyebrow">Svelte 5 · SvelteKit 2 · April 2026 syntax</p>
+		<p class="hero__eyebrow">Svelte 5 · SvelteKit 2 · May 2026 syntax</p>
 		<h1 class="hero__title">Ultimate Frontend</h1>
 		<p class="hero__lede">
 			A complete university-level course that takes you from zero JavaScript to shipping

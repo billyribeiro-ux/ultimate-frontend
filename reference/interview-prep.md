@@ -276,7 +276,7 @@ For validation, the course teaches Valibot for schema-based validation. You defi
 
 For server-side form handling, SvelteKit provides form actions (`+page.server.ts` with an `actions` export) and the `use:enhance` directive for progressive enhancement. `use:enhance` intercepts the native form submission, sends it via `fetch`, and updates the page without a full reload — while still working without JavaScript for accessibility.
 
-In the April 2026 version, remote functions provide another option. `form` remote functions handle server-side validation and mutation with Valibot schemas, file uploads, and streaming responses. They are a more modern alternative to form actions for new projects.
+In the May 2026 version, remote functions provide another option. `form` remote functions handle server-side validation and mutation with Valibot schemas, file uploads, and streaming responses. They are a more modern alternative to form actions for new projects.
 
 The key principle is progressive enhancement: the form should work without JavaScript, then enhance with client-side validation and instant feedback.
 
@@ -480,7 +480,7 @@ SvelteKit automatically generates `$types` for load functions, giving you end-to
 
 **Model answer:**
 
-Remote functions are a major SvelteKit feature introduced in the April 2026 release. They allow components to call server-side functions directly, without defining API routes or load functions. There are three types: `query` for reading data, `command` for mutations, and `form` for form handling with validation.
+Remote functions are a major SvelteKit feature introduced in the May 2026 release. They allow components to call server-side functions directly, without defining API routes or load functions. There are three types: `query` for reading data, `command` for mutations, and `form` for form handling with validation.
 
 A `query` remote function is defined with `import { query } from '$app/server'`. It runs on the server and returns data that the component can use. Unlike load functions, queries can be called from any component (not just pages), they can accept arguments, and they integrate with async SSR — you can `await` a query directly in a component's script during server-side rendering.
 
@@ -1833,7 +1833,7 @@ Server-Sent Events (SSE): the server pushes updates to the client over a single 
 
 WebSocket: bidirectional communication for chat, collaborative editing, or any feature requiring client-to-server real-time messaging. SvelteKit does not include WebSocket support natively, but you can integrate Socket.IO or ws via a custom server (using `adapter-node` with a custom `server.ts`).
 
-`query.set()` (remote functions, April 2026): server-driven reactive state that pushes updates from server to client. This is the most SvelteKit-native approach for real-time data, handling connection management and reconnection automatically.
+`query.set()` (remote functions, May 2026): server-driven reactive state that pushes updates from server to client. This is the most SvelteKit-native approach for real-time data, handling connection management and reconnection automatically.
 
 Polling with `invalidate()`: for less time-sensitive data, set an interval that calls `invalidate('app:dashboard')` every N seconds. The load function re-runs and the UI updates. Simple to implement, works with any deployment target, but not truly real-time.
 

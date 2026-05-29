@@ -125,7 +125,7 @@
 	<title>Module 13 · SEO · Ultimate Frontend</title>
 	<meta
 		name="description"
-		content="Module 13 — SEO for SvelteKit in April 2026: head tags, JSON-LD, sitemaps, Core Web Vitals, AEO, and 3D SEO."
+		content="Module 13 — SEO for SvelteKit in May 2026: head tags, JSON-LD, sitemaps, Core Web Vitals, AEO, and 3D SEO."
 	/>
 </svelte:head>
 
@@ -138,7 +138,7 @@
 		<p class="eyebrow">Module 13</p>
 		<h1>SEO</h1>
 		<p class="lede">
-			Make a SvelteKit app rank. Fifteen lessons, every April 2026 SEO signal, every Google
+			Make a SvelteKit app rank. Fifteen lessons, every May 2026 SEO signal, every Google
 			ranking factor, a 100-on-Lighthouse target, and a full 3D-and-SEO finale.
 		</p>
 	</header>

@@ -62,7 +62,7 @@ Disallow: /admin
 
 Rule of thumb: **use noindex for pages you want removed from SERPs**. Use Disallow only for paths the bot should not waste time on. For a login page, the safest combination is `noindex` in the HTML head plus a Disallow that only kicks in once Google has already seen the noindex.
 
-### 1.4 AI bots in April 2026
+### 1.4 AI bots in May 2026
 
 Since 2023, major AI crawlers — OpenAI's GPTBot, Google-Extended (for Gemini training), CCBot (Common Crawl), anthropic-ai — all respect robots.txt. If you do not want your content used to train models, adding `Disallow: /` under those user-agents opts you out. The April 2026 EU AI Act made this opt-out legally meaningful for EU-based sites. Decide your policy explicitly.
 

@@ -165,7 +165,7 @@ When both files exist, the component's `PageProps` merges both return types. The
 
 **Model answer:** The current user requires reading `cookies` from the request, which is only available in `+page.server.ts`. The blog posts come from a public API that works in both environments. The optimal setup is: put the user query in `+page.server.ts`, put the blog post fetch in `+page.ts`. The universal load receives the server load's result via its `data` parameter and merges the blog posts in. On client-side navigation, the server load triggers a `__data.json` request for the user (unavoidable, because cookies cannot be read in the browser), but the blog post fetch runs directly in the browser without a round trip, which is faster. This also means the blog post fetch can be cached by the browser's HTTP cache, further improving performance on repeat visits.
 
-### 1.11 What April 2026 changes
+### 1.11 What May 2026 changes
 
 Nothing in the file naming. The recommended pattern has been stable since SvelteKit 1.0. What did change is that `$lib/server/*` is now enforced more strictly — importing anything from `$lib/server` into `+page.ts` is a hard build error, not a warning. This closes a class of accidental leaks.
 

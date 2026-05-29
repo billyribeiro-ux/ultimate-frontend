@@ -233,7 +233,7 @@ A single edit updates the default image for every page that inherits it. If the 
 ## 6. Common mistakes
 
 - **Forgetting to make defaults absolute URLs.** `og:image` and `canonical` must be absolute — Facebook and Google refuse relative URLs.
-- **Using `$app/stores` instead of `$app/state`.** `$app/stores` is legacy; in April 2026 you use `page` from `$app/state`.
+- **Using `$app/stores` instead of `$app/state`.** `$app/stores` is legacy; in May 2026 you use `page` from `$app/state`.
 - **Typing the component as `SEOProps = any`.** This defeats the purpose.
 - **Writing the component as a function that mutates the head imperatively.** Let Svelte's `<svelte:head>` teleport handle that.
 

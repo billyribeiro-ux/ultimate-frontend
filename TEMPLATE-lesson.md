@@ -23,7 +23,7 @@ Rules for this section:
 - **Start from the problem, not the feature.** Never begin with "Svelte has a feature called X". Always begin with the real-world problem that X solves.
 - **Use analogies sparingly and only when they clarify, not confuse.** One good analogy per section is plenty.
 - **Name every concept you introduce.** If you use a term like *proxy*, *hydration*, or *side effect*, define it the first time it appears in that lesson.
-- **Be explicit about what is current and what is outdated.** Students search the internet and find old tutorials. Tell them what Svelte 3/4 looked like, tell them what the April 2026 version looks like, and tell them which one to trust.
+- **Be explicit about what is current and what is outdated.** Students search the internet and find old tutorials. Tell them what Svelte 3/4 looked like, tell them what the May 2026 version looks like, and tell them which one to trust.
 - **Never say "don't worry about it for now".** If a concept isn't ready to be taught, don't mention it. If you mention it, teach it.
 
 ### Subsections recommended
@@ -31,7 +31,7 @@ Rules for this section:
 1.1 What the problem is
 1.2 How the feature solves it
 1.3 How it connects to what you already know
-1.4 What's different in the April 2026 version (if applicable)
+1.4 What's different in the May 2026 version (if applicable)
 
 ## 2. Style it — PE7 applied to this lesson's mini-build
 
@@ -92,7 +92,7 @@ A single sentence that previews the next lesson. No more.
 ## Quality checklist before marking a lesson `status: ready`
 
 - [ ] Concept section is 800–1200 words, plain English, starts from a problem
-- [ ] April 2026 syntax is used throughout (runes, `onclick`, `$props()`, lowercase event attributes)
+- [ ] May 2026 syntax is used throughout (runes, `onclick`, `$props()`, lowercase event attributes)
 - [ ] TypeScript is strict with zero `any`
 - [ ] PE7 tokens are referenced by name, no raw OKLCH or hex
 - [ ] Mobile-first — base styles are mobile, enhanced with `min-width`

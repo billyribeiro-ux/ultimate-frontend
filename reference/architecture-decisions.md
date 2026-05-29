@@ -69,7 +69,7 @@ Use this template when documenting architecture decisions for your team. The goa
 **Title:** Remote functions (query) for the dashboard data layer
 **Status:** Accepted
 
-**Context:** Our admin dashboard displays 8 different data panels (user metrics, revenue charts, recent orders, activity feed, server health, etc.), each requiring a separate database query. With traditional `load()` functions, all data must be fetched before the page renders. The dashboard is internal-facing (not SEO-critical) and used by authenticated admin users who expect real-time-ish data. SvelteKit's remote functions feature (introduced April 2026) offers a new pattern for data loading.
+**Context:** Our admin dashboard displays 8 different data panels (user metrics, revenue charts, recent orders, activity feed, server health, etc.), each requiring a separate database query. With traditional `load()` functions, all data must be fetched before the page renders. The dashboard is internal-facing (not SEO-critical) and used by authenticated admin users who expect real-time-ish data. SvelteKit's remote functions feature (introduced May 2026) offers a new pattern for data loading.
 
 **Decision:** We will use `query` remote functions for each dashboard panel, allowing independent loading, caching, and invalidation per panel.
 
@@ -77,7 +77,7 @@ Use this template when documenting architecture decisions for your team. The goa
 - Each panel loads independently — fast panels appear immediately while slow ones show skeleton loaders
 - Individual panels can be invalidated without refetching all dashboard data
 - `query.batch()` allows combining multiple queries into a single network request when desired
-- The pattern is newer (April 2026) with a smaller community ecosystem and fewer examples available
+- The pattern is newer (May 2026) with a smaller community ecosystem and fewer examples available
 - Requires SvelteKit 2.60+ and may have behavior changes in minor releases during the stabilization period
 
 **Alternatives considered:**

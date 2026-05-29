@@ -43,7 +43,7 @@ type RequestHandler<
 - **`OutputBody`** — the shape of the data your handler returns via `json()`. Not structurally enforced by SvelteKit, but useful for self-documentation.
 - **`InputBody`** — the shape of the request body you expect. Also self-documentation; runtime validation is your job.
 
-You rarely spell all three out. The more common pattern in April 2026 is to let SvelteKit generate per-route types:
+You rarely spell all three out. The more common pattern in May 2026 is to let SvelteKit generate per-route types:
 
 ```ts
 // src/routes/api/post/[id]/+server.ts

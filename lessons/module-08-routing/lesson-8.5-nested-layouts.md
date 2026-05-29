@@ -42,7 +42,7 @@ A layout receives a single prop, `children`, which is a Svelte **snippet** — a
 
 `{@render children()}` is where the page goes. Everything outside that call is the shell.
 
-In April 2026 the snippets API is stable and mandatory. You will not see `<slot />` in any modern SvelteKit code — that was Svelte 4.
+In May 2026 the snippets API is stable and mandatory. You will not see `<slot />` in any modern SvelteKit code — that was Svelte 4.
 
 ### 1.3 Nesting — layouts compose down the tree
 

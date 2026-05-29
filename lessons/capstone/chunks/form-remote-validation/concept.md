@@ -8,7 +8,7 @@ penalty: medium
 
 A `form` Remote Function is a typed, server-only handler that you bind directly to a Svelte `<form>`. It receives the form data, validates it against a schema, and returns either a success result or a typed error object.
 
-**Valibot** is the tiny schema library of choice in April 2026 — smaller than Zod, same ergonomics. A Valibot schema is a value you can use at runtime (`v.parse`, `v.safeParse`) and whose shape can be extracted as a TypeScript type (`v.InferOutput`).
+**Valibot** is the tiny schema library of choice in May 2026 — smaller than Zod, same ergonomics. A Valibot schema is a value you can use at runtime (`v.parse`, `v.safeParse`) and whose shape can be extracted as a TypeScript type (`v.InferOutput`).
 
 ### Pseudocode
 

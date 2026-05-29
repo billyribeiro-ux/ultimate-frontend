@@ -12,7 +12,7 @@ learning_objectives:
   - List the four kinds of remote function and say when each is appropriate
   - Describe the end-to-end type safety guarantee a `.remote.ts` file provides
   - Identify what `experimental.remoteFunctions` in `svelte.config.js` turns on
-  - Recognise April 2026 remote function syntax vs older `+server.ts` fetch-wrapper patterns
+  - Recognise May 2026 remote function syntax vs older `+server.ts` fetch-wrapper patterns
 status: ready
 ---
 
@@ -24,7 +24,7 @@ status: ready
 
 ### 1.1 The problem: every client call needs a matching server route
 
-Until April 2026, every time you wanted the browser to read a piece of data from the server in SvelteKit, you had to write the same three things by hand.
+Until May 2026, every time you wanted the browser to read a piece of data from the server in SvelteKit, you had to write the same three things by hand.
 
 1. A server file — usually `+server.ts` or `+page.server.ts` — that exported an HTTP handler. That handler pulled data from the database, ran permission checks, and returned `json(...)`.
 2. A client call — usually `fetch('/api/posts')` — somewhere in your component, with manual error handling, manual status-code checking, and a manual `as` cast to tell TypeScript what the response body looked like.
@@ -82,9 +82,9 @@ The `.remote.ts` suffix is not just a naming convention — it is a build-time i
 
 This split is the magic that makes "import a server function and call it from a component" safe. The client never sees your database query. It only sees a function that returns a typed Promise.
 
-### 1.6 What changed in April 2026
+### 1.6 What changed in May 2026
 
-Remote Functions landed as a stable feature of SvelteKit 2.27 in late 2025 and have been iterated on through 2026. As of April 2026 they are still behind an experimental flag — not because they are unstable in the "might crash your site" sense, but because the Svelte team reserves the right to change the fine details (method names, option shapes) until they feel the API is perfect. In this course we embrace them wholeheartedly: they are the direction of travel, they are more type-safe than anything that came before, and by the time you finish the course they will be the default.
+Remote Functions landed as a stable feature of SvelteKit 2.27 in late 2025 and have been iterated on through 2026. As of May 2026 they are still behind an experimental flag — not because they are unstable in the "might crash your site" sense, but because the Svelte team reserves the right to change the fine details (method names, option shapes) until they feel the API is perfect. In this course we embrace them wholeheartedly: they are the direction of travel, they are more type-safe than anything that came before, and by the time you finish the course they will be the default.
 
 You turn them on by adding one option to `svelte.config.js`:
 
@@ -206,7 +206,7 @@ The return type of the server function automatically becomes the type of the cli
 </details>
 
 <details>
-<summary><strong>Q5.</strong> Why are remote functions still behind an experimental flag in April 2026?</summary>
+<summary><strong>Q5.</strong> Why are remote functions still behind an experimental flag in May 2026?</summary>
 
 Not because they are unstable in production, but because the Svelte team reserves the right to refine method names and option shapes. The core design is settled and intended to become the default once the details are frozen.
 </details>

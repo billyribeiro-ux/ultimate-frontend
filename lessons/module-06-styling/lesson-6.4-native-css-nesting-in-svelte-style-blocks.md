@@ -33,7 +33,7 @@ Before nesting, a typical component style looked like this:
 
 You write `.card` five times. You scroll the rules and the grouping is not visible. When you rename `.card` you edit in five places. SCSS solved this in 2006 with a nesting syntax. Everyone adopted SCSS partly for this one feature. But SCSS requires a build step, and it compiles to plain CSS, and it invents a small language on top of CSS.
 
-### 1.2 The April 2026 answer: the browser does it now
+### 1.2 The May 2026 answer: the browser does it now
 
 Native CSS nesting shipped in every browser in 2023. You can now nest selectors directly in your `<style>` block, no SCSS, no build step, no magic:
 

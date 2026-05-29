@@ -25,7 +25,7 @@
 	</main>
 
 	<footer class="shell__footer">
-		<small>Svelte 5 · SvelteKit 2 · PE7 · April 2026 syntax</small>
+		<small>Svelte 5 · SvelteKit 2 · PE7 · May 2026 syntax</small>
 	</footer>
 </div>
 

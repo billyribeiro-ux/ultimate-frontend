@@ -8,7 +8,7 @@ prerequisites:
   - Lesson 13.7 — E-E-A-T
 learning_objectives:
   - Define AEO and GEO and distinguish them from classic SEO
-  - Identify query types that trigger AI Overviews in April 2026
+  - Identify query types that trigger AI Overviews in May 2026
   - Emit a FAQPage schema with question/answer pairs
   - Write content that AI engines are more likely to cite
   - Prioritise commercial/transactional intent pages for AEO
@@ -25,7 +25,7 @@ status: ready
 
 Classic SEO asks: how do I rank in the top ten blue links? AEO asks: how do I become one of the three citations under the AI-generated answer box that now appears *above* the blue links?
 
-### 1.2 Why it matters in April 2026
+### 1.2 Why it matters in May 2026
 
 Google rolled out AI Overviews (the successor to Search Generative Experience) to all US and most European markets by the end of 2025. By April 2026, Overviews trigger on an estimated 25–40% of informational queries. When an Overview appears, click-through rates on the organic results below it drop substantially — but clicks on the citations *inside* the Overview become disproportionately valuable. If your page is cited, you get the traffic that would otherwise have gone to the first five organic results combined.
 
@@ -153,7 +153,7 @@ Problem: FAQPage schema expects a specific shape — `mainEntity` is an array of
                 'Classic SEO targets the ten blue links. AEO targets the three citations inside the AI Overview above them.'
         },
         {
-            question: 'Which queries trigger AI Overviews in April 2026?',
+            question: 'Which queries trigger AI Overviews in May 2026?',
             answer:
                 'Informational, how-to, definitional, and comparative queries trigger Overviews most often. Transactional and navigational queries rarely do.'
         }
@@ -223,7 +223,7 @@ Classic SEO optimises for ranking in the ten blue links. AEO optimises for being
 </details>
 
 <details>
-<summary><strong>Q2.</strong> Which query types trigger AI Overviews most in April 2026?</summary>
+<summary><strong>Q2.</strong> Which query types trigger AI Overviews most in May 2026?</summary>
 
 Informational, how-to, definitional, and comparative queries.
 </details>

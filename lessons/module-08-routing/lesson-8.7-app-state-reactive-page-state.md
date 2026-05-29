@@ -159,7 +159,7 @@ Open `/modules/08-routing/07-app-state`. You will see a dashboard of router valu
 ## 5. Check your understanding
 
 <details>
-<summary><strong>Q1.</strong> How do you import the reactive page object in April 2026?</summary>
+<summary><strong>Q1.</strong> How do you import the reactive page object in May 2026?</summary>
 
 `import { page } from '$app/state';`. Do not use `$app/stores`; that is the deprecated API.
 </details>

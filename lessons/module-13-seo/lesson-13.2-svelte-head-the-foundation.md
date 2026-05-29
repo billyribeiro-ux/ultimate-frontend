@@ -44,7 +44,7 @@ The rules are simple:
 
 ### 1.3 The 600-pixel title rule
 
-Google renders a page's title in its result card with a fixed pixel budget: roughly **600 px on desktop and 580 px on mobile**. If your title exceeds the budget, Google truncates it — or rewrites it to something Google thinks fits better. In April 2026 automatic title rewriting is aggressive; writing a title that fits is the best way to keep the title you actually want.
+Google renders a page's title in its result card with a fixed pixel budget: roughly **600 px on desktop and 580 px on mobile**. If your title exceeds the budget, Google truncates it — or rewrites it to something Google thinks fits better. In May 2026 automatic title rewriting is aggressive; writing a title that fits is the best way to keep the title you actually want.
 
 Pixel width is not the same as character count because letters have different widths. A safe rule of thumb: **aim for 50–60 characters, never exceed 70**. Put the primary keyword near the start, brand at the end separated by a pipe or middle dot.
 

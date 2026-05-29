@@ -29,7 +29,7 @@ The hero is the exception: you usually want an explicit breakpoint where the sin
 
 ### Logical properties
 
-Use `padding-inline`, `margin-block`, `inline-size`, `block-size` everywhere. They work in every writing direction, so an RTL locale (Arabic, Hebrew) flips automatically. This does not cost you anything and earns you the April 2026 accessibility audit checkpoints.
+Use `padding-inline`, `margin-block`, `inline-size`, `block-size` everywhere. They work in every writing direction, so an RTL locale (Arabic, Hebrew) flips automatically. This does not cost you anything and earns you the May 2026 accessibility audit checkpoints.
 
 ### Connecting it to the capstone
 

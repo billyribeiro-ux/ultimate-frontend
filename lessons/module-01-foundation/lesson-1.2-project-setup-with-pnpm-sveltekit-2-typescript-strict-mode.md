@@ -41,7 +41,7 @@ TypeScript is a language that sits on top of JavaScript. Every valid JavaScript 
 
 TypeScript has many optional safety settings. **Strict mode** turns on all of the important ones at once: `strict: true` in `tsconfig.json`. Among other things, this tells the type checker to complain if any variable could secretly be `null` or `undefined`, to refuse to implicitly assign the type `any` (the "I give up" type) to anything, and to make sure every function parameter has a known type. Non-strict TypeScript is, frankly, not much safer than plain JavaScript. Strict TypeScript catches maybe 80% of the bugs a careful programmer used to catch by running tests or by staring at their screen.
 
-Every file in this course runs under strict mode. Every `<script>` block starts with `lang="ts"`. You will never see `any` in a finished lesson. This is not because the author enjoys typing extra characters — it is because strict TypeScript is genuinely easier to work with once you stop fighting it, and it is the standard every professional Svelte codebase in April 2026 uses.
+Every file in this course runs under strict mode. Every `<script>` block starts with `lang="ts"`. You will never see `any` in a finished lesson. This is not because the author enjoys typing extra characters — it is because strict TypeScript is genuinely easier to work with once you stop fighting it, and it is the standard every professional Svelte codebase in May 2026 uses.
 
 ### 1.4 What `pnpm create svelte@latest` actually does
 

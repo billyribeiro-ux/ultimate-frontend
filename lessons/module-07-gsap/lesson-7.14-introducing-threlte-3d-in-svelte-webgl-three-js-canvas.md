@@ -35,7 +35,7 @@ The downside of raw Three.js in a component framework is that it wants to own it
 
 **Threlte** wraps Three.js as Svelte components. Instead of `new Three.PerspectiveCamera(...)`, you write `<T.PerspectiveCamera position={[0, 0, 5]} />`. Threlte turns your Svelte markup into a real Three.js scene graph and keeps them in sync automatically. Everything from Three.js — every geometry, material, light, helper — is available as a `<T.*>` component through the `T` proxy from `@threlte/core`.
 
-The April 2026 Threlte version is 8.x (compatible with Svelte 5, runes-aware). Its two main packages:
+The May 2026 Threlte version is 8.x (compatible with Svelte 5, runes-aware). Its two main packages:
 
 - **`@threlte/core`** — `<Canvas>`, `<T.*>` proxy, lifecycle hooks.
 - **`@threlte/extras`** — higher-level helpers like `<OrbitControls>`, `<Text>`, `<ContactShadows>`, loaders.

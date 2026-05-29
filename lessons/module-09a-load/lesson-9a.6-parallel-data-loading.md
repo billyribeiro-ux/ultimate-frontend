@@ -91,7 +91,7 @@ const results = await Promise.allSettled([fetchA(), fetchB(), fetchC()]);
 
 For a strict dashboard where every piece is required, `Promise.all` with a caught error is right. For a best-effort layout (a sidebar with three widgets that may or may not show), `Promise.allSettled` is better.
 
-### 1.7 What April 2026 changes
+### 1.7 What May 2026 changes
 
 Nothing at the `Promise.all` level — it has been in JavaScript since ES2015. What has changed is that SvelteKit's streaming feature (Lesson 9A.9) lets you send the **fast** parts of a load to the browser immediately and stream the slow parts in later, which is an even better pattern for some dashboards. Streaming is complementary to parallelism, not a replacement for it.
 

@@ -97,7 +97,7 @@ A `$derived` expression is re-evaluated only when its tracked inputs change. Bet
 
 However, there is a memory cost. Each `$derived` occupies a slot in the reactive graph. If you have a list of 1,000 items and you create a `$derived` for each item, you have 1,000 graph nodes. For most applications this is fine, but if you are rendering thousands of reactive cells (like a spreadsheet), you may want to reconsider the granularity — batch the derivation at the list level rather than the item level.
 
-### 1.8 The April 2026 difference
+### 1.8 The May 2026 difference
 
 Svelte 3/4 had a magical `$:` syntax for derived values:
 

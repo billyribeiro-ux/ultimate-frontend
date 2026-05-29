@@ -154,7 +154,7 @@ Svelte and Vue are the only two that put all three concerns in one file by defau
 
 **Model answer:** A plain HTML `<script>` tag runs once when the browser encounters it during page parsing — it is a global, page-level execution. A Svelte component's `<script>` block is compiled into a function that runs once per component instance — every time a component is created (mounted into the DOM), its script runs again with fresh variable scopes. If you render `<MyComponent />` three times on a page, the script block runs three times, each with its own independent set of variables. This is fundamentally different from a global script that runs once per page load. It is also different from React, where the function body runs on *every* render, not just on mount. In Svelte 5, the script block runs once at creation time, and subsequent updates are handled by the reactive system (runes) without re-executing the entire script.
 
-### 1.10 The April 2026 difference
+### 1.10 The May 2026 difference
 
 Older Svelte (3 and 4) had a fourth block pattern: a `<script context="module">` block for code that should run once per module rather than once per instance. In Svelte 5 this is replaced by simply importing from a regular `.ts` file or a `.svelte.ts` file (Module 11). You will not need a `context="module"` block anywhere in this course, and if you see one online it is older code.
 

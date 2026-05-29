@@ -22,7 +22,7 @@
 		<p class="eyebrow">Lesson 1.2 · Mini-build</p>
 		<h1>Your toolchain is working</h1>
 		<p class="lede">
-			If this page is rendering, every piece of the April 2026 Svelte stack is installed,
+			If this page is rendering, every piece of the May 2026 Svelte stack is installed,
 			compiled, and served correctly on your machine.
 		</p>
 	</header>

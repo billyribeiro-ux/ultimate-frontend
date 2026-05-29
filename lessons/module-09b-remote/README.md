@@ -1,4 +1,4 @@
-# Module 9B — Remote Functions (April 2026 paradigm)
+# Module 9B — Remote Functions (May 2026 paradigm)
 
 **Goal:** Student masters SvelteKit's new type-safe server-communication paradigm — `query`, `form`, `command`, `prerender` — and learns to choose it over classic `load()` / `+server.ts` when appropriate.
 
@@ -33,7 +33,7 @@ A live dashboard that combines every concept in the module:
 
 ## Why this module is separate from 9A
 
-Module 9A teaches classic `load()` functions — the stable, battle-tested SvelteKit data-loading API that every existing codebase uses. Module 9B teaches the April 2026 paradigm that replaces most of 9A's use cases with something simpler and more type-safe. Both modules are valuable: 9A is the foundation you need to read any existing project; 9B is the direction of travel and the pattern you will reach for on new work.
+Module 9A teaches classic `load()` functions — the stable, battle-tested SvelteKit data-loading API that every existing codebase uses. Module 9B teaches the May 2026 paradigm that replaces most of 9A's use cases with something simpler and more type-safe. Both modules are valuable: 9A is the foundation you need to read any existing project; 9B is the direction of travel and the pattern you will reach for on new work.
 
 ## Prerequisites
 

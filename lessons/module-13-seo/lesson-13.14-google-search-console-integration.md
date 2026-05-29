@@ -52,7 +52,7 @@ Once verified, the first thing to do is submit your sitemap. Sitemaps → Add ne
 
 ### 1.4 The Coverage report
 
-Coverage (now called "Indexing → Pages" in the April 2026 UI) buckets every URL Google knows about into four states:
+Coverage (now called "Indexing → Pages" in the May 2026 UI) buckets every URL Google knows about into four states:
 
 - **Indexed** — in the index, eligible to rank.
 - **Not indexed — crawled, currently not indexed** — Google crawled it but decided not to include it. Often quality related.

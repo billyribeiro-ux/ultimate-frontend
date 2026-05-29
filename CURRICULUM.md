@@ -164,7 +164,7 @@ Student learns where Svelte's built-in animation system ends and GSAP / 3D take 
 
 **Module project:** Weather Dashboard.
 
-## Module 9B — Remote Functions ✨ April 2026
+## Module 9B — Remote Functions ✨ May 2026
 
 - 9B.1 — What Remote Functions are and why they exist
 - 9B.2 — `query` remote functions — reading data

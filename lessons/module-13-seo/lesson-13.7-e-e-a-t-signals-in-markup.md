@@ -16,7 +16,7 @@ status: ready
 
 # Lesson 13.7 — E-E-A-T signals in markup
 
-## 1. Concept — Google's quality shorthand for the April 2026 algorithm
+## 1. Concept — Google's quality shorthand for the May 2026 algorithm
 
 ### 1.1 What E-E-A-T is
 

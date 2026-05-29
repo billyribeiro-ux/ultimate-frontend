@@ -81,7 +81,7 @@ progress.set(10);
 
 Because it returns a store, you access the current value in the template with the `$` auto-subscribe prefix: `{$progress.toFixed(1)}%`. You still see this form in older codebases and in libraries that were written before 5.8. Know both forms.
 
-**Which one to reach for in April 2026:** prefer the `Tween` class for new code — it is more ergonomic, it composes with runes, and it has a cleaner `.current` / `.target` split. Use `tweened()` only when you need store compatibility (e.g. interop with an older library that expects a readable store).
+**Which one to reach for in May 2026:** prefer the `Tween` class for new code — it is more ergonomic, it composes with runes, and it has a cleaner `.current` / `.target` split. Use `tweened()` only when you need store compatibility (e.g. interop with an older library that expects a readable store).
 
 ### 1.3 Options
 
@@ -210,7 +210,7 @@ The page renders two progress rings side-by-side. The left ring uses `new Tween(
 </details>
 
 <details>
-<summary><strong>Q3.</strong> Is the <code>tweened()</code> function still supported in April 2026?</summary>
+<summary><strong>Q3.</strong> Is the <code>tweened()</code> function still supported in May 2026?</summary>
 
 Yes. It is marked deprecated in the docs in favour of the `Tween` class (Svelte 5.8+), but it is still exported, still works, and is still useful for interop with libraries that expect a readable store. Prefer `Tween` for new code.
 </details>

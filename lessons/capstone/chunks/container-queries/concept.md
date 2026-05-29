@@ -6,7 +6,7 @@ penalty: medium
 
 # Container Queries — Level 2 Concept Reveal
 
-A container query is a CSS mechanism that lets a component style itself based on the width (or height, or aspect ratio) of its nearest **containment context**, rather than the width of the viewport. It was standardised in 2022 and shipped in every major browser by 2023. By April 2026 it is the default tool for component-level responsive design.
+A container query is a CSS mechanism that lets a component style itself based on the width (or height, or aspect ratio) of its nearest **containment context**, rather than the width of the viewport. It was standardised in 2022 and shipped in every major browser by 2023. By May 2026 it is the default tool for component-level responsive design.
 
 ### Two steps, every time
 

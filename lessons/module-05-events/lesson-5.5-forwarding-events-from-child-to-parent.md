@@ -26,7 +26,7 @@ You build a `<FancyButton>` component. Inside it you have a `<button>` with `onc
 
 In old Svelte (3/4), the answer was `createEventDispatcher`. You created a dispatcher, you dispatched a custom event, and the parent listened with `on:customname`. It worked, but it invented a whole mini-framework for something that JavaScript already had an answer for.
 
-### 1.2 The April 2026 answer: pass a function in
+### 1.2 The May 2026 answer: pass a function in
 
 The modern answer is: pass a function from the parent into the child as a prop. The child calls it when the user interacts. That is it. No dispatcher, no bus, no event bubbling tricks. A **callback prop** is a function-shaped prop whose only job is to be called later.
 
