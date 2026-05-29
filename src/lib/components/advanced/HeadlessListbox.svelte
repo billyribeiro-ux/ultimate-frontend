@@ -24,7 +24,11 @@
 	let { options, value = '', onchange, children }: HeadlessListboxProps = $props();
 
 	let isOpen: boolean = $state(false);
-	let selectedValue: string = $state(value);
+	// Uncontrolled: starts from the `value` prop, then the component owns the
+	// selection once the user picks something. Reading `value` inside the
+	// $derived keeps it reactive to prop changes before the first selection.
+	let selectedOverride: string | undefined = $state(undefined);
+	const selectedValue: string = $derived(selectedOverride ?? value);
 	let highlightedIndex: number = $state(-1);
 
 	function toggle(): void {
@@ -37,7 +41,7 @@
 	function select(val: string): void {
 		const option = options.find((o) => o.value === val);
 		if (option && !option.disabled) {
-			selectedValue = val;
+			selectedOverride = val;
 			isOpen = false;
 			onchange?.(val);
 		}
